@@ -48,8 +48,10 @@ jobs:
 
       - name: Read versions
         run: |
-          echo "CP_HELPER_VERSION=$(node -p \"require('./package.json').version\")" >> "$GITHUB_ENV"
-          echo "OJ_SYNC_VERSION=$(node -p \"require('./oj-sync/manifest.json').version\")" >> "$GITHUB_ENV"
+          CP_HELPER_VERSION=$(node -p "require('./package.json').version")
+          OJ_SYNC_VERSION=$(node -p "require('./oj-sync/manifest.json').version")
+          echo "CP_HELPER_VERSION=$CP_HELPER_VERSION" >> "$GITHUB_ENV"
+          echo "OJ_SYNC_VERSION=$OJ_SYNC_VERSION" >> "$GITHUB_ENV"
 
       - name: Resolve release tag
         run: |
