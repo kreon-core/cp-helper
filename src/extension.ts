@@ -49,6 +49,7 @@ export async function activate(
     vscode.window.registerWebviewViewProvider(
       CpHelperViewProvider.viewType,
       provider,
+      { webviewOptions: { retainContextWhenHidden: true } },
     ),
   );
 
