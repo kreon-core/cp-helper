@@ -7,7 +7,8 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag (example: v1.0.0). Leave empty to use v<package.json version>."
+        description: "Release tag (example: v1.0.0). Leave empty to use v<package.json
+          version>."
         required: false
         type: string
       create_tag:
@@ -20,6 +21,11 @@ on:
         required: true
         default: true
         type: boolean
+      dry_run:
+        description: "Test mode: validate, build, and upload artifacts without creating tags or publishing releases"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -30,12 +36,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: npm
@@ -82,7 +88,7 @@ jobs:
           echo "Resolved release tag: $TAG"
 
       - name: Create and push tag (manual)
-        if: github.event_name == 'workflow_dispatch' && inputs.create_tag
+        if: github.event_name == 'workflow_dispatch' && inputs.create_tag && !inputs.dry_run
         run: |
           git fetch --tags --force
           if git rev-parse "$RELEASE_TAG" >/dev/null 2>&1; then
@@ -109,7 +115,7 @@ jobs:
           sha256sum "$VSIX_FILE" "oj-sync-${OJ_SYNC_VERSION}.zip" > SHA256SUMS.txt
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-artifacts-${{ env.RELEASE_TAG }}
           path: |
@@ -118,8 +124,8 @@ jobs:
             SHA256SUMS.txt
 
       - name: Publish GitHub Release
-        if: (github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.publish_release)
-        uses: softprops/action-gh-release@v2
+        if: ( github.event_name == 'push' ) || ( github.event_name == 'workflow_dispatch' && inputs.publish_release && !inputs.dry_run )
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           name: ${{ env.RELEASE_TAG }}
