@@ -185,7 +185,8 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "vsix": "vsce package",
-    "vsix:release": "npm version patch --no-git-tag-version && npm run vsix"
+    "vsix:bump": "npm version patch --no-git-tag-version && npm run vsix",
+    "vsix:local:run": "vsce package -o cp-helper.vsix && code --install-extension cp-helper.vsix --force --profile \"Problem Solving [ C++ ]\""
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
