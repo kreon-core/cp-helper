@@ -80,15 +80,18 @@ Default keybindings:
 ## Publishing checklist
 
 1. Bump package.json version.
-2. Update CHANGELOG.md.
-3. Ensure package-lock.json matches.
-4. Run npm run compile.
-5. Build package with npm run vsix.
+2. Bump oj-sync/manifest.json version.
+3. Update CHANGELOG.md.
+4. Ensure package-lock.json matches.
+5. Run npm run compile.
+6. Build package with npm run vsix.
+7. Run GitHub Actions release workflow (see docs/RELEASE-WORKFLOW.md).
 
 ## More docs
 
 - CHANGELOG.md
 - docs/CHANGELOG-pre-1.0.md
+- docs/RELEASE-WORKFLOW.md
 - oj-sync/README.md
 
 ## License
