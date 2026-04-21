@@ -1,0 +1,888 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --cp-radius-sm: 3px;
+  --cp-radius-md: 4px;
+  --cp-radius-lg: 6px;
+  --cp-space-1: 4px;
+  --cp-space-2: 6px;
+  --cp-space-3: 8px;
+}
+
+/**
+ * Any explicit `display` on a class (e.g. .run-status { display: inline-flex })
+ * overrides the user-agent [hidden] rule, so hidden nodes stay visible. Restore hide.
+ */
+[hidden] {
+  display: none !important;
+}
+
+/**
+ * Single scroll container on `body` so the bar isn’t on `html` (Chromium often scrolls
+ * `document.scrollingElement` = html otherwise — that scrollbar is still inside our iframe).
+ * Workbench chrome *outside* the webview iframe cannot be styled by the extension.
+ */
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  padding: var(--cp-space-2) var(--cp-space-2) 12px;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-foreground);
+  background: var(--vscode-sideBar-background);
+  line-height: 1.4;
+  height: 100%;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/** Any nested scrollers (textareas, pre, etc.) — same hidden bar; wheel still works. */
+*,
+*::before,
+*::after {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar,
+*::-webkit-scrollbar-corner {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.app-header {
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.28));
+}
+
+.app-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.app-sub {
+  margin: 0;
+  font-size: 11px;
+  opacity: 0.78;
+  line-height: 1.35;
+}
+
+.panel {
+  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
+  border-radius: var(--cp-radius-lg);
+  background: var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.08));
+  padding: var(--cp-space-2) var(--cp-space-2);
+  margin-bottom: var(--cp-space-3);
+}
+
+.active-source-wrap {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  flex-shrink: 1;
+  max-width: min(220px, 50vw);
+}
+
+.active-source-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  padding: 2px 0 2px 4px;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+  opacity: 0.92;
+}
+
+button.btn-debug-local {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-icon-foreground, var(--vscode-descriptionForeground));
+  opacity: 0.85;
+  cursor: pointer;
+}
+
+button.btn-debug-local:hover:not(:disabled) {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.22));
+  filter: none;
+}
+
+button.btn-debug-local--on {
+  opacity: 1;
+  color: var(--vscode-textLink-foreground, #3794ff);
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.18));
+  box-shadow: inset 0 0 0 1px var(--vscode-focusBorder, rgba(0, 127, 212, 0.55));
+}
+
+button.btn-debug-local__icon {
+  display: block;
+  pointer-events: none;
+}
+
+.active-source-label--empty {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+.active-source-label--running {
+  opacity: 0.95;
+  color: var(--vscode-progressBar-background, var(--vscode-textLink-foreground));
+}
+
+.section-title {
+  margin: 0 0 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.75;
+}
+
+.import-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-bottom: var(--cp-space-1);
+}
+
+.import-panel-head__title {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.import-problem-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0 2px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  opacity: 0.9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.runner-hint {
+  flex-shrink: 0;
+  margin: 0;
+  margin-left: auto;
+  max-width: min(100%, 300px);
+  min-width: 0;
+  padding: 0;
+  line-height: 1.2;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  opacity: 0.88;
+  overflow: hidden;
+}
+
+.runner-hint__value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#import-json {
+  width: 100%;
+  min-height: 48px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+  line-height: 1.4;
+  padding: var(--cp-space-1) var(--cp-space-2);
+  border: 1px solid var(--vscode-input-border, #444);
+  border-radius: var(--cp-radius-md);
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  resize: none;
+  overflow: hidden;
+}
+
+#import-json::placeholder {
+  color: var(--vscode-input-placeholderForeground, var(--vscode-descriptionForeground));
+  opacity: 0.65;
+}
+
+#import-json:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, #007fd4);
+  box-shadow: 0 0 0 1px var(--vscode-focusBorder, #007fd4);
+}
+
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-1);
+  margin-top: var(--cp-space-1);
+}
+
+.btn-row--import {
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--cp-space-1) var(--cp-space-2);
+}
+
+.btn-row__cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-1);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.btn-row__source {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.run-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.92;
+  min-height: 24px;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+}
+
+.run-status-spinner {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 2px solid var(--vscode-badge-background, rgba(128, 128, 128, 0.4));
+  border-top-color: var(
+    --vscode-progressBar-background,
+    var(--vscode-textLink-foreground, #3794ff)
+  );
+  border-radius: 50%;
+  animation: cp-helper-spin 0.65s linear infinite;
+}
+
+.run-status-label {
+  white-space: nowrap;
+}
+
+.run-row-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  border: 2px solid var(--vscode-badge-background, rgba(128, 128, 128, 0.35));
+  border-top-color: var(
+    --vscode-progressBar-background,
+    var(--vscode-textLink-foreground, #3794ff)
+  );
+  border-radius: 50%;
+  animation: cp-helper-spin 0.65s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes cp-helper-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.btn-row--tight {
+  margin-top: 8px;
+}
+
+button {
+  cursor: pointer;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--cp-radius-sm);
+  border: none;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+button:focus {
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: 2px;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+button:active:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.btn-primary {
+  font-weight: 600;
+}
+
+button.btn-secondary {
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+}
+
+button.btn-stop:not([hidden]) {
+  color: var(--vscode-errorForeground);
+}
+
+button.btn-ghost {
+  background: transparent;
+  color: var(--vscode-textLink-foreground);
+  padding: 5px 8px;
+}
+
+.hint {
+  font-size: 11px;
+  opacity: 0.72;
+  flex: 1;
+  min-width: 140px;
+  line-height: 1.35;
+}
+
+/* Neutral surface + error text/border: inputValidation errorBackground + errorForeground can both be red in some themes (unreadable). */
+.err {
+  color: var(--vscode-errorForeground);
+  background: var(--vscode-editor-background, var(--vscode-sideBar-background));
+  padding: var(--cp-space-1) var(--cp-space-2);
+  border-radius: var(--cp-radius-md);
+  font-size: 11px;
+  line-height: 1.4;
+  margin-bottom: var(--cp-space-1);
+  border: 1px solid var(--vscode-inputValidation-errorBorder, rgba(248, 81, 73, 0.55));
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.add-case-row {
+  margin: 0;
+  padding: 0;
+}
+
+.add-problem-group-row {
+  margin: var(--cp-space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+button.btn-add-problem-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cp-space-2);
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 28px;
+  margin-top: 0;
+  padding: 6px var(--cp-space-2);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.25;
+  border-radius: var(--cp-radius-md);
+  border: 1px dashed var(--vscode-widget-border, rgba(128, 128, 128, 0.4));
+  background: transparent;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+}
+
+button.btn-add-problem-group .btn-add-problem-group__plus {
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 0;
+}
+
+button.btn-add-problem-group .btn-add-problem-group__label {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+button.btn-add-problem-group:hover:not(:disabled) {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.1));
+  filter: none;
+}
+
+button.btn-add-case {
+  width: 100%;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  min-height: 28px;
+  margin-top: 0;
+  padding: 0;
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 0;
+  border-radius: var(--cp-radius-md);
+  border: 1px dashed var(--vscode-widget-border, rgba(128, 128, 128, 0.4));
+  background: transparent;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+}
+
+button.btn-add-case:hover:not(:disabled) {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.1));
+  filter: none;
+}
+
+.list-empty {
+  font-size: 10px;
+  line-height: 1.4;
+  opacity: 0.58;
+  text-align: center;
+  padding: 12px var(--cp-space-2);
+  margin: 0 0 var(--cp-space-1);
+  border: 1px dashed var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
+  border-radius: var(--cp-radius-md);
+}
+
+.list-empty strong {
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cases-section {
+  margin-top: 0;
+}
+
+.case-group-wrap {
+  list-style: none;
+  margin: 0 0 var(--cp-space-3);
+  padding: 0;
+}
+
+.case-group-wrap:last-child {
+  margin-bottom: 0;
+}
+
+.case-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-1) var(--cp-space-2);
+  margin-bottom: var(--cp-space-2);
+  padding: var(--cp-space-1) 0;
+  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
+}
+
+button.case-group-disclose {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 2px 6px;
+  border: none;
+  border-radius: var(--cp-radius-sm);
+  background: transparent;
+  color: var(--vscode-foreground);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.case-group-disclose:hover:not(:disabled) {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12));
+  filter: none;
+}
+
+button.case-group-disclose:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: 2px;
+}
+
+.case-group-disclose__chev {
+  flex-shrink: 0;
+  width: 1em;
+  display: inline-flex;
+  justify-content: center;
+  opacity: 0.88;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.case-group-disclose__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.case-group-wrap--collapsed .case-group-head {
+  margin-bottom: var(--cp-space-1);
+}
+
+/* After Run all: group header tint (same palette as per-sample AC / WA). */
+.case-group-wrap--ac .case-group-head {
+  background: rgba(46, 160, 67, 0.12);
+  border-bottom-color: rgba(46, 160, 67, 0.35);
+  border-radius: var(--cp-radius-sm) var(--cp-radius-sm) 0 0;
+  padding-left: var(--cp-space-2);
+  padding-right: var(--cp-space-2);
+}
+
+.case-group-wrap--ac .case-group-passed {
+  color: var(--vscode-testing-iconPassed, #3fb950);
+}
+
+.case-group-wrap--ac button.case-group-disclose:hover:not(:disabled) {
+  background: rgba(46, 160, 67, 0.18);
+  filter: none;
+}
+
+.case-group-wrap--wa .case-group-head {
+  background: rgba(248, 81, 73, 0.1);
+  border-bottom-color: rgba(248, 81, 73, 0.35);
+  border-radius: var(--cp-radius-sm) var(--cp-radius-sm) 0 0;
+  padding-left: var(--cp-space-2);
+  padding-right: var(--cp-space-2);
+}
+
+.case-group-wrap--wa .case-group-passed {
+  color: var(--vscode-errorForeground, #f85149);
+}
+
+.case-group-wrap--wa button.case-group-disclose:hover:not(:disabled) {
+  background: rgba(248, 81, 73, 0.14);
+  filter: none;
+}
+
+/* Compile/run progress for the group that owns the active run (multi-header mode). */
+.case-group-run-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 22px;
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.92;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+}
+
+.case-group-run-status .run-status-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.case-group-passed {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  min-width: 2.5em;
+  text-align: right;
+}
+
+.case-group-cases {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.case {
+  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
+  border-radius: var(--cp-radius-md);
+  margin-bottom: var(--cp-space-1);
+  overflow: hidden;
+  background: var(--vscode-sideBar-background);
+}
+
+/* Verdict tint: border, header, and body share one palette (plain text verdict in header). */
+.case.case--ac {
+  border-color: rgba(46, 160, 67, 0.45);
+  background: rgba(46, 160, 67, 0.07);
+}
+
+.case.case--ac .case-head {
+  background: rgba(46, 160, 67, 0.14);
+  border-bottom-color: rgba(46, 160, 67, 0.28);
+}
+
+.case.case--wa {
+  border-color: rgba(248, 81, 73, 0.42);
+  background: rgba(248, 81, 73, 0.06);
+}
+
+.case.case--wa .case-head {
+  background: rgba(248, 81, 73, 0.12);
+  border-bottom-color: rgba(248, 81, 73, 0.28);
+}
+
+.case.case--tle {
+  border-color: rgba(88, 166, 255, 0.42);
+  background: rgba(88, 166, 255, 0.07);
+}
+
+.case.case--tle .case-head {
+  background: rgba(88, 166, 255, 0.12);
+  border-bottom-color: rgba(88, 166, 255, 0.3);
+}
+
+.case.case--re {
+  border-color: rgba(210, 153, 34, 0.45);
+  background: rgba(210, 153, 34, 0.07);
+}
+
+.case.case--re .case-head {
+  background: rgba(210, 153, 34, 0.14);
+  border-bottom-color: rgba(210, 153, 34, 0.3);
+}
+
+.case-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: var(--cp-space-1) var(--cp-space-2);
+  background: var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12));
+  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+  --case-head-ctrl-h: 22px;
+}
+
+.case-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 11px;
+  flex: 1;
+  min-width: 0;
+}
+
+.case-num {
+  display: inline;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  background: none;
+  border-radius: 0;
+  min-width: 0;
+  height: auto;
+}
+
+.case-verdict {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: var(--case-head-ctrl-h, 22px);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.case--ac .case-verdict {
+  color: var(--vscode-testing-iconPassed, #3fb950);
+}
+
+.case--wa .case-verdict {
+  color: var(--vscode-errorForeground);
+}
+
+.case--tle .case-verdict {
+  color: var(--vscode-textLink-foreground, #58a6ff);
+}
+
+.case--re .case-verdict {
+  color: var(--vscode-editorWarning-foreground, #d29922);
+}
+
+.run-all-passed-summary {
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  opacity: 0.92;
+  padding: 0 2px;
+  user-select: text;
+}
+
+.case-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.case-actions button {
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  height: var(--case-head-ctrl-h, 22px);
+  min-height: var(--case-head-ctrl-h, 22px);
+  max-height: var(--case-head-ctrl-h, 22px);
+  padding: 0 7px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.case-body {
+  padding: var(--cp-space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.field label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.78;
+}
+
+/**
+ * Code-block surface shared by sample fields (input/expected) and run output (stdout/stderr).
+ * Notation: left accent differentiates sample data vs program streams.
+ */
+.input-area {
+  width: 100%;
+  min-height: 28px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 6px var(--cp-space-2) 6px calc(var(--cp-space-2) + 2px);
+  border: 1px solid var(--vscode-input-border, #444);
+  border-radius: var(--cp-radius-sm);
+  resize: none;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  tab-size: 2;
+}
+
+.field--sample .input-area--sample {
+  background: var(--vscode-textCodeBlock-background, rgba(127, 127, 127, 0.12));
+  color: var(--vscode-editor-foreground, var(--vscode-foreground));
+  box-shadow: inset 2px 0 0 var(--vscode-textLink-foreground, rgba(88, 166, 255, 0.55));
+  cursor: text;
+}
+
+.field--sample .input-area--sample:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, #007fd4);
+  box-shadow:
+    inset 2px 0 0 var(--vscode-textLink-foreground, rgba(88, 166, 255, 0.55)),
+    0 0 0 1px var(--vscode-focusBorder, #007fd4);
+}
+
+.field--sample .input-area--sample::placeholder {
+  color: var(--vscode-input-placeholderForeground, var(--vscode-descriptionForeground));
+  opacity: 0.65;
+}
+
+.field--result .input-area[readonly] {
+  background: var(--vscode-textCodeBlock-background, rgba(127, 127, 127, 0.12));
+  color: var(--vscode-editor-foreground, var(--vscode-foreground));
+  cursor: default;
+}
+
+/* Stdout: auto-height in JS; green left stripe = run output. */
+.field--result textarea.input-area--stream-stdout {
+  min-height: 32px;
+  overflow-x: auto;
+  box-shadow: inset 2px 0 0 var(--vscode-testing-iconPassed, rgba(63, 185, 80, 0.55));
+}
+
+/* Stderr: auto-height in JS (same cap as stdout) + scroll when long; amber left stripe = errors. */
+.field--result textarea.input-area--stream-stderr {
+  min-height: 32px;
+  overflow-x: auto;
+  box-shadow: inset 2px 0 0 var(--vscode-editorWarning-foreground, rgba(210, 153, 34, 0.65));
+}
+
+.cases-heading {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+  margin: 0 0 var(--cp-space-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .run-status-spinner,
+  .run-row-spinner {
+    animation: none;
+    border-color: var(--vscode-badge-background, rgba(128, 128, 128, 0.35));
+    border-top-color: var(
+      --vscode-progressBar-background,
+      var(--vscode-textLink-foreground, #3794ff)
+    );
+  }
+}
