@@ -1,0 +1,196 @@
+{
+  "name": "cp-helper",
+  "displayName": "CP Helper",
+  "description": "Run competitive programming samples against your C++ solution in Visual Studio Code (official Microsoft build only).",
+  "version": "1.0.0",
+  "publisher": "from-cero",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.82.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "repository": {},
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "secondarySidebar": [
+        {
+          "id": "cp-helper",
+          "title": "CP Helper",
+          "icon": "public/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "cp-helper": [
+        {
+          "type": "webview",
+          "id": "cp-helper.webview",
+          "name": "Samples",
+          "icon": "public/icon.svg"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "cpHelper.focusSamples",
+        "title": "Focus Samples View",
+        "category": "CP Helper"
+      },
+      {
+        "command": "cpHelper.runFirstSample",
+        "title": "Run First Sample",
+        "category": "CP Helper"
+      },
+      {
+        "command": "cpHelper.runAllSamples",
+        "title": "Run All Samples",
+        "category": "CP Helper"
+      },
+      {
+        "command": "cpHelper.showOutput",
+        "title": "Show Output Log",
+        "category": "CP Helper"
+      },
+      {
+        "command": "cpHelper.importFromClipboard",
+        "title": "Import Samples from Clipboard",
+        "category": "CP Helper"
+      },
+      {
+        "command": "cpHelper.selectCompilePreset",
+        "title": "Select Compile Preset",
+        "category": "CP Helper"
+      },
+      {
+        "command": "cpHelper.exportCases",
+        "title": "Export Cases to Files",
+        "category": "CP Helper"
+      },
+      {
+        "command": "cpHelper.stressTest",
+        "title": "Stress Test (requires generator command)",
+        "category": "CP Helper"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "cpHelper.runFirstSample",
+        "key": "ctrl+'",
+        "mac": "cmd+'",
+        "when": "editorTextFocus || cp-helper.samplesFocus || (auxiliaryBarFocus && activeAuxiliary == 'workbench.view.extension.cp-helper') || (sideBarFocus && activeViewlet == 'workbench.view.extension.cp-helper')"
+      },
+      {
+        "command": "cpHelper.runAllSamples",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "editorTextFocus || cp-helper.samplesFocus || (auxiliaryBarFocus && activeAuxiliary == 'workbench.view.extension.cp-helper') || (sideBarFocus && activeViewlet == 'workbench.view.extension.cp-helper')"
+      }
+    ],
+    "configuration": {
+      "title": "CP Helper",
+      "properties": {
+        "cp-helper.compileCommand": {
+          "type": "string",
+          "default": "g++ -std=c++23 -o \"{{out}}\" \"{{file}}\"",
+          "description": "C++ compile line; empty skips compile (use only if you pre-build the binary that runCommand runs). Placeholders: {{file}}, {{dir}} (source dir), {{out}} (temp binary)."
+        },
+        "cp-helper.runCommand": {
+          "type": "string",
+          "default": "\"{{out}}\"",
+          "description": "Shell command run with each test’s stdin; default runs the compiled C++ binary at {{out}}. For a wrapper script, use invokeViaLoginShell instead of embedding bash -lc here."
+        },
+        "cp-helper.invokeViaLoginShell": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, compile and run commands are executed via loginShellInvoke (loads ~/.bashrc etc.) so a shell alias/function named `run` works."
+        },
+        "cp-helper.loginShellInvoke": {
+          "type": "string",
+          "default": "bash -l -c",
+          "description": "Prefix used when invokeViaLoginShell is true; the full command is passed as a single quoted argument (e.g. zsh -il -c for zsh login)."
+        },
+        "cp-helper.runTimeoutMs": {
+          "type": "number",
+          "default": 5000,
+          "description": "Compile and run are killed after this many ms. The whole process tree is stopped (not only the shell), so TLE applies to the real program."
+        },
+        "cp-helper.floatAbsEpsilon": {
+          "type": "number",
+          "default": 1e-9,
+          "description": "Maximum allowed absolute error when comparing numeric output tokens to expected (e.g. 1e-9 or 1e-12 per problem statement). Invalid values fall back to 1e-9."
+        },
+        "cp-helper.enableLocalImportServer": {
+          "type": "boolean",
+          "default": true,
+          "description": "Listen on 127.0.0.1 so the OJ Sync browser extension can POST samples JSON without a vscode:// URL (avoids Chrome’s “Open URL handler?” prompt)."
+        },
+        "cp-helper.localImportPort": {
+          "type": "number",
+          "default": 17337,
+          "description": "Port for the local import HTTP server (POST /import, body = samples JSON array). Change if the port is already in use (e.g. another VS Code window)."
+        },
+        "cp-helper.instantRunAllOnLocalImport": {
+          "type": "boolean",
+          "default": true,
+          "description": "When samples arrive via local POST /import (e.g. OJ Sync): after import, start Run all only if the payload normalizes to a single problem group (e.g. one AtCoder task or one Codeforces problem). Multi-group imports (e.g. full contest dump) do not auto-run."
+        },
+        "cp-helper.trimOutput": {
+          "type": "boolean",
+          "default": true,
+          "description": "Trim trailing whitespace when comparing to expected output."
+        },
+        "cp-helper.workingDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "Cwd for compile/run (empty = source file directory)."
+        },
+        "cp-helper.showOutputOnRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "Open the Output panel (channel CP Helper) when running tests; uses preserveFocus so the editor stays active. Off by default — use command “CP Helper: Show Output Log” when you want the log."
+        },
+        "cp-helper.floatRelEpsilon": {
+          "type": "number",
+          "default": 0,
+          "description": "Maximum allowed relative error when comparing numeric tokens (e.g. 1e-6 = 0.0001%). Applied only when absolute error check fails. 0 disables relative comparison (default)."
+        },
+        "cp-helper.checkerCommand": {
+          "type": "string",
+          "default": "",
+          "description": "Optional custom checker command run after WA (for problems with multiple correct answers). Placeholders: {{file}}, {{out}} (binary), {{input}} (temp stdin file), {{expected}} (temp expected file), {{actual}} (temp actual output file). Exit 0 = AC, non-zero = WA. Example: ./checker {{input}} {{expected}} {{actual}}"
+        },
+        "cp-helper.stressGeneratorCommand": {
+          "type": "string",
+          "default": "",
+          "description": "Shell command for stress testing whose stdout is the raw test input for each iteration. Example: python3 gen.py"
+        },
+        "cp-helper.stressReferenceCommand": {
+          "type": "string",
+          "default": "",
+          "description": "Optional reference (brute-force) solution for stress testing. Its stdout is compared against cp-helper.runCommand output. If empty, only RE and TLE are detected."
+        },
+        "cp-helper.stressMaxIterations": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum number of stress-test iterations before stopping (default 100)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vsix": "vsce package",
+    "vsix:release": "npm version patch --no-git-tag-version && npm run vsix"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.82.0",
+    "@vscode/vsce": "^3.2.1",
+    "typescript": "^5.3.0"
+  }
+}
