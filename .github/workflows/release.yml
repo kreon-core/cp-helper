@@ -1,0 +1,128 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (example: v1.0.0). Leave empty to use v<package.json version>."
+        required: false
+        type: string
+      create_tag:
+        description: "Create and push tag when manually triggered"
+        required: true
+        default: true
+        type: boolean
+      publish_release:
+        description: "Publish GitHub Release"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build extension
+        run: npm run compile
+
+      - name: Read versions
+        run: |
+          echo "CP_HELPER_VERSION=$(node -p \"require('./package.json').version\")" >> "$GITHUB_ENV"
+          echo "OJ_SYNC_VERSION=$(node -p \"require('./oj-sync/manifest.json').version\")" >> "$GITHUB_ENV"
+
+      - name: Resolve release tag
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          elif [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="v${CP_HELPER_VERSION}"
+          fi
+
+          if ! echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Invalid tag format: $TAG"
+            exit 1
+          fi
+
+          if [ "$TAG" != "v${CP_HELPER_VERSION}" ]; then
+            echo "Tag ($TAG) must match package.json version (v${CP_HELPER_VERSION})."
+            exit 1
+          fi
+
+          if [ "$CP_HELPER_VERSION" != "$OJ_SYNC_VERSION" ]; then
+            echo "Version mismatch: package.json=$CP_HELPER_VERSION, oj-sync/manifest.json=$OJ_SYNC_VERSION"
+            exit 1
+          fi
+
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+          echo "Resolved release tag: $TAG"
+
+      - name: Create and push tag (manual)
+        if: github.event_name == 'workflow_dispatch' && inputs.create_tag
+        run: |
+          git fetch --tags --force
+          if git rev-parse "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Tag $RELEASE_TAG already exists."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$RELEASE_TAG"
+          git push origin "$RELEASE_TAG"
+
+      - name: Build VSIX package
+        run: npm run vsix
+
+      - name: Prepare OJ Sync zip
+        run: |
+          zip -r "oj-sync-${OJ_SYNC_VERSION}.zip" oj-sync
+
+      - name: Generate checksums
+        run: |
+          VSIX_FILE=$(ls -1 cp-helper-*.vsix | head -n 1)
+          echo "VSIX_FILE=$VSIX_FILE" >> "$GITHUB_ENV"
+          sha256sum "$VSIX_FILE" "oj-sync-${OJ_SYNC_VERSION}.zip" > SHA256SUMS.txt
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts-${{ env.RELEASE_TAG }}
+          path: |
+            ${{ env.VSIX_FILE }}
+            oj-sync-${{ env.OJ_SYNC_VERSION }}.zip
+            SHA256SUMS.txt
+
+      - name: Publish GitHub Release
+        if: (github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.publish_release)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_TAG }}
+          generate_release_notes: true
+          files: |
+            ${{ env.VSIX_FILE }}
+            oj-sync-${{ env.OJ_SYNC_VERSION }}.zip
+            SHA256SUMS.txt
