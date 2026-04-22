@@ -446,9 +446,9 @@ button.btn-add-problem-group {
 }
 
 button.btn-add-problem-group .btn-add-problem-group__plus {
-  font-size: 17px;
-  font-weight: 500;
-  line-height: 0;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 button.btn-add-problem-group .btn-add-problem-group__label {
@@ -470,9 +470,6 @@ button.btn-add-case {
   min-height: 28px;
   margin-top: 0;
   padding: 0;
-  font-size: 17px;
-  font-weight: 500;
-  line-height: 0;
   border-radius: var(--cp-radius-md);
   border: 1px dashed var(--vscode-widget-border, rgba(128, 128, 128, 0.4));
   background: transparent;
@@ -886,3 +883,19 @@ button.case-group-disclose:focus-visible {
     );
   }
 }
+
+button.btn-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 22px;
+  min-width: 26px;
+  padding: 0;
+  line-height: 1;
+}
+
+.case-actions button.btn-icon {
+  width: 22px;
+  min-width: 22px;
+}
+

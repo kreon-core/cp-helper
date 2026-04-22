@@ -33,6 +33,40 @@
     return el;
   };
 
+  const _NS = "http://www.w3.org/2000/svg";
+  const _ICON_PATHS = {
+    play:     { d: "M3 2l10 6-10 6V2z" },
+    runAll:   { d: "M1 2l7 6-7 6V2zm8 0l7 6-7 6V2z" },
+    stop:     { d: "M3 3h10v10H3z" },
+    trash:    { d: "M5 2h6M2 5h12M4 5l1 8h6l1-8", stroke: true },
+    add:      { d: "M8 2v12M2 8h12", stroke: true },
+    close:    { d: "M3 3l10 10M13 3L3 13", stroke: true },
+    download: { d: "M8 2v8M4 7l4 4 4-4M2 14h12", stroke: true },
+    export:   { d: "M8 11V2M4 6l4-4 4 4M2 14h12", stroke: true },
+  };
+  function mkIcon(type) {
+    const svg = document.createElementNS(_NS, "svg");
+    svg.setAttribute("viewBox", "0 0 16 16");
+    svg.setAttribute("width", "12");
+    svg.setAttribute("height", "12");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    const def = _ICON_PATHS[type];
+    const path = document.createElementNS(_NS, "path");
+    path.setAttribute("d", def.d);
+    if (def.stroke) {
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "currentColor");
+      path.setAttribute("stroke-width", "1.5");
+      path.setAttribute("stroke-linecap", "round");
+      path.setAttribute("stroke-linejoin", "round");
+    } else {
+      path.setAttribute("fill", "currentColor");
+    }
+    svg.appendChild(path);
+    return svg;
+  }
+
   const jsonEl = $("import-json");
   const btnLoad = $("btnLoad");
   const btnRunAll = $("btnRunAll");
@@ -803,8 +837,10 @@
 
         const btnRunG = document.createElement("button");
         btnRunG.type = "button";
-        btnRunG.className = "case-group__run-all";
-        btnRunG.textContent = "Run all";
+        btnRunG.className = "case-group__run-all btn-icon";
+        btnRunG.title = "Run all cases in this group";
+        btnRunG.setAttribute("aria-label", `Run all cases in ${(group.label ?? "").trim() || `group ${gi + 1}`}`);
+        btnRunG.appendChild(mkIcon("runAll"));
         btnRunG.disabled = busy || group.cases.length === 0;
         btnRunG.addEventListener("click", () => {
           hideErr();
@@ -820,9 +856,9 @@
 
         const btnAddCaseG = document.createElement("button");
         btnAddCaseG.type = "button";
-        btnAddCaseG.className = "btn-secondary case-group__add-case";
-        btnAddCaseG.textContent = "Add";
+        btnAddCaseG.className = "btn-secondary case-group__add-case btn-icon";
         btnAddCaseG.title = "Add empty testcase to this problem";
+        btnAddCaseG.appendChild(mkIcon("add"));
         btnAddCaseG.setAttribute(
           "aria-label",
           `Add testcase to ${(group.label ?? "").trim() || `group ${gi + 1}`}`,
@@ -843,10 +879,11 @@
 
         const btnClrG = document.createElement("button");
         btnClrG.type = "button";
-        btnClrG.className = "btn-secondary case-group__clear";
-        btnClrG.textContent = "Clear";
+        btnClrG.className = "btn-secondary case-group__clear btn-icon";
         btnClrG.disabled = busy;
         btnClrG.title = "Remove this problem group";
+        btnClrG.setAttribute("aria-label", "Remove this problem group");
+        btnClrG.appendChild(mkIcon("trash"));
         btnClrG.addEventListener("click", () => {
           if (busy) return;
           groups.splice(gi, 1);
@@ -902,8 +939,10 @@
 
         const runOne = document.createElement("button");
         runOne.type = "button";
-        runOne.textContent = "Run";
+        runOne.className = "btn-icon";
         runOne.title = `Run sample ${c.sample}`;
+        runOne.setAttribute("aria-label", `Run sample ${c.sample}`);
+        runOne.appendChild(mkIcon("play"));
         runOne.disabled = busy;
         runOne.addEventListener("click", () => {
           vscode.postMessage({
@@ -916,8 +955,10 @@
 
         const remove = document.createElement("button");
         remove.type = "button";
-        remove.className = "btn-secondary";
-        remove.textContent = "Remove";
+        remove.className = "btn-secondary btn-icon";
+        remove.title = "Remove this testcase";
+        remove.setAttribute("aria-label", "Remove this testcase");
+        remove.appendChild(mkIcon("close"));
         remove.disabled = busy;
         remove.addEventListener("click", () => {
           group.cases.splice(index, 1);
@@ -998,7 +1039,7 @@
       const plusMark = document.createElement("span");
       plusMark.className = "btn-add-problem-group__plus";
       plusMark.setAttribute("aria-hidden", "true");
-      plusMark.textContent = "+";
+      plusMark.appendChild(mkIcon("add"));
       const addProblemLabel = document.createElement("span");
       addProblemLabel.className = "btn-add-problem-group__label";
       addProblemLabel.textContent = "custom group";
@@ -1020,7 +1061,7 @@
       btnAddCase.type = "button";
       btnAddCase.className = "btn-add-case";
       btnAddCase.setAttribute("aria-label", "Add testcase");
-      btnAddCase.textContent = "+";
+      btnAddCase.appendChild(mkIcon("add"));
       btnAddCase.disabled = busy;
       btnAddCase.addEventListener("click", () => {
         const gi = Math.max(0, groups.length - 1);
