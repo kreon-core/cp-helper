@@ -12,7 +12,7 @@ Update all version strings across the project for a new CP Helper release.
    | ----------------------- | ----------------------------------------------------------------------------------------------------------- |
    | `package.json`          | `"version"` field                                                                                           |
    | `package-lock.json`     | top-level `"version"` and the `""` package entry `"version"` (two occurrences, both at the top of the file) |
-   | `README.md`             | `Stable baseline: X.Y.Z` line                                                                               |
+   | `README.md`             | `Stable baseline: X.Y.Z` line and `Companion browser extension: OJ Sync X.Y.Z` line                        |
    | `oj-sync/manifest.json` | `"version"` field and the `"default_title"` string (both version numbers in the title)                      |
    | `oj-sync/README.md`     | `**Version X.Y.Z**` and `**CP Helper X.Y.Z**` on the first line                                             |
 
