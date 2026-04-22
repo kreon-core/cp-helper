@@ -50,8 +50,8 @@ export function buildSamplesWebviewHtml(
     <textarea id="import-json" spellcheck="false" placeholder='[{ "sample": 1, "input": "…", "output": "…" }] or { "problem": "atcoder/abc_a", "samples": [ … ] }' aria-label="Testcases JSON"></textarea>
     <div class="btn-row btn-row--import">
       <div class="btn-row__cluster" role="group" aria-label="Import actions">
-        <button id="btnLoad" type="button" title="Replace samples with the JSON above">Load</button>
-        <button id="btnRunAll" type="button" class="btn-primary" disabled title="Compile once (if configured), then run every sample">Run all</button>
+        <button id="btnLoad" type="button" class="btn-icon" title="Replace samples with the JSON above" aria-label="Load"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 2v8M4 7l4 4 4-4M2 14h12"/></svg></button>
+        <button id="btnRunAll" type="button" class="btn-primary btn-icon" disabled title="Compile once (if configured), then run every sample" aria-label="Run all"><svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true" focusable="false"><path d="M1 2l7 6-7 6V2zm8 0l7 6-7 6V2z"/></svg></button>
         <span
           id="runAllPassedSummary"
           class="run-all-passed-summary"
@@ -60,13 +60,13 @@ export function buildSamplesWebviewHtml(
           aria-live="polite"
           title=""
         ></span>
-        <button id="btnClear" type="button" class="btn-secondary" title="Remove all samples from the list">Clear</button>
-        <button id="btnExport" type="button" class="btn-secondary" title="Write all cases to testcases/sample_N.{in,out}">Export</button>
+        <button id="btnClear" type="button" class="btn-secondary btn-icon" title="Remove all samples from the list" aria-label="Clear"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 2h6M2 5h12M4 5l1 8h6l1-8"/></svg></button>
+        <button id="btnExport" type="button" class="btn-secondary btn-icon" title="Write all cases to testcases/sample_N.{in,out}" aria-label="Export"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 11V2M4 6l4-4 4 4M2 14h12"/></svg></button>
         <span id="run-status" class="run-status" hidden>
           <span class="run-status-spinner" aria-hidden="true"></span>
           <span id="run-status-label" class="run-status-label"></span>
         </span>
-        <button id="btnStopRun" type="button" class="btn-secondary btn-stop" hidden title="Stop compile or run">Stop</button>
+        <button id="btnStopRun" type="button" class="btn-secondary btn-stop btn-icon" hidden title="Stop compile or run" aria-label="Stop"><svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 3h10v10H3z"/></svg></button>
       </div>
       <div class="btn-row__source" role="group" aria-label="Run target file">
       <span class="active-source-wrap">
