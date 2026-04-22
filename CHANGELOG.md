@@ -4,6 +4,11 @@ All notable changes to CP Helper are documented in this file.
 
 Versioning from 1.0.0 follows SemVer: MAJOR.MINOR.PATCH.
 
+## [1.0.1] - 2026-04-22
+
+### Changed
+- Replaced all text buttons with icon-only SVG buttons for a more compact UI.
+
 ## [1.0.0] - 2026-04-13
 
 First stable release. Behavior is equivalent to 0.4.19; this release marks production readiness.
