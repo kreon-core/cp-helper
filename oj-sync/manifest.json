@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "OJ Sync",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "permissions": ["activeTab", "scripting", "storage"],
   "options_ui": {
     "page": "options.html",
@@ -32,6 +32,6 @@
     "type": "module"
   },
   "action": {
-    "default_title": "OJ Sync 1.0.0 — samples -> CP Helper 1.0.0 (C++)"
+    "default_title": "OJ Sync 1.0.1 — samples -> CP Helper 1.0.1 (C++)"
   }
 }
