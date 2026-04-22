@@ -461,7 +461,7 @@
       return "";
     }
     if (runState.mode === "all" && runState.phase === "compile") {
-      return "Compiling…";
+      return "";
     }
     if (
       runState.mode === "all" &&
@@ -469,14 +469,14 @@
       runState.total != null
     ) {
       const i = runState.index ?? 0;
-      return `Running ${i + 1}/${runState.total}`;
+      return `${i + 1}/${runState.total}`;
     }
     if (runState.mode === "one" && runState.index != null) {
       const g = groups[gi];
       const sn = g?.cases[runState.index]?.sample ?? runState.index + 1;
-      return `Running sample ${sn}…`;
+      return `#${sn}`;
     }
-    return "Running…";
+    return "";
   }
 
   /**
@@ -512,14 +512,14 @@
     }
     if (busy && !multi) {
       if (runState.mode === "all" && runState.phase === "compile") {
-        runStatusLabel.textContent = "Compiling…";
+        runStatusLabel.textContent = "";
       } else if (
         runState.mode === "all" &&
         runState.phase === "run" &&
         runState.total != null
       ) {
         const i = runState.index ?? 0;
-        runStatusLabel.textContent = `Running ${i + 1}/${runState.total}`;
+        runStatusLabel.textContent = `${i + 1}/${runState.total}`;
       } else if (
         runState.mode === "one" &&
         runState.index != null &&
@@ -527,9 +527,9 @@
       ) {
         const g = groups[runState.groupIndex];
         const sn = g?.cases[runState.index]?.sample ?? runState.index + 1;
-        runStatusLabel.textContent = `Running sample ${sn}…`;
+        runStatusLabel.textContent = `#${sn}`;
       } else {
-        runStatusLabel.textContent = "Running…";
+        runStatusLabel.textContent = "";
       }
     } else {
       runStatusLabel.textContent = "";
