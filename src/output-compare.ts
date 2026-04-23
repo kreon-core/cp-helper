@@ -43,6 +43,14 @@ function isNumericOutputToken(t: string): boolean {
 }
 
 /**
+ * Token is a plain integer literal (no dot, no exponent).
+ * @param t non-empty token
+ */
+function isIntegerToken(t: string): boolean {
+  return /^[-+]?\d+$/u.test(t);
+}
+
+/**
  * @param a
  * @param b
  * @param absEpsilon max |a-b|
@@ -86,6 +94,10 @@ function numericTokensAlmostEqual(
     return true;
   }
   if (!isNumericOutputToken(x) || !isNumericOutputToken(y)) {
+    return false;
+  }
+  // Integer tokens must match exactly — epsilon tolerance only applies to floats.
+  if (isIntegerToken(x) || isIntegerToken(y)) {
     return false;
   }
   const nx = Number(x);
