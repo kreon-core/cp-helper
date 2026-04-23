@@ -16,7 +16,7 @@ Update all version strings across the project for a new CP Helper release.
    | `oj-sync/manifest.json` | `"version"` field and the `"default_title"` string (both version numbers in the title)                      |
    | `oj-sync/README.md`     | `**Version X.Y.Z**` and `**CP Helper X.Y.Z**` on the first line                                             |
 
-4. **Add a CHANGELOG entry** at the top of the release list in `CHANGELOG.md`, directly above the previous `## [X.Y.Z]` heading. Use today's date (YYYY-MM-DD). Ask the user for the changelog bullet points if they weren't provided as part of the prompt; otherwise use what they gave you.
+4. **Add a CHANGELOG entry** at the top of the release list in `CHANGELOG.md`, directly above the previous `## [X.Y.Z]` heading. Use today's date (YYYY-MM-DD). Infer the bullet points yourself from the git log and any changes made in the current session — do not ask the user. The user only provides the new version number.
 
    Format:
 
@@ -24,7 +24,7 @@ Update all version strings across the project for a new CP Helper release.
    ## [NEW_VERSION] - YYYY-MM-DD
 
    ### Changed
-   - <bullet points from user>
+   - <inferred from git log / session changes>
 
    ```
 

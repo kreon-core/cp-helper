@@ -4,6 +4,11 @@ All notable changes to CP Helper are documented in this file.
 
 Versioning from 1.0.0 follows SemVer: MAJOR.MINOR.PATCH.
 
+## [1.0.2] - 2026-04-23
+
+### Changed
+- Fix integer output tokens now requiring exact match; epsilon tolerance no longer applies to plain integers, preventing false AC verdicts (e.g. `635270835` wrongly matching `635270834`).
+
 ## [1.0.1] - 2026-04-22
 
 ### Changed
