@@ -452,16 +452,22 @@
    * @param {number} gi
    * @returns {string} empty if this group is not running
    */
+  /**
+   * Returns null when no spinner should show, "" when spinner should show without a label
+   * (compile phase), or a non-empty string label for the run phase.
+   * @param {number} gi
+   * @returns {string | null}
+   */
   function textForActiveGroupRunStatus(gi) {
     if (!runState.active) {
-      return "";
+      return null;
     }
     const gIdx = runState.groupIndex;
     if (typeof gIdx !== "number" || gIdx !== gi) {
-      return "";
+      return null;
     }
     if (runState.mode === "all" && runState.phase === "compile") {
-      return "";
+      return ""; // show spinner, no count label yet
     }
     if (
       runState.mode === "all" &&
@@ -476,7 +482,7 @@
       const sn = g?.cases[runState.index]?.sample ?? runState.index + 1;
       return `#${sn}`;
     }
-    return "";
+    return null;
   }
 
   /**
@@ -614,16 +620,18 @@
       if (grpStatus) {
         grpStatus.innerHTML = "";
         const st = textForActiveGroupRunStatus(gi);
-        if (st) {
+        if (st !== null) {
           const grpSpin = document.createElement("span");
           grpSpin.className = "run-status-spinner";
           grpSpin.setAttribute("aria-hidden", "true");
-          const grpLbl = document.createElement("span");
-          grpLbl.className = "run-status-label";
-          grpLbl.textContent = st;
-          grpLbl.setAttribute("aria-live", "polite");
           grpStatus.appendChild(grpSpin);
-          grpStatus.appendChild(grpLbl);
+          if (st) {
+            const grpLbl = document.createElement("span");
+            grpLbl.className = "run-status-label";
+            grpLbl.textContent = st;
+            grpLbl.setAttribute("aria-live", "polite");
+            grpStatus.appendChild(grpLbl);
+          }
           grpStatus.hidden = false;
         } else {
           grpStatus.hidden = true;
@@ -819,16 +827,18 @@
         const grpStatus = document.createElement("span");
         grpStatus.className = "case-group-run-status";
         const grpSt = textForActiveGroupRunStatus(gi);
-        if (grpSt) {
+        if (grpSt !== null) {
           const grpSpin = document.createElement("span");
           grpSpin.className = "run-status-spinner";
           grpSpin.setAttribute("aria-hidden", "true");
-          const grpLbl = document.createElement("span");
-          grpLbl.className = "run-status-label";
-          grpLbl.textContent = grpSt;
-          grpLbl.setAttribute("aria-live", "polite");
           grpStatus.appendChild(grpSpin);
-          grpStatus.appendChild(grpLbl);
+          if (grpSt) {
+            const grpLbl = document.createElement("span");
+            grpLbl.className = "run-status-label";
+            grpLbl.textContent = grpSt;
+            grpLbl.setAttribute("aria-live", "polite");
+            grpStatus.appendChild(grpLbl);
+          }
           grpStatus.hidden = false;
         } else {
           grpStatus.hidden = true;
@@ -846,6 +856,12 @@
           hideErr();
           if (busy || group.cases.length === 0) return;
           purgeLastRunForGroup(gi);
+          runState = { active: true, mode: "all", phase: "compile", groupIndex: gi, index: null, total: group.cases.length };
+          if (incrementalDomReady()) {
+            refreshIncrementalRunUi();
+          } else {
+            render();
+          }
           vscode.postMessage({
             type: "runAll",
             groupIndex: gi,
@@ -945,6 +961,13 @@
         runOne.appendChild(mkIcon("play"));
         runOne.disabled = busy;
         runOne.addEventListener("click", () => {
+          delete lastRun[rk(gi, index)];
+          runState = { active: true, mode: "one", phase: "run", groupIndex: gi, index, total: 1 };
+          if (incrementalDomReady()) {
+            refreshIncrementalRunUi();
+          } else {
+            render();
+          }
           vscode.postMessage({
             type: "runOne",
             groupIndex: gi,
@@ -1203,6 +1226,12 @@
     const g0 = groups[0];
     if (!g0 || g0.cases.length === 0) return;
     purgeLastRunForGroup(0);
+    runState = { active: true, mode: "all", phase: "compile", groupIndex: 0, index: null, total: g0.cases.length };
+    if (incrementalDomReady()) {
+      refreshIncrementalRunUi();
+    } else {
+      render();
+    }
     vscode.postMessage({
       type: "runAll",
       groupIndex: 0,
@@ -1218,6 +1247,12 @@
     ensureDefaultGroup();
     const g0 = groups[0];
     if (!g0 || g0.cases.length === 0 || runState.active) return;
+    runState = { active: true, mode: "one", phase: "run", groupIndex: 0, index: 0, total: 1 };
+    if (incrementalDomReady()) {
+      refreshIncrementalRunUi();
+    } else {
+      render();
+    }
     vscode.postMessage({
       type: "runOne",
       groupIndex: 0,
