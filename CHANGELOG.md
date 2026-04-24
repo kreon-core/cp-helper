@@ -4,6 +4,19 @@ All notable changes to CP Helper are documented in this file.
 
 Versioning from 1.0.0 follows SemVer: MAJOR.MINOR.PATCH.
 
+## [1.0.3] - 2026-04-24
+
+### Changed
+- Verdict labels are now pill-shaped badges with colour-coded background and border (green/red/blue/amber) for faster at-a-glance scanning.
+- Case numbers in the test-case header are displayed as small rounded badges instead of bare text.
+- Added a copy-to-clipboard button on every Stdout and Stderr output field; button flashes green on success.
+- Elapsed time now renders as `234ms` below 1 s and `1.23s` at or above, replacing the raw millisecond integer.
+- Case cards gain a subtle box-shadow on hover for clearer interactivity.
+- Case-group panels fade and slide in when expanded (CSS animation).
+- Export icon flashes green for 2.5 s after a successful file export.
+- Improved empty-state message to mention JSON paste, OJ Sync, and custom groups.
+- Clarified import-textarea placeholder text.
+
 ## [1.0.2] - 2026-04-23
 
 ### Changed
