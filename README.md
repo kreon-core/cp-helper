@@ -6,9 +6,9 @@ It runs C++ code against imported sample cases and reports AC, WA, TLE, or RE.
 
 ## Release scope
 
-- Stable baseline: 1.0.2
+- Stable baseline: 1.0.3
 - Language support: C++ only
-- Companion browser extension: OJ Sync 1.0.2
+- Companion browser extension: OJ Sync 1.0.3
 
 ## Requirements
 

@@ -43,6 +43,7 @@
     close:    { d: "M3 3l10 10M13 3L3 13", stroke: true },
     download: { d: "M8 2v8M4 7l4 4 4-4M2 14h12", stroke: true },
     export:   { d: "M8 11V2M4 6l4-4 4 4M2 14h12", stroke: true },
+    copy:     { d: "M6 2H14V12H6ZM2 6H10V14H2Z", stroke: true },
   };
   function mkIcon(type) {
     const svg = document.createElementNS(_NS, "svg");
@@ -114,6 +115,17 @@
    */
   function streamDisplay(s) {
     return trimTrailingNewlines(stripAnsi(s));
+  }
+
+  /**
+   * Format elapsed milliseconds as a compact string: "234ms" under 1 s, "1.23s" at or above.
+   * @param {number | undefined} ms
+   * @returns {string}
+   */
+  function formatElapsed(ms) {
+    if (ms == null) return "";
+    if (ms < 1000) return ` ${ms}ms`;
+    return ` ${(ms / 1000).toFixed(2)}s`;
   }
 
   /** @returns {number} */
@@ -707,7 +719,7 @@
     if (runInfo) {
       const verdictEl = document.createElement("span");
       verdictEl.className = "case-verdict";
-      const timeHint = runInfo.elapsedMs != null ? ` ${runInfo.elapsedMs}ms` : "";
+      const timeHint = formatElapsed(runInfo.elapsedMs);
       verdictEl.textContent = runInfo.verdict + timeHint;
       head.insertBefore(verdictEl, actions);
     }
@@ -1013,7 +1025,7 @@
         if (runInfo) {
           const verdictEl = document.createElement("span");
           verdictEl.className = "case-verdict";
-          const timeHint = runInfo.elapsedMs != null ? ` ${runInfo.elapsedMs}ms` : "";
+          const timeHint = formatElapsed(runInfo.elapsedMs);
           verdictEl.textContent = runInfo.verdict + timeHint;
           head.appendChild(verdictEl);
         }
@@ -1192,6 +1204,7 @@
 
   /**
    * Read-only run output: stdout/stderr grow to content up to `maxStdoutReadonlyHeight`, then scroll.
+   * Includes a copy-to-clipboard button.
    * @param {string} label
    * @param {string} value
    * @param {"stdout" | "stderr"} stream
@@ -1199,8 +1212,22 @@
   function makeReadonlyOutput(label, value, stream) {
     const wrap = document.createElement("div");
     wrap.className = "field field--result";
+
+    const hdr = document.createElement("div");
+    hdr.className = "field-header";
+
     const lb = document.createElement("label");
     lb.textContent = label;
+    hdr.appendChild(lb);
+
+    const copyLbl = label.toLowerCase();
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.className = "btn-copy";
+    copyBtn.title = `Copy ${copyLbl}`;
+    copyBtn.setAttribute("aria-label", `Copy ${copyLbl}`);
+    copyBtn.appendChild(mkIcon("copy"));
+
     const ta = document.createElement("textarea");
     ta.className =
       stream === "stderr"
@@ -1210,7 +1237,30 @@
     ta.spellcheck = false;
     ta.value = value;
     ta.rows = 1;
-    wrap.appendChild(lb);
+
+    function showCopied() {
+      copyBtn.title = "Copied!";
+      copyBtn.classList.add("btn-copy--done");
+      setTimeout(() => {
+        copyBtn.title = `Copy ${copyLbl}`;
+        copyBtn.classList.remove("btn-copy--done");
+      }, 1500);
+    }
+
+    copyBtn.addEventListener("click", () => {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(value).then(showCopied, () => {
+          ta.select();
+          try { document.execCommand("copy"); showCopied(); } catch (_) {}
+        });
+      } else {
+        ta.select();
+        try { document.execCommand("copy"); showCopied(); } catch (_) {}
+      }
+    });
+
+    hdr.appendChild(copyBtn);
+    wrap.appendChild(hdr);
     wrap.appendChild(ta);
     requestAnimationFrame(() => fitStdoutReadonly(ta));
     return wrap;
@@ -1443,10 +1493,13 @@
     }
     if (m.type === "exportDone") {
       const count = typeof m.count === "number" ? m.count : 0;
-      btnExport.title = `Exported ${count} case(s) to testcases/ ✓`;
+      const prevTitle = btnExport.title;
+      btnExport.title = `Exported ${count} case${count === 1 ? "" : "s"} ✓`;
+      btnExport.classList.add("btn--export-done");
       setTimeout(() => {
-        btnExport.title = "Write all cases to testcases/sample_N.{in,out}";
-      }, 3000);
+        btnExport.title = prevTitle;
+        btnExport.classList.remove("btn--export-done");
+      }, 2500);
       return;
     }
   }
