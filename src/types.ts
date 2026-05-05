@@ -49,6 +49,8 @@ export interface RunSampleResult {
 export interface RunSession {
   file: string;
   outBin: string;
+  /** Path to delete after the run; null when outBin is a cached binary that must survive. */
+  cleanupBin: string | null;
   cwd: string;
   compileCmd: string;
   /** When true and compileCmd is non-empty, `-DLOCAL` is injected after the compiler token. */
