@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import * as os from "os";
 import * as fs from "fs/promises";
+import { constants as fsConstants } from "fs";
 import { randomBytes } from "crypto";
 import {
   DEFAULT_RUN_TIMEOUT_MS,
@@ -29,6 +30,16 @@ import type {
   RunVerdict,
   TestCase,
 } from "./types";
+
+interface CacheEntry {
+  mtime: number;
+  compileCmd: string;
+  defineLocal: boolean;
+  binPath: string;
+}
+
+// Survives across runs for the lifetime of the extension host process.
+const compileCache = new Map<string, CacheEntry>();
 
 /**
  * Shared paths, cwd, and shell exec for one binary path (compile once, run many).
@@ -76,6 +87,7 @@ export function createRunSession(
   return {
     file,
     outBin,
+    cleanupBin: outBin,
     cwd,
     compileCmd,
     defineLocal,
@@ -92,6 +104,8 @@ export function createRunSession(
 
 /**
  * Compile into session.outBin if compileCmd is set; otherwise no-op success.
+ * On a cache hit (same file mtime, compileCmd, and defineLocal flag) the existing
+ * binary is reused and s.cleanupBin is set to null so the finally block won't delete it.
  * @param s
  */
 async function compileOnce(
@@ -102,6 +116,37 @@ async function compileOnce(
   if (s.compileCmd.length === 0) {
     return { ok: true };
   }
+
+  // Check mtime-based cache before invoking the compiler.
+  try {
+    const { mtimeMs } = await fs.stat(s.file);
+    const entry = compileCache.get(s.file);
+    if (
+      entry &&
+      entry.mtime === mtimeMs &&
+      entry.compileCmd === s.compileCmd &&
+      entry.defineLocal === s.defineLocal
+    ) {
+      // Verify the cached binary is present, executable, and non-empty.
+      try {
+        await fs.access(entry.binPath, fsConstants.X_OK);
+        const { size } = await fs.stat(entry.binPath);
+        if (size > 0) {
+          s.outBin = entry.binPath;
+          s.cleanupBin = null; // don't delete a cached binary
+          cpLog("compile: cache hit");
+          return { ok: true };
+        }
+      } catch {
+        // fall through
+      }
+      compileCache.delete(s.file);
+      fs.unlink(entry.binPath).catch(() => { /* already gone */ });
+    }
+  } catch {
+    // stat failed — fall through to normal compile
+  }
+
   // Avoid executing a leftover binary at {{out}} if a prior run left the path behind.
   await fs.unlink(s.outBin).catch(() => {
     /* ENOENT */
@@ -140,6 +185,26 @@ async function compileOnce(
       compileStderr: truncateForLog(errText, MAX_COMPILE_STDERR_WEBVIEW),
     };
   }
+
+  // Store the freshly-compiled binary in the cache.
+  try {
+    const { mtimeMs } = await fs.stat(s.file);
+    // Evict the old cached binary for this file if it differs from the new one.
+    const prev = compileCache.get(s.file);
+    if (prev && prev.binPath !== s.outBin) {
+      fs.unlink(prev.binPath).catch(() => { /* already gone */ });
+    }
+    compileCache.set(s.file, {
+      mtime: mtimeMs,
+      compileCmd: s.compileCmd,
+      defineLocal: s.defineLocal,
+      binPath: s.outBin,
+    });
+    s.cleanupBin = null; // binary is now owned by the cache
+  } catch {
+    // stat failed after compile — leave cleanupBin as-is so the binary gets deleted
+  }
+
   cpLog("compile ok");
   return { ok: true };
 }
@@ -315,10 +380,8 @@ export async function runSingleTest(
     }
     return await runProgramForCase(s, tc);
   } finally {
-    try {
-      await fs.unlink(s.outBin);
-    } catch {
-      /* ignore */
+    if (s.cleanupBin !== null) {
+      await fs.unlink(s.cleanupBin).catch(() => { /* ignore */ });
     }
   }
 }
@@ -393,10 +456,8 @@ export async function runAllTestsSharedCompile(
       }
     }
   } finally {
-    try {
-      await fs.unlink(s.outBin);
-    } catch {
-      /* ignore */
+    if (s.cleanupBin !== null) {
+      await fs.unlink(s.cleanupBin).catch(() => { /* ignore */ });
     }
   }
 }
@@ -497,10 +558,8 @@ export async function runStressTest(
     cpLog(`Stress: all ${maxIterations} iterations passed`);
     return { status: "passed", iterations: maxIterations };
   } finally {
-    try {
-      await fs.unlink(s.outBin);
-    } catch {
-      /* ignore */
+    if (s.cleanupBin !== null) {
+      await fs.unlink(s.cleanupBin).catch(() => { /* ignore */ });
     }
   }
 }

@@ -416,6 +416,7 @@ export class CpHelperViewProvider
           if ("error" in resolved) {
             maybeShowOutputOnRun();
             cpLog(`Run one: ${resolved.error}`);
+            postRunState(false);
             webviewView.webview.postMessage({
               type: "runResult",
               groupIndex,
@@ -430,6 +431,7 @@ export class CpHelperViewProvider
           if ("error" in saveFirst) {
             maybeShowOutputOnRun();
             cpLog(`Run one: ${saveFirst.error}`);
+            postRunState(false);
             webviewView.webview.postMessage({
               type: "runResult",
               groupIndex,
@@ -489,6 +491,7 @@ export class CpHelperViewProvider
           if ("error" in resolvedAll) {
             maybeShowOutputOnRun();
             cpLog(`Run all: ${resolvedAll.error}`);
+            postRunState(false);
             webviewView.webview.postMessage({
               type: "runAllDone",
               groupIndex,
@@ -501,6 +504,7 @@ export class CpHelperViewProvider
           if ("error" in saveAllFirst) {
             maybeShowOutputOnRun();
             cpLog(`Run all: ${saveAllFirst.error}`);
+            postRunState(false);
             webviewView.webview.postMessage({
               type: "runAllDone",
               groupIndex,
