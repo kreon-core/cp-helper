@@ -91,7 +91,7 @@ async function probeClangVersion(
 }
 
 /**
- * Human-readable label for `compileCommand`’s first executable.
+ * Human-readable label for `compileCommand`'s first executable.
  * @param exe
  * @param cwd
  */
@@ -150,12 +150,12 @@ async function resolveRunnerLabel(cwd: string): Promise<string> {
   if (compileCmd.length > 0) {
     const tok = firstShellToken(compileCmd);
     if (!tok) {
-      return stdHint ? `compile · ${stdHint}` : "compile";
+      return stdHint ? `compile - ${stdHint}` : "compile";
     }
     const probed = await probeCompileExecutable(tok, cwd);
     const base = probed ?? exeDisplayBase(tok);
     if (stdHint && !base.includes(stdHint)) {
-      return `${base} · ${stdHint}`;
+      return `${base} - ${stdHint}`;
     }
     return base;
   }
@@ -189,7 +189,7 @@ function truncateRunnerLabel(s: string, max: number): string {
   if (s.length <= max) {
     return s;
   }
-  return `${s.slice(0, Math.max(0, max - 1))}…`;
+  return `${s.slice(0, Math.max(0, max - 1))}...`;
 }
 
 /**

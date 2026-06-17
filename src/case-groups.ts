@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { CASES_FILE_RELATIVE_PATH, WORKSPACE_KEY_CASE_GROUPS, WORKSPACE_KEY_CASES } from "./constants";
 import type { CaseGroup, TestCase } from "./types";
 
-/** Pure decimal id (e.g. Codeforces multi import used "0","1",… — collides with single-group "0" in webview collapse state). */
+/** Pure decimal id (e.g. Codeforces multi import used "0","1",... - collides with single-group "0" in webview collapse state). */
 const DIGIT_ID = /^\d+$/u;
 
 function multiGroupsAllDigitIds(groups: CaseGroup[]): boolean {
@@ -16,7 +16,7 @@ function multiGroupsAllDigitIds(groups: CaseGroup[]): boolean {
 
 /**
  * Normalize groups from storage or import (stable ids, valid cases arrays).
- * Multi-group rows that only use numeric ids are rewritten to `p0`, `p1`, … so they do not share
+ * Multi-group rows that only use numeric ids are rewritten to `p0`, `p1`, ... so they do not share
  * id `"0"` with the default single-group bucket (fixes first problem always collapsed in the webview).
  */
 export function normalizeCaseGroups(groups: CaseGroup[]): CaseGroup[] {
@@ -102,7 +102,7 @@ export async function loadCaseGroupsFromFile(
       return normalizeCaseGroups(data.groups as CaseGroup[]);
     }
   } catch {
-    /* file not found or malformed — fall through to workspace state */
+    /* file not found or malformed - fall through to workspace state */
   }
   return loadCaseGroups(ws);
 }

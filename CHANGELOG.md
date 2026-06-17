@@ -4,6 +4,11 @@ All notable changes to CP Helper are documented in this file.
 
 Versioning from 1.0.0 follows SemVer: MAJOR.MINOR.PATCH.
 
+## [1.0.4] - 2026-06-17
+
+### Changed
+- Replace non-ASCII typographic characters (em dashes, ellipses, arrows, curly quotes) with ASCII equivalents in all source files and documentation.
+
 ## [1.0.3] - 2026-04-24
 
 ### Changed

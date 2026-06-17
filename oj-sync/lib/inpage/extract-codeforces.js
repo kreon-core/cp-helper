@@ -48,7 +48,7 @@
     const header = holder.querySelector(".header");
     if (header) {
       const t = (header.textContent ?? "").trim();
-      const m = t.match(/^([A-Za-z0-9]+)\s*[.．]/u);
+      const m = t.match(/^([A-Za-z0-9]+)\s*[.\uFF0E]/u);
       if (m) return m[1].toUpperCase();
     }
     return "?";

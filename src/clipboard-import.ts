@@ -18,7 +18,7 @@ export function reportImportFailure(
     return;
   }
   void vscode.window.showErrorMessage(
-    `CP Helper: invalid samples JSON — ${message}`,
+    `CP Helper: invalid samples JSON - ${message}`,
   );
 }
 

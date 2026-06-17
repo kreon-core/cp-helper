@@ -1,5 +1,5 @@
 /**
- * OJ Sync service worker — wires toolbar click → page scrape → POST to CP Helper.
+ * OJ Sync service worker - wires toolbar click -> page scrape -> POST to CP Helper.
  * Logic lives under `./lib/` for readability.
  */
 import { BADGE_OK } from "./lib/constants.js";
