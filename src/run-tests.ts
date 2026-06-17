@@ -144,7 +144,7 @@ async function compileOnce(
       fs.unlink(entry.binPath).catch(() => { /* already gone */ });
     }
   } catch {
-    // stat failed — fall through to normal compile
+    // stat failed - fall through to normal compile
   }
 
   // Avoid executing a leftover binary at {{out}} if a prior run left the path behind.
@@ -202,7 +202,7 @@ async function compileOnce(
     });
     s.cleanupBin = null; // binary is now owned by the cache
   } catch {
-    // stat failed after compile — leave cleanupBin as-is so the binary gets deleted
+    // stat failed after compile - leave cleanupBin as-is so the binary gets deleted
   }
 
   cpLog("compile ok");
@@ -292,7 +292,7 @@ async function runProgramForCase(
         cpLog(`checker: WA (exit ${cr.code ?? "null"})`);
       }
     } catch (e) {
-      cpLog(`checker: error — ${e instanceof Error ? e.message : String(e)}`);
+      cpLog(`checker: error - ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       await Promise.allSettled([
         fs.unlink(inTmp),
@@ -365,7 +365,7 @@ export async function runSingleTest(
 ): Promise<RunSampleResult> {
   const s = createRunSession(file, defineLocal);
   try {
-    cpLog(`── sample ${tc.sample} ──`);
+    cpLog(`-- sample ${tc.sample} --`);
     cpLog(`source: ${s.file}`);
     cpLog(`cwd: ${s.cwd}`);
     if (s.viaLogin) {
@@ -403,7 +403,7 @@ export async function runAllTestsSharedCompile(
 ): Promise<void> {
   const s = createRunSession(file, defineLocal);
   try {
-    cpLog(`Run all: ${cases.length} test(s) → ${file}`);
+    cpLog(`Run all: ${cases.length} test(s) -> ${file}`);
     cpLog(`source: ${s.file}`);
     cpLog(`cwd: ${s.cwd}`);
     if (s.viaLogin) {
@@ -438,7 +438,7 @@ export async function runAllTestsSharedCompile(
         break;
       }
       onBeforeSample?.(i, cases.length);
-      cpLog(`── sample ${cases[i].sample} ──`);
+      cpLog(`-- sample ${cases[i].sample} --`);
       try {
         const r = await runProgramForCase(s, cases[i]);
         onResult(i, r);
@@ -470,7 +470,7 @@ export interface StressTestResult {
 }
 
 /**
- * Run stress test: compile once, then loop — generate input, optionally get expected from
+ * Run stress test: compile once, then loop - generate input, optionally get expected from
  * reference solution, run primary solution, compare. Stop on first WA / RE / TLE.
  * @param file primary solution source path
  * @param generatorCmd shell command whose stdout is the raw test input
@@ -489,7 +489,7 @@ export async function runStressTest(
 ): Promise<StressTestResult> {
   const s = createRunSession(file, defineLocal);
   try {
-    cpLog(`Stress test: ${maxIterations} iterations → ${file}`);
+    cpLog(`Stress test: ${maxIterations} iterations -> ${file}`);
     if (generatorCmd.length === 0) {
       return { status: "generator_error", iterations: 0 };
     }
@@ -521,7 +521,7 @@ export async function runStressTest(
       if (referenceCmd.length > 0) {
         const refR = await s.exec(referenceCmd, input);
         if (refR.code !== 0 || refR.timedOut) {
-          cpLog(`Stress: reference failed at iteration ${i} — skipping`);
+          cpLog(`Stress: reference failed at iteration ${i} - skipping`);
           continue;
         }
         expected = normalizeOutput(refR.stdout, s.trim);

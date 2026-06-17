@@ -1,5 +1,5 @@
 /**
- * Consecutive blocks → { sample, input, output }[].
+ * Consecutive blocks -> { sample, input, output }[].
  * @param {{ id: string; text: string }[]} items
  * @returns {{ sample: number; input: string; output: string }[]}
  */

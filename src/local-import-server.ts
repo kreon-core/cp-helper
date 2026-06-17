@@ -98,7 +98,7 @@ export function startLocalImportHttpServer(
     server.on("error", (err: NodeJS.ErrnoException) => {
       if (err.code === "EADDRINUSE") {
         cpLog(
-          `Local import server: port ${port} in use — pick another cp-helper.localImportPort or close the other window.`,
+          `Local import server: port ${port} in use - pick another cp-helper.localImportPort or close the other window.`,
         );
       } else {
         cpLog(`Local import server: ${err.message}`);

@@ -47,7 +47,7 @@ export function buildSamplesWebviewHtml(
         <span class="runner-hint__value"></span>
       </div>
     </div>
-    <textarea id="import-json" spellcheck="false" placeholder='Paste JSON here, then click Load ↓&#10;[{ "sample": 1, "input": "…", "output": "…" }]' aria-label="Testcases JSON"></textarea>
+    <textarea id="import-json" spellcheck="false" placeholder='Paste JSON here, then click Load ↓&#10;[{ "sample": 1, "input": "...", "output": "..." }]' aria-label="Testcases JSON"></textarea>
     <div class="btn-row btn-row--import">
       <div class="btn-row__cluster" role="group" aria-label="Import actions">
         <button id="btnLoad" type="button" class="btn-icon" title="Replace samples with the JSON above" aria-label="Load"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 2v8M4 7l4 4 4-4M2 14h12"/></svg></button>

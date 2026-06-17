@@ -56,7 +56,7 @@ function listUnixPidTreePostOrder(rootPid: number): number[] {
 }
 
 /**
- * With `shell: true`, Node's child is usually `sh`/`bash` — killing only that pid can leave the
+ * With `shell: true`, Node's child is usually `sh`/`bash` - killing only that pid can leave the
  * real binary running. Kill descendants first (`pgrep -P`), then the shell; Windows uses `taskkill /T`.
  * Do not use `detached: true` here: it can let the shell close before the program exits, clearing
  * `activeShell` while the program is still running (Stop then reports no subprocess).

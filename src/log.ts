@@ -38,11 +38,11 @@ export function cpTimeStamp(): string {
  */
 export function truncateForLog(s: string, max: number): string {
   if (s.length <= max) return s;
-  return `${s.slice(0, max)}…`;
+  return `${s.slice(0, max)}...`;
 }
 
 /**
- * Opens Output → CP Helper without stealing focus (when setting enabled).
+ * Opens Output -> CP Helper without stealing focus (when setting enabled).
  */
 export function maybeShowOutputOnRun(): void {
   const on =

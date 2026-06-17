@@ -42,7 +42,7 @@ export function firstShellToken(s: string): string | null {
 }
 
 /**
- * `-std=…` from a compile command, if present.
+ * `-std=...` from a compile command, if present.
  * @param compileCmd
  */
 export function extractStdFlag(compileCmd: string): string | null {
@@ -51,7 +51,7 @@ export function extractStdFlag(compileCmd: string): string | null {
 }
 
 /**
- * Inserts `-DLOCAL` immediately after the first token (compiler), e.g. `g++ -std=c++20 …` → `g++ -DLOCAL -std=c++20 …`.
+ * Inserts `-DLOCAL` immediately after the first token (compiler), e.g. `g++ -std=c++20 ...` -> `g++ -DLOCAL -std=c++20 ...`.
  * If your `compileCommand` starts with a shell wrapper, add `-DLOCAL` in settings instead.
  * @param compileExpanded already-expanded compile line
  */

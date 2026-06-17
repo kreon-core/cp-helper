@@ -2,7 +2,7 @@
   "name": "cp-helper",
   "displayName": "CP Helper",
   "description": "Run competitive programming samples against your C++ solution in Visual Studio Code (official Microsoft build only).",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "publisher": "from-cero",
   "license": "MIT",
   "engines": {
@@ -100,7 +100,7 @@
         "cp-helper.runCommand": {
           "type": "string",
           "default": "\"{{out}}\"",
-          "description": "Shell command run with each test’s stdin; default runs the compiled C++ binary at {{out}}. For a wrapper script, use invokeViaLoginShell instead of embedding bash -lc here."
+          "description": "Shell command run with each test's stdin; default runs the compiled C++ binary at {{out}}. For a wrapper script, use invokeViaLoginShell instead of embedding bash -lc here."
         },
         "cp-helper.invokeViaLoginShell": {
           "type": "boolean",
@@ -125,7 +125,7 @@
         "cp-helper.enableLocalImportServer": {
           "type": "boolean",
           "default": true,
-          "description": "Listen on 127.0.0.1 so the OJ Sync browser extension can POST samples JSON without a vscode:// URL (avoids Chrome’s “Open URL handler?” prompt)."
+          "description": "Listen on 127.0.0.1 so the OJ Sync browser extension can POST samples JSON without a vscode:// URL (avoids Chrome's \"Open URL handler?\" prompt)."
         },
         "cp-helper.localImportPort": {
           "type": "number",
@@ -150,7 +150,7 @@
         "cp-helper.showOutputOnRun": {
           "type": "boolean",
           "default": false,
-          "description": "Open the Output panel (channel CP Helper) when running tests; uses preserveFocus so the editor stays active. Off by default — use command “CP Helper: Show Output Log” when you want the log."
+          "description": "Open the Output panel (channel CP Helper) when running tests; uses preserveFocus so the editor stays active. Off by default - use command \"CP Helper: Show Output Log\" when you want the log."
         },
         "cp-helper.floatRelEpsilon": {
           "type": "number",
@@ -186,12 +186,12 @@
     "watch": "tsc -watch -p ./",
     "vsix": "vsce package",
     "vsix:bump": "npm version patch --no-git-tag-version && npm run vsix",
-    "vsix:local:run": "vsce package -o cp-helper.vsix && code --install-extension cp-helper.vsix --force --profile \"Problem Solving [ C++ ]\""
+    "vsix:local:run": "vsce package -o cp-helper.vsix && NODE_NO_WARNINGS=1 code --install-extension cp-helper.vsix --force --profile \"Problem Solving [ C++ ]\""
   },
   "devDependencies": {
     "@types/node": "^20.19.39",
     "@types/vscode": "^1.82.0",
-    "@vscode/vsce": "^3.9.1",
+    "@vscode/vsce": "^3.9.2",
     "typescript": "^5.3.0"
   }
 }

@@ -28,7 +28,7 @@ export async function ensureSourceSavedBeforeRun(
     if (!saved) {
       return {
         error:
-          "Save was cancelled. CP Helper compiles the file on disk — save the source, then run again.",
+          "Save was cancelled. CP Helper compiles the file on disk - save the source, then run again.",
       };
     }
   }

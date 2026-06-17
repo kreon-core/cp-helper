@@ -20,8 +20,8 @@
 }
 
 /**
- * Single scroll container on `body` so the bar isn’t on `html` (Chromium often scrolls
- * `document.scrollingElement` = html otherwise — that scrollbar is still inside our iframe).
+ * Single scroll container on `body` so the bar isn't on `html` (Chromium often scrolls
+ * `document.scrollingElement` = html otherwise - that scrollbar is still inside our iframe).
  * Workbench chrome *outside* the webview iframe cannot be styled by the extension.
  */
 html {
@@ -51,7 +51,7 @@ body::-webkit-scrollbar {
   height: 0;
 }
 
-/** Any nested scrollers (textareas, pre, etc.) — same hidden bar; wheel still works. */
+/** Any nested scrollers (textareas, pre, etc.) - same hidden bar; wheel still works. */
 *,
 *::before,
 *::after {

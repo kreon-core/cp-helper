@@ -13,9 +13,9 @@ export interface TestCase {
   output: string;
 }
 
-/** One problem / sample bucket (e.g. Codeforces 2204A, 2204B, …). */
+/** One problem / sample bucket (e.g. Codeforces 2204A, 2204B, ...). */
 export interface CaseGroup {
-  /** Stable id for persistence (single group often `"0"`; multi-problem uses `p0`, `p1`, … after normalize). */
+  /** Stable id for persistence (single group often `"0"`; multi-problem uses `p0`, `p1`, ... after normalize). */
   id: string;
   /** Shown in UI; e.g. `codeforces/2204G`. */
   label: string;

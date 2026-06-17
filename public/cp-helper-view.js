@@ -277,7 +277,7 @@
     return false;
   }
 
-  /** Single empty unnamed bucket (nothing imported yet) — show “add problem group” and first custom becomes `custom/1`. */
+  /** Single empty unnamed bucket (nothing imported yet) - show "add problem group" and first custom becomes `custom/1`. */
   function isNoProblemsPlaceholder() {
     return (
       groups.length === 1 &&
@@ -1065,8 +1065,8 @@
       btnAddProblem.setAttribute(
         "aria-label",
         isNoProblemsPlaceholder()
-          ? "custom group — create custom/1 with one empty testcase"
-          : "custom group — add problem group with one empty testcase",
+          ? "custom group - create custom/1 with one empty testcase"
+          : "custom group - add problem group with one empty testcase",
       );
       btnAddProblem.title = isNoProblemsPlaceholder()
         ? "Create first custom problem group (one empty testcase)"

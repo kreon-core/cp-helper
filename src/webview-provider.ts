@@ -28,6 +28,7 @@ import {
   postRunSourceSnapshot,
 } from "./source-hints";
 import type { CaseGroup, TestCase } from "./types";
+import { buildSamplesWebviewHtml, getNonce } from "./webview-html";
 
 function validateTestCase(v: unknown): TestCase {
   const o = v as Record<string, unknown> | null | undefined;
@@ -37,7 +38,6 @@ function validateTestCase(v: unknown): TestCase {
     output: typeof o?.output === "string" ? o.output : "",
   };
 }
-import { buildSamplesWebviewHtml, getNonce } from "./webview-html";
 
 export class CpHelperViewProvider
   implements vscode.WebviewViewProvider, SamplesWebviewSink
@@ -67,10 +67,10 @@ export class CpHelperViewProvider
 
   /**
    * If Samples is not visible, reveal CP Helper on the secondary sidebar **without moving
-   * keyboard focus** when possible (`show(true)`). After a cold open (`workbench.view.extension…`),
+   * keyboard focus** when possible (`show(true)`). After a cold open (`workbench.view.extension...`),
    * focus may jump once; we then re-activate the text editor that was active before reveal.
    *
-   * @returns `true` if the view was hidden and we opened/showed it — caller should wait briefly
+   * @returns `true` if the view was hidden and we opened/showed it - caller should wait briefly
    * before `postMessage` so the webview can attach (see extension shortcut handlers).
    */
   async revealSamplesViewIfHidden(): Promise<boolean> {
@@ -120,7 +120,7 @@ export class CpHelperViewProvider
   }
 
   /**
-   * Deliver a shortcut / palette action to the webview (host → webview).
+   * Deliver a shortcut / palette action to the webview (host -> webview).
    * @param msg
    */
   postToWebview(msg: unknown): void {
@@ -128,7 +128,7 @@ export class CpHelperViewProvider
   }
 
   /**
-   * Push case groups into the Samples list (IMPORT textarea unchanged — for manual paste + Load only).
+   * Push case groups into the Samples list (IMPORT textarea unchanged - for manual paste + Load only).
    */
   applyGroupsToWebview(
     groups: CaseGroup[],
@@ -324,13 +324,13 @@ export class CpHelperViewProvider
             const errMsg = e instanceof Error ? e.message : String(e);
             cpLog(`ERROR: Failed to save test cases: ${errMsg}`);
             void vscode.window.showErrorMessage(
-              `CP Helper: Could not save test cases — ${errMsg}`,
+              `CP Helper: Could not save test cases - ${errMsg}`,
             );
           }
           const wsFolderSave = vscode.workspace.workspaceFolders?.[0]?.uri;
           if (wsFolderSave) {
             void persistCaseGroupsToFile(groupsToSave, wsFolderSave).catch(
-              (e) => cpLog(`Warning: could not write cases file — ${e instanceof Error ? e.message : String(e)}`),
+              (e) => cpLog(`Warning: could not write cases file - ${e instanceof Error ? e.message : String(e)}`),
             );
           }
           if (msg.clearImportProblem === true) {
@@ -391,7 +391,7 @@ export class CpHelperViewProvider
             cpLog(`Export error: ${errMsg}`);
             webviewView.webview.postMessage({
               type: "error",
-              message: `CP Helper: Export failed — ${errMsg}`,
+              message: `CP Helper: Export failed - ${errMsg}`,
             });
           }
           break;
