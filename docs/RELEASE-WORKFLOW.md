@@ -32,7 +32,7 @@ Workflow file:
   - tag: optional (default v<package.json version>)
   - create_tag: create and push the tag from workflow
   - publish_release: publish GitHub Release or build only
-  - dry_run: Test mode—validate and build without creating tags or publishing releases
+  - dry_run: Test mode - validate and build without creating tags or publishing releases
 
 ## Recommended release steps
 
@@ -50,7 +50,7 @@ To test the build and validation without any side effects (no tags, no release),
 
 - dry_run: true
 
-This validates versions, compiles code, builds the VSIX and zip, and uploads artifacts to the workflow run—but does not create tags or publish releases. Use this to catch issues before the actual release.
+This validates versions, compiles code, builds the VSIX and zip, and uploads artifacts to the workflow run - but does not create tags or publish releases. Use this to catch issues before the actual release.
 
 ## Direct tag push
 

@@ -96,7 +96,7 @@ function numericTokensAlmostEqual(
   if (!isNumericOutputToken(x) || !isNumericOutputToken(y)) {
     return false;
   }
-  // Integer tokens must match exactly — epsilon tolerance only applies to floats.
+  // Integer tokens must match exactly - epsilon tolerance only applies to floats.
   if (isIntegerToken(x) || isIntegerToken(y)) {
     return false;
   }

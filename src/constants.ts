@@ -5,17 +5,17 @@
 export const WORKSPACE_KEY_CASES = "cp-helper.cases";
 /** Grouped samples (multi-problem imports). When set, preferred over flat `CASES`. */
 export const WORKSPACE_KEY_CASE_GROUPS = "cp-helper.caseGroups";
-/** Label from OJ Sync (e.g. atcoder/abc451_a) — shown next to IMPORT. */
+/** Label from OJ Sync (e.g. atcoder/abc451_a) - shown next to IMPORT. */
 export const WORKSPACE_KEY_IMPORT_PROBLEM = "cp-helper.importProblem";
 export const WORKSPACE_KEY_DEFINE_LOCAL = "cp-helper.defineLocal";
 
 /** `when` clause: Samples webview has keyboard focus (for user keybindings). */
 export const CONTEXT_SAMPLES_FOCUS = "cp-helper.samplesFocus";
 
-/** Contributed webview view id — must match `package.json` `views` entry. */
+/** Contributed webview view id - must match `package.json` `views` entry. */
 export const VIEW_TYPE_SAMPLES = "cp-helper.webview";
 
-/** Command palette ids — must match `package.json` `contributes.commands`. */
+/** Command palette ids - must match `package.json` `contributes.commands`. */
 export const CMD_FOCUS_SAMPLES = "cpHelper.focusSamples";
 export const CMD_RUN_FIRST_SAMPLE = "cpHelper.runFirstSample";
 export const CMD_RUN_ALL_SAMPLES = "cpHelper.runAllSamples";

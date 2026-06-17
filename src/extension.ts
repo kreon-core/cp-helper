@@ -41,7 +41,7 @@ export async function activate(
     false,
   );
   cpLog(
-    "CP Helper log (View → Output → CP Helper, or command “Show Output Log”).",
+    "CP Helper log (View -> Output -> CP Helper, or command \"Show Output Log\").",
   );
 
   const provider = new CpHelperViewProvider(context.extensionUri, context);
@@ -112,7 +112,7 @@ export async function activate(
           context,
           provider,
           revealSamplesAndFocus,
-          "CP Helper: clipboard is empty. Paste samples JSON into the clipboard, then open this link again or run “Import samples from clipboard”.",
+          "CP Helper: clipboard is empty. Paste samples JSON into the clipboard, then open this link again or run \"Import samples from clipboard\".",
         );
       },
     }),
@@ -229,7 +229,7 @@ export async function activate(
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);
         cpLog(`Export error: ${errMsg}`);
-        void vscode.window.showErrorMessage(`CP Helper: Export failed — ${errMsg}`);
+        void vscode.window.showErrorMessage(`CP Helper: Export failed - ${errMsg}`);
       }
     }),
   );
@@ -279,7 +279,7 @@ export async function activate(
       if (referenceCmd) {
         cpLog(`Stress test: reference: ${referenceCmd}`);
       } else {
-        cpLog("Stress test: no reference — only checking for RE / TLE");
+        cpLog("Stress test: no reference - only checking for RE / TLE");
       }
 
       try {
@@ -306,10 +306,10 @@ export async function activate(
             cpLog(`Stress test: stopped after ${result.iterations} iterations`);
             break;
           case "compile_error":
-            void vscode.window.showErrorMessage("CP Helper Stress: compile failed — check Output log.");
+            void vscode.window.showErrorMessage("CP Helper Stress: compile failed - check Output log.");
             break;
           case "generator_error":
-            void vscode.window.showErrorMessage("CP Helper Stress: generator failed — check Output log.");
+            void vscode.window.showErrorMessage("CP Helper Stress: generator failed - check Output log.");
             break;
           case "bug": {
             const fc = result.failedCase;

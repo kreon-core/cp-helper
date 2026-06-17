@@ -377,7 +377,7 @@
     /**
      * LeetCode often puts only **Example 1** inside `div.example-block`; further
      * examples are siblings below with the same `span.example-io` rows but no
-     * wrapper. Pair every Input → Output by walking **all** `span.example-io`
+     * wrapper. Pair every Input -> Output by walking **all** `span.example-io`
      * in the description in document order (not scoped to `.example-block`).
      * @param {Element} ioSpan
      * @returns {string}
@@ -487,7 +487,7 @@
   }
 
   /**
-   * LeetCode “frontend” problem number for labels like `leetcode/3901` (not the URL slug).
+   * LeetCode "frontend" problem number for labels like `leetcode/3901` (not the URL slug).
    * @returns {string | null}
    */
   function extractLeetcodeFrontendId() {
@@ -502,12 +502,12 @@
       const m = t.match(/^(\d{1,5})\s{1,4}[A-Za-z\u4e00\u3040-\u30ff]/u);
       return m ? m[1] : null;
     };
-    /** First `1234. Title` / `1234 · Title` inside a short banner string. */
+    /** First `1234. Title` / `1234 . Title` inside a short banner string. */
     const tryTitleFindNumberDot = (s) => {
       const t = (s ?? "").replace(/\s+/g, " ").trim();
       if (t.length > 500) return null;
       const m = t.match(
-        /(\d{1,5})\s*[.\u30fb\u3002\uFF0E-]\s*[A-Za-z\u4e00\u3040-\u30ff"'`「]/u,
+        /(\d{1,5})\s*[.\u30fb\u3002\uFF0E-]\s*[A-Za-z\u4e00\u3040-\u30ff"'`\u300C]/u,
       );
       return m ? m[1] : null;
     };

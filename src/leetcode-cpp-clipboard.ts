@@ -1,4 +1,4 @@
-/** Append `main()` + `lc_prelude::dispatch` for C++ LeetCode-style `class … { public: …`. */
+/** Append `main()` + `lc_prelude::dispatch` for C++ LeetCode-style `class ... { public: ...`. */
 
 /**
  * LeetCode editor snippets use 4-space indentation; normalize each leading run of four
