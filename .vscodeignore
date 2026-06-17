@@ -6,4 +6,3 @@ tsconfig.json
 **/*.map
 **/*.ts
 !out/**/*.js
-.claude/**
