@@ -12,7 +12,7 @@ import {
   persistCaseGroups,
   persistCaseGroupsToFile,
 } from "./case-groups";
-import { cpLog, maybeShowOutputOnRun } from "./log";
+import { createCpLogger, maybeShowOutputOnRun } from "./log";
 import {
   importSamplesFromJsonText,
   type SamplesWebviewSink,
@@ -29,6 +29,8 @@ import {
 } from "./source-hints";
 import type { CaseGroup, TestCase } from "./types";
 import { buildSamplesWebviewHtml, getNonce } from "./webview-html";
+
+const log = createCpLogger("webview");
 
 function validateTestCase(v: unknown): TestCase {
   const o = v as Record<string, unknown> | null | undefined;
@@ -279,7 +281,7 @@ export class CpHelperViewProvider
           } catch (e) {
             const message = e instanceof Error ? e.message : String(e);
             maybeShowOutputOnRun();
-            cpLog(`JSON load error: ${message}`);
+            log.error(`load json failed: ${message}`);
             webviewView.webview.postMessage({
               type: "error",
               message,
@@ -308,11 +310,7 @@ export class CpHelperViewProvider
         case "setDefineLocal": {
           const v = msg.value === true;
           await this.ctx.workspaceState.update(WORKSPACE_KEY_DEFINE_LOCAL, v);
-          cpLog(
-            v
-              ? "Option: compile with -DLOCAL (on)"
-              : "Option: compile with -DLOCAL (off)",
-          );
+          log.info(`option changed: defineLocal=${v ? "on" : "off"}`);
           webviewView.webview.postMessage({ type: "options", defineLocal: v });
           break;
         }
@@ -322,7 +320,7 @@ export class CpHelperViewProvider
             await persistCaseGroups(this.ctx.workspaceState, groupsToSave);
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : String(e);
-            cpLog(`ERROR: Failed to save test cases: ${errMsg}`);
+            log.error(`save test cases failed: ${errMsg}`);
             void vscode.window.showErrorMessage(
               `CP Helper: Could not save test cases - ${errMsg}`,
             );
@@ -330,7 +328,7 @@ export class CpHelperViewProvider
           const wsFolderSave = vscode.workspace.workspaceFolders?.[0]?.uri;
           if (wsFolderSave) {
             void persistCaseGroupsToFile(groupsToSave, wsFolderSave).catch(
-              (e) => cpLog(`Warning: could not write cases file - ${e instanceof Error ? e.message : String(e)}`),
+              (e) => log.warn(`cases file not written: ${e instanceof Error ? e.message : String(e)}`),
             );
           }
           if (msg.clearImportProblem === true) {
@@ -380,7 +378,7 @@ export class CpHelperViewProvider
                 Buffer.from(tc.output, "utf8"),
               );
             }
-            cpLog(`Exported ${exportCaseList.length} case(s) to testcases/`);
+            log.info(`exported ${exportCaseList.length} case(s) to testcases/`);
             webviewView.webview.postMessage({
               type: "exportDone",
               groupIndex: exportGroupIdx,
@@ -388,7 +386,7 @@ export class CpHelperViewProvider
             });
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : String(e);
-            cpLog(`Export error: ${errMsg}`);
+            log.error(`export failed: ${errMsg}`);
             webviewView.webview.postMessage({
               type: "error",
               message: `CP Helper: Export failed - ${errMsg}`,
@@ -399,11 +397,13 @@ export class CpHelperViewProvider
         case "stopRun": {
           runState.cancelRequested = true;
           const killed = killActiveShell();
-          cpLog(
-            killed
-              ? "Stop: subprocess tree killed"
-              : "Stop: nothing running (already finished or not started); Run-all remainder skipped if a batch was active",
-          );
+          if (killed) {
+            log.warn("stop requested: subprocess tree killed");
+          } else {
+            log.info(
+              "stop requested: nothing running; remaining run-all samples skipped",
+            );
+          }
           break;
         }
         case "runOne": {
@@ -415,7 +415,7 @@ export class CpHelperViewProvider
           const resolved = getActiveSourceFilePath();
           if ("error" in resolved) {
             maybeShowOutputOnRun();
-            cpLog(`Run one: ${resolved.error}`);
+            log.error(`run one rejected: ${resolved.error}`);
             postRunState(false);
             webviewView.webview.postMessage({
               type: "runResult",
@@ -430,7 +430,7 @@ export class CpHelperViewProvider
           const saveFirst = await ensureSourceSavedBeforeRun(file);
           if ("error" in saveFirst) {
             maybeShowOutputOnRun();
-            cpLog(`Run one: ${saveFirst.error}`);
+            log.error(`run one rejected: ${saveFirst.error}`);
             postRunState(false);
             webviewView.webview.postMessage({
               type: "runResult",
@@ -466,7 +466,7 @@ export class CpHelperViewProvider
             });
           } catch (e) {
             const err = e instanceof Error ? e.message : String(e);
-            cpLog(`Run one error: ${err}`);
+            log.error(`run one failed: ${err}`);
             webviewView.webview.postMessage({
               type: "runResult",
               groupIndex,
@@ -490,7 +490,7 @@ export class CpHelperViewProvider
           const resolvedAll = getActiveSourceFilePath();
           if ("error" in resolvedAll) {
             maybeShowOutputOnRun();
-            cpLog(`Run all: ${resolvedAll.error}`);
+            log.error(`run all rejected: ${resolvedAll.error}`);
             postRunState(false);
             webviewView.webview.postMessage({
               type: "runAllDone",
@@ -503,7 +503,7 @@ export class CpHelperViewProvider
           const saveAllFirst = await ensureSourceSavedBeforeRun(file);
           if ("error" in saveAllFirst) {
             maybeShowOutputOnRun();
-            cpLog(`Run all: ${saveAllFirst.error}`);
+            log.error(`run all rejected: ${saveAllFirst.error}`);
             postRunState(false);
             webviewView.webview.postMessage({
               type: "runAllDone",
@@ -551,7 +551,7 @@ export class CpHelperViewProvider
             );
           } catch (e) {
             const err = e instanceof Error ? e.message : String(e);
-            cpLog(`Run all: fatal error: ${err}`);
+            log.error(`run all failed: ${err}`);
             for (let i = 0; i < cases.length; i++) {
               webviewView.webview.postMessage({
                 type: "runResult",
@@ -568,7 +568,6 @@ export class CpHelperViewProvider
           } finally {
             postRunState(false);
             runState.runLocked = false;
-            cpLog("Run all: finished");
             webviewView.webview.postMessage({ type: "runAllDone", groupIndex });
             postActiveSourceHint(webviewView.webview);
           }

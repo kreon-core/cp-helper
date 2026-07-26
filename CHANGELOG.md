@@ -4,6 +4,16 @@ All notable changes to CP Helper are documented in this file.
 
 Versioning from 1.0.0 follows SemVer: MAJOR.MINOR.PATCH.
 
+## [1.0.5] - 2026-07-26
+
+### Changed
+- Output channel now writes structured server-style records: `YYYY-MM-DD HH:MM:SS.mmm LEVEL [scope] message`, with fixed-width level (DEBUG/INFO/WARN/ERROR) and scope (core, webview, compile, runner, stress, import, server) columns.
+- Failures are logged at WARN or ERROR instead of sharing one flat level with progress messages (compile failures, stopped runs, rejected checker runs, non-AC verdicts, export/save/clipboard errors, port already in use).
+- Each sample is now a single record - `sample 3: WA exit=0 time=13ms in=386B out=12B` - replacing the previous four lines per sample. Expected and actual output are dumped as indented detail lines only when the sample fails.
+- The run command is logged once per run instead of repeated for every sample in a batch.
+- Run all ends with a summary record, `run all: 2/3 passed in 37ms`, replacing the contentless "Run all: finished".
+- Activation logs the extension version instead of instructions for finding the log.
+
 ## [1.0.4] - 2026-06-17
 
 ### Changed

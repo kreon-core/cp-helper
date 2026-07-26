@@ -18,7 +18,7 @@ import { loadCaseGroups, loadCaseGroupsFromFile } from "./case-groups";
 import { importSamplesFromJsonText } from "./import-samples";
 import { startLocalImportHttpServer } from "./local-import-server";
 import {
-  cpLog,
+  createCpLogger,
   getCpHelperOutputChannel,
   setCpHelperOutputChannel,
 } from "./log";
@@ -26,6 +26,9 @@ import { runState } from "./run-state";
 import { runStressTest } from "./run-tests";
 import { getActiveSourceFilePath, ensureSourceSavedBeforeRun } from "./source-hints";
 import { CpHelperViewProvider } from "./webview-provider";
+
+const log = createCpLogger("core");
+const stressLog = createCpLogger("stress");
 
 export type { CaseGroup, TestCase } from "./types";
 
@@ -40,9 +43,7 @@ export async function activate(
     CONTEXT_SAMPLES_FOCUS,
     false,
   );
-  cpLog(
-    "CP Helper log (View -> Output -> CP Helper, or command \"Show Output Log\").",
-  );
+  log.info(`CP Helper activated (${context.extension.packageJSON.version ?? "dev"})`);
 
   const provider = new CpHelperViewProvider(context.extensionUri, context);
   context.subscriptions.push(
@@ -186,7 +187,7 @@ export async function activate(
           ? vscode.ConfigurationTarget.Workspace
           : vscode.ConfigurationTarget.Global,
       );
-      cpLog(`Compile preset selected: ${picked.label}`);
+      log.info(`compile preset selected: ${picked.label}`);
     }),
   );
 
@@ -222,13 +223,13 @@ export async function activate(
             Buffer.from(tc.output, "utf8"),
           );
         }
-        cpLog(`Exported ${cases.length} case(s) to testcases/`);
+        log.info(`exported ${cases.length} case(s) to testcases/`);
         void vscode.window.showInformationMessage(
           `CP Helper: Exported ${cases.length} case(s) to testcases/`,
         );
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);
-        cpLog(`Export error: ${errMsg}`);
+        log.error(`export failed: ${errMsg}`);
         void vscode.window.showErrorMessage(`CP Helper: Export failed - ${errMsg}`);
       }
     }),
@@ -260,14 +261,14 @@ export async function activate(
 
       const resolved = getActiveSourceFilePath();
       if ("error" in resolved) {
-        cpLog(`Stress test: ${resolved.error}`);
+        stressLog.error(`rejected: ${resolved.error}`);
         void vscode.window.showErrorMessage(`CP Helper: ${resolved.error}`);
         return;
       }
       const file = resolved.file;
       const saveFirst = await ensureSourceSavedBeforeRun(file);
       if ("error" in saveFirst) {
-        cpLog(`Stress test: ${saveFirst.error}`);
+        stressLog.error(`rejected: ${saveFirst.error}`);
         void vscode.window.showErrorMessage(`CP Helper: ${saveFirst.error}`);
         return;
       }
@@ -275,11 +276,11 @@ export async function activate(
       runState.runLocked = true;
       runState.cancelRequested = false;
       getCpHelperOutputChannel()?.show(false);
-      cpLog(`Stress test: starting (${maxIterations} iterations, generator: ${generatorCmd})`);
+      stressLog.info(`requested: ${maxIterations} iteration(s), generator: ${generatorCmd}`);
       if (referenceCmd) {
-        cpLog(`Stress test: reference: ${referenceCmd}`);
+        stressLog.info(`reference: ${referenceCmd}`);
       } else {
-        cpLog("Stress test: no reference - only checking for RE / TLE");
+        stressLog.info("no reference configured, checking for RE / TLE only");
       }
 
       try {
@@ -291,7 +292,7 @@ export async function activate(
           defineLocal,
           (i, max) => {
             if (i === 1 || i % 25 === 0) {
-              cpLog(`Stress test: iteration ${i}/${max}`);
+              stressLog.info(`iteration ${i}/${max}`);
             }
           },
         );
@@ -303,7 +304,7 @@ export async function activate(
             );
             break;
           case "stopped":
-            cpLog(`Stress test: stopped after ${result.iterations} iterations`);
+            stressLog.warn(`stopped after ${result.iterations} iteration(s)`);
             break;
           case "compile_error":
             void vscode.window.showErrorMessage("CP Helper Stress: compile failed - check Output log.");
@@ -313,16 +314,16 @@ export async function activate(
             break;
           case "bug": {
             const fc = result.failedCase;
-            cpLog("Stress test: BUG FOUND");
+            stressLog.error("bug found");
             if (fc) {
-              cpLog(`  input (${Buffer.byteLength(fc.input, "utf8")} bytes):`);
+              stressLog.error(`failing input (${Buffer.byteLength(fc.input, "utf8")} bytes):`);
               for (const ln of fc.input.slice(0, 1000).split("\n")) {
-                cpLog(`    ${ln}`);
+                stressLog.detail(ln, "ERROR");
               }
               if (fc.expected) {
-                cpLog(`  expected: ${fc.expected.slice(0, 500)}`);
+                stressLog.detail(`expected: ${fc.expected.slice(0, 500)}`, "ERROR");
               }
-              cpLog(`  actual: ${fc.actual.slice(0, 500)}`);
+              stressLog.detail(`actual: ${fc.actual.slice(0, 500)}`, "ERROR");
             }
             const choice = await vscode.window.showWarningMessage(
               `CP Helper Stress: bug found at iteration ${result.iterations}! Add failing case to samples?`,

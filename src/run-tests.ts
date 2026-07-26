@@ -16,7 +16,7 @@ import {
   withLocalDefineExpanded,
   wrapForLoginShell,
 } from "./compile-expansion";
-import { cpLog, truncateForLog } from "./log";
+import { createCpLogger, truncateForLog } from "./log";
 import {
   coerceFloatAbsEpsilon,
   coerceFloatRelEpsilon,
@@ -30,6 +30,10 @@ import type {
   RunVerdict,
   TestCase,
 } from "./types";
+
+const compileLog = createCpLogger("compile");
+const runLog = createCpLogger("runner");
+const stressLog = createCpLogger("stress");
 
 interface CacheEntry {
   mtime: number;
@@ -98,6 +102,7 @@ export function createRunSession(
     checkerCmd,
     viaLogin,
     loginPrefix,
+    execLogged: false,
     exec,
   };
 }
@@ -134,7 +139,7 @@ async function compileOnce(
         if (size > 0) {
           s.outBin = entry.binPath;
           s.cleanupBin = null; // don't delete a cached binary
-          cpLog("compile: cache hit");
+          compileLog.info("cache skipped: binary is up to date");
           return { ok: true };
         }
       } catch {
@@ -158,10 +163,10 @@ async function compileOnce(
   const shown = s.viaLogin
     ? wrapForLoginShell(compile, s.loginPrefix)
     : compile;
-  cpLog(`compile: ${truncateForLog(shown, 400)}`);
+  compileLog.info(`exec: ${truncateForLog(shown, 400)}`);
   const c = await s.exec(compile, undefined);
   if (c.cancelled) {
-    cpLog("compile: stopped by user");
+    compileLog.warn("aborted: stopped by user");
     return {
       ok: false,
       verdict: "TLE",
@@ -169,7 +174,7 @@ async function compileOnce(
     };
   }
   if (c.timedOut) {
-    cpLog("compile: TLE");
+    compileLog.error("aborted: time limit exceeded");
     return {
       ok: false,
       verdict: "TLE",
@@ -178,7 +183,7 @@ async function compileOnce(
   }
   if (c.code !== 0) {
     const errText = c.stderr || c.stdout || `exit ${c.code}`;
-    cpLog(`compile failed (code ${c.code})`);
+    compileLog.error(`failed: exit code ${c.code}`);
     return {
       ok: false,
       verdict: "WA",
@@ -205,7 +210,7 @@ async function compileOnce(
     // stat failed after compile - leave cleanupBin as-is so the binary gets deleted
   }
 
-  cpLog("compile ok");
+  compileLog.info("ok");
   return { ok: true };
 }
 
@@ -222,14 +227,19 @@ async function runProgramForCase(
   const runShown = s.viaLogin
     ? wrapForLoginShell(runCmd, s.loginPrefix)
     : runCmd;
-  cpLog(`run: ${truncateForLog(runShown, 500)}`);
-  cpLog(`stdin: ${Buffer.byteLength(tc.input, "utf8")} bytes`);
+  if (!s.execLogged) {
+    runLog.info(`exec: ${truncateForLog(runShown, 500)}`);
+    s.execLogged = true;
+  }
+  const tag = `sample ${tc.sample}`;
 
   const runStart = Date.now();
   const r = await s.exec(runCmd, tc.input);
   const elapsedMs = Date.now() - runStart;
   if (r.cancelled) {
-    cpLog(`exit: ${r.code ?? "null"} (stopped by user)`);
+    runLog.warn(
+      `${tag}: aborted - stopped by user (exit=${r.code ?? "null"} time=${elapsedMs}ms)`,
+    );
     const stderrOut = truncateForLog(
       r.stderr.trim()
         ? `${r.stderr.trim()}\n\nStopped by user`
@@ -282,17 +292,19 @@ async function runProgramForCase(
         expTmp,
         actTmp,
       );
-      cpLog(`checker: ${truncateForLog(checkerExpanded, 400)}`);
+      runLog.info(`${tag}: checker ${truncateForLog(checkerExpanded, 400)}`);
       const cr = await s.exec(checkerExpanded, undefined);
       if (cr.code === 0 && !cr.timedOut && !cr.cancelled) {
         verdict = "AC";
         ok = true;
-        cpLog("checker: AC");
+        runLog.info(`${tag}: checker accepted`);
       } else {
-        cpLog(`checker: WA (exit ${cr.code ?? "null"})`);
+        runLog.warn(`${tag}: checker rejected (exit=${cr.code ?? "null"})`);
       }
     } catch (e) {
-      cpLog(`checker: error - ${e instanceof Error ? e.message : String(e)}`);
+      runLog.error(
+        `${tag}: checker error - ${e instanceof Error ? e.message : String(e)}`,
+      );
     } finally {
       await Promise.allSettled([
         fs.unlink(inTmp),
@@ -302,14 +314,26 @@ async function runProgramForCase(
     }
   }
 
-  cpLog(`exit: ${r.code ?? "null"}${r.timedOut ? " (killed, TLE)" : ""}`);
+  // One record per sample: fields on the summary line, dumps only when it fails.
+  const summary =
+    `${tag}: ${verdict} exit=${r.code ?? "null"} time=${elapsedMs}ms ` +
+    `in=${Buffer.byteLength(tc.input, "utf8")}B ` +
+    `out=${Buffer.byteLength(r.stdout, "utf8")}B` +
+    `${r.timedOut ? " killed=time-limit" : ""}`;
   if (ok) {
-    cpLog("result: AC");
+    runLog.info(summary);
   } else {
-    cpLog(`result: ${verdict}`);
-    cpLog(`expected (${Buffer.byteLength(exp, "utf8")} bytes, normalized):`);
+    runLog.warn(summary);
+    runLog.detail(
+      `expected (${Buffer.byteLength(exp, "utf8")}B, normalized):`,
+      "WARN",
+    );
     for (const ln of truncateForLog(exp, 2000).split("\n")) {
-      cpLog(`  exp| ${ln}`);
+      runLog.detail(`  exp| ${ln}`, "WARN");
+    }
+    runLog.detail(`actual (${Buffer.byteLength(got, "utf8")}B, normalized):`, "WARN");
+    for (const ln of truncateForLog(got, 2000).split("\n")) {
+      runLog.detail(`  got| ${ln}`, "WARN");
     }
   }
 
@@ -365,14 +389,14 @@ export async function runSingleTest(
 ): Promise<RunSampleResult> {
   const s = createRunSession(file, defineLocal);
   try {
-    cpLog(`-- sample ${tc.sample} --`);
-    cpLog(`source: ${s.file}`);
-    cpLog(`cwd: ${s.cwd}`);
+    runLog.info(`run one: sample ${tc.sample}`);
+    runLog.info(`source: ${s.file}`);
+    runLog.info(`cwd: ${s.cwd}`);
     if (s.viaLogin) {
-      cpLog(`login shell: ${s.loginPrefix}`);
+      runLog.info(`login shell: ${s.loginPrefix}`);
     }
     if (s.defineLocal && s.compileCmd.length > 0) {
-      cpLog("compile: -DLOCAL enabled");
+      compileLog.info("flag: -DLOCAL enabled");
     }
     const built = await compileOnce(s);
     if (!built.ok) {
@@ -403,14 +427,14 @@ export async function runAllTestsSharedCompile(
 ): Promise<void> {
   const s = createRunSession(file, defineLocal);
   try {
-    cpLog(`Run all: ${cases.length} test(s) -> ${file}`);
-    cpLog(`source: ${s.file}`);
-    cpLog(`cwd: ${s.cwd}`);
+    runLog.info(`run all: ${cases.length} test(s)`);
+    runLog.info(`source: ${s.file}`);
+    runLog.info(`cwd: ${s.cwd}`);
     if (s.viaLogin) {
-      cpLog(`login shell: ${s.loginPrefix}`);
+      runLog.info(`login shell: ${s.loginPrefix}`);
     }
     if (s.defineLocal && s.compileCmd.length > 0) {
-      cpLog("compile: -DLOCAL enabled");
+      compileLog.info("flag: -DLOCAL enabled");
     }
 
     const built = await compileOnce(s);
@@ -429,22 +453,26 @@ export async function runAllTestsSharedCompile(
     }
 
     if (s.compileCmd.length > 0) {
-      cpLog("Run all: using one shared binary for all samples");
+      runLog.info("run all: reusing one binary for every sample");
     }
 
+    let passed = 0;
+    let ran = 0;
+    const batchStart = Date.now();
     for (let i = 0; i < cases.length; i++) {
       if (runState.cancelRequested) {
-        cpLog("Run all: stopped by user (remaining samples skipped)");
+        runLog.warn("run all: stopped by user, remaining samples skipped");
         break;
       }
       onBeforeSample?.(i, cases.length);
-      cpLog(`-- sample ${cases[i].sample} --`);
+      ran++;
       try {
         const r = await runProgramForCase(s, cases[i]);
+        if (r.ok) passed++;
         onResult(i, r);
       } catch (e) {
         const err = e instanceof Error ? e.message : String(e);
-        cpLog(`Run all: sample ${cases[i]?.sample ?? i} threw: ${err}`);
+        runLog.error(`sample ${cases[i]?.sample ?? i} threw: ${err}`);
         onResult(i, {
           ok: false,
           verdict: "WA",
@@ -454,6 +482,13 @@ export async function runAllTestsSharedCompile(
           error: err,
         });
       }
+    }
+    const batchMs = Date.now() - batchStart;
+    const done = `run all: ${passed}/${ran} passed in ${batchMs}ms`;
+    if (passed === ran) {
+      runLog.info(done);
+    } else {
+      runLog.warn(done);
     }
   } finally {
     if (s.cleanupBin !== null) {
@@ -489,7 +524,7 @@ export async function runStressTest(
 ): Promise<StressTestResult> {
   const s = createRunSession(file, defineLocal);
   try {
-    cpLog(`Stress test: ${maxIterations} iterations -> ${file}`);
+    stressLog.info(`start: ${maxIterations} iteration(s)`);
     if (generatorCmd.length === 0) {
       return { status: "generator_error", iterations: 0 };
     }
@@ -497,14 +532,14 @@ export async function runStressTest(
     if (s.compileCmd.length > 0) {
       const built = await compileOnce(s);
       if (!built.ok) {
-        cpLog("Stress: compile failed");
+        stressLog.error("aborted: compile failed");
         return { status: "compile_error", iterations: 0 };
       }
     }
 
     for (let i = 1; i <= maxIterations; i++) {
       if (runState.cancelRequested) {
-        cpLog(`Stress: stopped by user at iteration ${i}`);
+        stressLog.warn(`stopped by user at iteration ${i}`);
         return { status: "stopped", iterations: i - 1 };
       }
 
@@ -512,7 +547,7 @@ export async function runStressTest(
 
       const genR = await s.exec(generatorCmd, undefined);
       if (genR.timedOut || genR.code !== 0) {
-        cpLog(`Stress: generator failed at iteration ${i} (exit ${genR.code ?? "null"})`);
+        stressLog.error(`generator failed at iteration ${i} (exit ${genR.code ?? "null"})`);
         return { status: "generator_error", iterations: i - 1 };
       }
       const input = genR.stdout;
@@ -521,7 +556,7 @@ export async function runStressTest(
       if (referenceCmd.length > 0) {
         const refR = await s.exec(referenceCmd, input);
         if (refR.code !== 0 || refR.timedOut) {
-          cpLog(`Stress: reference failed at iteration ${i} - skipping`);
+          stressLog.warn(`reference failed at iteration ${i}, skipping`);
           continue;
         }
         expected = normalizeOutput(refR.stdout, s.trim);
@@ -531,11 +566,11 @@ export async function runStressTest(
       const r = await s.exec(runCmd, input);
 
       if (r.timedOut) {
-        cpLog(`Stress: TLE at iteration ${i}`);
+        stressLog.error(`TLE at iteration ${i}`);
         return { status: "bug", iterations: i, failedCase: { input, expected, actual: r.stdout } };
       }
       if (r.code !== 0) {
-        cpLog(`Stress: RE at iteration ${i} (exit ${r.code ?? "null"})`);
+        stressLog.error(`RE at iteration ${i} (exit ${r.code ?? "null"})`);
         return { status: "bug", iterations: i, failedCase: { input, expected, actual: r.stdout } };
       }
 
@@ -545,17 +580,17 @@ export async function runStressTest(
           actual === expected ||
           outputsEqualFloatAware(actual, expected, s.floatAbsEpsilon, s.floatRelEpsilon);
         if (!match) {
-          cpLog(`Stress: WA at iteration ${i}`);
+          stressLog.error(`WA at iteration ${i}`);
           return { status: "bug", iterations: i, failedCase: { input, expected, actual: r.stdout } };
         }
       }
 
       if (i % 10 === 0) {
-        cpLog(`Stress: ${i} iterations passed`);
+        stressLog.info(`progress: ${i} iteration(s) passed`);
       }
     }
 
-    cpLog(`Stress: all ${maxIterations} iterations passed`);
+    stressLog.info(`done: all ${maxIterations} iteration(s) passed`);
     return { status: "passed", iterations: maxIterations };
   } finally {
     if (s.cleanupBin !== null) {
