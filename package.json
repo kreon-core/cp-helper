@@ -2,7 +2,7 @@
   "name": "cp-helper",
   "displayName": "CP Helper",
   "description": "Run competitive programming samples against your C++ solution in Visual Studio Code (official Microsoft build only).",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "publisher": "from-cero",
   "license": "MIT",
   "engines": {
@@ -12,6 +12,9 @@
     "Other"
   ],
   "repository": {},
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {

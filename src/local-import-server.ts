@@ -1,7 +1,9 @@
 import * as http from "http";
 import * as vscode from "vscode";
 import { LOCAL_IMPORT_MAX_BODY } from "./constants";
-import { cpLog } from "./log";
+import { createCpLogger } from "./log";
+
+const log = createCpLogger("server");
 
 /**
  * POST /import on 127.0.0.1 for OJ Sync (no vscode:// browser prompt).
@@ -19,7 +21,7 @@ export function startLocalImportHttpServer(
     }
     const cfg = vscode.workspace.getConfiguration("cp-helper");
     if (cfg.get<boolean>("enableLocalImportServer") === false) {
-      cpLog("Local import server: disabled (cp-helper.enableLocalImportServer).");
+      log.info("disabled by setting cp-helper.enableLocalImportServer");
       return;
     }
     const rawPort = cfg.get<number>("localImportPort");
@@ -97,17 +99,17 @@ export function startLocalImportHttpServer(
 
     server.on("error", (err: NodeJS.ErrnoException) => {
       if (err.code === "EADDRINUSE") {
-        cpLog(
-          `Local import server: port ${port} in use - pick another cp-helper.localImportPort or close the other window.`,
+        log.error(
+          `listen failed: port ${port} already in use - set another cp-helper.localImportPort or close the other window`,
         );
       } else {
-        cpLog(`Local import server: ${err.message}`);
+        log.error(`listen failed: ${err.message}`);
       }
     });
 
     server.listen(port, "127.0.0.1", () => {
-      cpLog(
-        `Local import server: POST http://127.0.0.1:${port}/import (OJ Sync)`,
+      log.info(
+        `listening on http://127.0.0.1:${port} - POST /import (OJ Sync)`,
       );
     });
     localImportHttpServer = server;

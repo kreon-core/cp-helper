@@ -6,9 +6,9 @@ It runs C++ code against imported sample cases and reports AC, WA, TLE, or RE.
 
 ## Release scope
 
-- Stable baseline: 1.0.4
+- Stable baseline: 1.0.5
 - Language support: C++ only
-- Companion browser extension: OJ Sync 1.0.4
+- Companion browser extension: OJ Sync 1.0.5
 
 ## Requirements
 
@@ -60,6 +60,38 @@ Default keybindings:
 | cp-helper.enableLocalImportServer | Enable localhost import server |
 | cp-helper.localImportPort | Local import port (default 17337) |
 | cp-helper.instantRunAllOnLocalImport | Auto-run after single-group local import |
+
+## Output log
+
+Open it with the command CP Helper: Show Output Log, or set cp-helper.showOutputOnRun to open it automatically on each run.
+
+Every record is one line: `YYYY-MM-DD HH:MM:SS.mmm LEVEL [scope] message`.
+
+```
+2026-07-26 08:49:30.423 INFO  [runner]  run all: 3 test(s)
+2026-07-26 08:49:30.424 INFO  [compile] exec: g++ -std=c++23 -o "/tmp/cp-helper-2f51fda8" "a.cpp"
+2026-07-26 08:49:30.435 INFO  [runner]  sample 1: AC exit=0 time=10ms in=8B out=4B
+2026-07-26 08:49:30.461 WARN  [runner]  sample 2: WA exit=0 time=13ms in=386B out=12B
+2026-07-26 08:49:30.461 WARN  [runner]      expected (5B, normalized):
+2026-07-26 08:49:30.461 WARN  [runner]        exp| 42
+2026-07-26 08:49:30.461 WARN  [runner]      actual (5B, normalized):
+2026-07-26 08:49:30.461 WARN  [runner]        got| 41
+2026-07-26 08:49:30.461 WARN  [runner]  run all: 1/2 passed in 37ms
+```
+
+Levels: DEBUG, INFO, WARN (recoverable or non-AC), ERROR (failed operation).
+
+| Scope | Emitted by |
+| --- | --- |
+| core | Activation and palette commands |
+| webview | Samples view messages (save, export, stop, run requests) |
+| compile | Compile command, compile cache, -DLOCAL flag |
+| runner | Run command, per-sample verdicts, checker, run-all summary |
+| stress | Stress-test iterations and failing case |
+| import | Sample import and starter-code clipboard copy |
+| server | Local import HTTP server |
+
+One sample produces one record. Expected/actual dumps appear as indented detail lines only when the sample does not pass.
 
 ## Import methods
 
