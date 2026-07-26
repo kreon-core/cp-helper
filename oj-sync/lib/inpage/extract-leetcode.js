@@ -423,6 +423,70 @@
   }
 
   /**
+   * Older problems (e.g. 493 Reverse Pairs) have no `span.example-io`; each example
+   * is a `<pre>` block whose text is `Input: ...` / `Output: ...` / `Explanation: ...`
+   * lines. Parse those blocks when the modern markup is absent.
+   * @param {string} editorCode
+   * @returns {{ id: string; text: string }[]}
+   */
+  function extractLeetcodePreExamples(editorCode) {
+    const desc =
+      document.querySelector('[data-track-load="description_content"]') ??
+      document.body;
+    /** @type {{ id: string; text: string }[]} */
+    const items = [];
+    let exNum = 0;
+    /** A line that starts a new labelled section inside the block. */
+    const labelRe = /^\s*(Input|Output|Explanation|Example)\s*\d*\s*:/iu;
+
+    for (const pre of desc.querySelectorAll("pre")) {
+      const raw = (pre.textContent ?? "")
+        .replace(/ /g, " ")
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n");
+      if (!labelRe.test(raw)) continue;
+      const lines = raw.split("\n");
+      /** @type {string[]} */
+      let inputLines = [];
+      /** @type {string[]} */
+      let outputLines = [];
+      /** @type {"input" | "output" | null} */
+      let section = null;
+      for (const line of lines) {
+        const m = labelRe.exec(line);
+        if (m) {
+          const label = m[1].toLowerCase();
+          const rest = line.slice(m[0].length).trim();
+          if (label === "input") {
+            section = "input";
+            inputLines = rest ? [rest] : [];
+          } else if (label === "output") {
+            section = "output";
+            outputLines = rest ? [rest] : [];
+          } else {
+            section = null;
+          }
+          continue;
+        }
+        if (section === "input") inputLines.push(line.trim());
+        else if (section === "output") outputLines.push(line.trim());
+      }
+      const inputText = inputLines.join("\n").trim();
+      const outputText = outputLines.join("\n").trim();
+      if (!inputText) continue;
+      exNum++;
+      items.push(
+        {
+          id: `lc-ex${exNum}-in`,
+          text: leetcodeInputLinesOrdered(inputText, editorCode),
+        },
+        { id: `lc-ex${exNum}-out`, text: outputText },
+      );
+    }
+    return items;
+  }
+
+  /**
    * @param {Element} el
    * @returns {string}
    */
@@ -564,6 +628,9 @@
     const rawStarter = extractLeetcodeStarterCode();
     copyTextToClipboardBestEffort(rawStarter);
     let items = extractLeetcodeDescriptionExamples(rawStarter);
+    if (items.length === 0) {
+      items = extractLeetcodePreExamples(rawStarter);
+    }
     if (items.length === 0) {
       items = extractLeetcodeConsoleCase(rawStarter);
     }
