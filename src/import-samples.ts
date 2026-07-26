@@ -5,8 +5,10 @@ import {
   appendLeetcodeCppDispatchMain,
   isLikelyCppSource,
 } from "./leetcode-cpp-clipboard";
-import { cpLog } from "./log";
+import { createCpLogger } from "./log";
 import type { CaseGroup, TestCase } from "./types";
+
+const log = createCpLogger("import");
 
 /** Thrown when trimmed import text has length 0 (clipboard, URI, or Load). */
 export const ERR_IMPORT_EMPTY = "Import is empty";
@@ -149,25 +151,25 @@ export async function importSamplesFromJsonText(
   await persistCaseGroups(ctx.workspaceState, groups);
   await ctx.workspaceState.update(WORKSPACE_KEY_IMPORT_PROBLEM, importProblem);
   const stored = loadCaseGroups(ctx.workspaceState);
-  cpLog(
-    `Loaded ${total} sample(s) in ${stored.length} group(s) from ${logSource}`,
+  log.info(
+    `loaded ${total} sample(s) in ${stored.length} group(s) from ${logSource}`,
   );
   provider.applyGroupsToWebview(stored, importProblem);
   if (starterCode !== null) {
     if (!isLikelyCppSource(starterCode)) {
-      cpLog(
-        "starterCode not copied: CP Helper supports C++ only (no C++-style starter detected).",
+      log.warn(
+        "starter code skipped: CP Helper supports C++ only (no C++-style starter detected)",
       );
     } else {
       try {
         const toPaste = appendLeetcodeCppDispatchMain(starterCode);
         await vscode.env.clipboard.writeText(toPaste);
-        cpLog(
-          "Copied C++ starter code to the clipboard (OJ Sync LeetCode import). Paste into your solution file.",
+        log.info(
+          "starter code copied to clipboard (LeetCode import) - paste it into your solution file",
         );
       } catch (e) {
-        cpLog(
-          `Could not copy starter code to the clipboard: ${e instanceof Error ? e.message : String(e)}`,
+        log.error(
+          `clipboard write failed: ${e instanceof Error ? e.message : String(e)}`,
         );
       }
     }

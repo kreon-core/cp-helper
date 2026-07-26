@@ -65,6 +65,8 @@ export interface RunSession {
   checkerCmd: string;
   viaLogin: boolean;
   loginPrefix: string;
+  /** Set once the run command has been logged, so a batch logs it a single time. */
+  execLogged: boolean;
   exec: (
     cmd: string,
     stdin: string | undefined,
