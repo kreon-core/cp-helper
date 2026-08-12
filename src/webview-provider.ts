@@ -1,6 +1,8 @@
 import * as vscode from "vscode";
 import {
   CONTEXT_SAMPLES_FOCUS,
+  RUN_TAKEOVER_POLL_MS,
+  RUN_TAKEOVER_TIMEOUT_MS,
   VIEW_TYPE_SAMPLES,
   WORKSPACE_KEY_DEFINE_LOCAL,
   WORKSPACE_KEY_IMPORT_PROBLEM,
@@ -48,10 +50,47 @@ export class CpHelperViewProvider
 
   private webviewView: vscode.WebviewView | undefined;
 
+  /**
+   * Bumped by every Run click. A run whose token is stale has been superseded and must stay
+   * silent: its late `runResult` / `runState(false)` / `runAllDone` messages would otherwise
+   * clobber the UI of the run that replaced it.
+   */
+  private runSeq = 0;
+
   constructor(
     private readonly extUri: vscode.Uri,
     private readonly ctx: vscode.ExtensionContext,
   ) {}
+
+  /**
+   * Stop the in-flight run, if any, so a new Run click can take over.
+   * Waits for the previous handler to release the run lock, which happens after its `finally`
+   * has run - so the superseded run cannot interleave with the new one.
+   * @returns false if the previous run did not release the lock in time (new run should abort)
+   */
+  private async stopActiveRunForTakeover(): Promise<boolean> {
+    if (!runState.runLocked) {
+      return true;
+    }
+    runState.cancelRequested = true;
+    const killed = killActiveShell();
+    log.info(
+      killed
+        ? "run restarted: previous subprocess tree killed"
+        : "run restarted: waiting for previous run to finish",
+    );
+    const deadline = Date.now() + RUN_TAKEOVER_TIMEOUT_MS;
+    while (runState.runLocked) {
+      if (Date.now() > deadline) {
+        log.error(
+          "run restart failed: previous run did not stop in time - try Stop, then Run",
+        );
+        return false;
+      }
+      await new Promise((r) => setTimeout(r, RUN_TAKEOVER_POLL_MS));
+    }
+    return true;
+  }
 
   /**
    * Reveal the Samples webview and move keyboard focus into it (for shortcuts).
@@ -407,11 +446,18 @@ export class CpHelperViewProvider
           break;
         }
         case "runOne": {
-          if (runState.runLocked) {
+          const runToken = ++this.runSeq;
+          const isCurrentRun = (): boolean => this.runSeq === runToken;
+          const tookOver = await this.stopActiveRunForTakeover();
+          if (!isCurrentRun()) {
             break;
           }
           const groupIndex =
             typeof msg.groupIndex === "number" ? msg.groupIndex : 0;
+          if (!tookOver) {
+            postRunState(false);
+            break;
+          }
           const resolved = getActiveSourceFilePath();
           if ("error" in resolved) {
             maybeShowOutputOnRun();
@@ -428,6 +474,9 @@ export class CpHelperViewProvider
           }
           const file = resolved.file;
           const saveFirst = await ensureSourceSavedBeforeRun(file);
+          if (!isCurrentRun()) {
+            break;
+          }
           if ("error" in saveFirst) {
             maybeShowOutputOnRun();
             log.error(`run one rejected: ${saveFirst.error}`);
@@ -458,35 +507,51 @@ export class CpHelperViewProvider
               this.ctx.workspaceState.get<boolean>(WORKSPACE_KEY_DEFINE_LOCAL) ===
                 true,
             );
-            webviewView.webview.postMessage({
-              type: "runResult",
-              groupIndex,
-              index: msg.index,
-              ...r,
-            });
+            if (isCurrentRun()) {
+              webviewView.webview.postMessage({
+                type: "runResult",
+                groupIndex,
+                index: msg.index,
+                ...r,
+              });
+            }
           } catch (e) {
             const err = e instanceof Error ? e.message : String(e);
             log.error(`run one failed: ${err}`);
-            webviewView.webview.postMessage({
-              type: "runResult",
-              groupIndex,
-              index: msg.index,
-              verdict: "WA",
-              error: err,
-            });
+            if (isCurrentRun()) {
+              webviewView.webview.postMessage({
+                type: "runResult",
+                groupIndex,
+                index: msg.index,
+                verdict: "WA",
+                error: err,
+              });
+            }
           } finally {
-            postRunState(false);
+            // A superseded run stays silent: the run that replaced it owns the UI now.
+            if (isCurrentRun()) {
+              postRunState(false);
+            }
             runState.runLocked = false;
-            postActiveSourceHint(webviewView.webview);
+            if (isCurrentRun()) {
+              postActiveSourceHint(webviewView.webview);
+            }
           }
           break;
         }
         case "runAll": {
-          if (runState.runLocked) {
+          const runToken = ++this.runSeq;
+          const isCurrentRun = (): boolean => this.runSeq === runToken;
+          const tookOver = await this.stopActiveRunForTakeover();
+          if (!isCurrentRun()) {
             break;
           }
           const groupIndex =
             typeof msg.groupIndex === "number" ? msg.groupIndex : 0;
+          if (!tookOver) {
+            postRunState(false);
+            break;
+          }
           const resolvedAll = getActiveSourceFilePath();
           if ("error" in resolvedAll) {
             maybeShowOutputOnRun();
@@ -501,6 +566,9 @@ export class CpHelperViewProvider
           }
           const file = resolvedAll.file;
           const saveAllFirst = await ensureSourceSavedBeforeRun(file);
+          if (!isCurrentRun()) {
+            break;
+          }
           if ("error" in saveAllFirst) {
             maybeShowOutputOnRun();
             log.error(`run all rejected: ${saveAllFirst.error}`);
@@ -530,6 +598,9 @@ export class CpHelperViewProvider
               file,
               cases,
               (i, r) => {
+                if (!isCurrentRun()) {
+                  return;
+                }
                 webviewView.webview.postMessage({
                   type: "runResult",
                   groupIndex,
@@ -538,6 +609,9 @@ export class CpHelperViewProvider
                 });
               },
               (i, total) => {
+                if (!isCurrentRun()) {
+                  return;
+                }
                 postRunState(true, {
                   mode: "all",
                   groupIndex,
@@ -552,7 +626,7 @@ export class CpHelperViewProvider
           } catch (e) {
             const err = e instanceof Error ? e.message : String(e);
             log.error(`run all failed: ${err}`);
-            for (let i = 0; i < cases.length; i++) {
+            for (let i = 0; i < cases.length && isCurrentRun(); i++) {
               webviewView.webview.postMessage({
                 type: "runResult",
                 groupIndex,
@@ -566,10 +640,19 @@ export class CpHelperViewProvider
               });
             }
           } finally {
-            postRunState(false);
+            // A superseded run stays silent: the run that replaced it owns the UI now.
+            const current = isCurrentRun();
+            if (current) {
+              postRunState(false);
+            }
             runState.runLocked = false;
-            webviewView.webview.postMessage({ type: "runAllDone", groupIndex });
-            postActiveSourceHint(webviewView.webview);
+            if (current) {
+              webviewView.webview.postMessage({
+                type: "runAllDone",
+                groupIndex,
+              });
+              postActiveSourceHint(webviewView.webview);
+            }
           }
           break;
         }
