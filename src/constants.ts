@@ -50,6 +50,13 @@ export const DEFAULT_FLOAT_REL_EPSILON = 0;
 
 export const RUNNER_LABEL_MAX = 64;
 
+/**
+ * Run takes over from the run already in flight: how long to wait for the previous handler
+ * to release the run lock after its subprocess tree is killed, and the poll step.
+ */
+export const RUN_TAKEOVER_TIMEOUT_MS = 5000;
+export const RUN_TAKEOVER_POLL_MS = 10;
+
 /** POST /import body limit (local HTTP server). */
 export const LOCAL_IMPORT_MAX_BODY = 32 * 1024 * 1024;
 

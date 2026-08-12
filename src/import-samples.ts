@@ -1,6 +1,10 @@
 import * as vscode from "vscode";
 import { WORKSPACE_KEY_IMPORT_PROBLEM } from "./constants";
-import { loadCaseGroups, persistCaseGroups } from "./case-groups";
+import {
+  loadCaseGroups,
+  persistCaseGroups,
+  persistCaseGroupsToFile,
+} from "./case-groups";
 import {
   appendLeetcodeCppDispatchMain,
   isLikelyCppSource,
@@ -151,6 +155,19 @@ export async function importSamplesFromJsonText(
   await persistCaseGroups(ctx.workspaceState, groups);
   await ctx.workspaceState.update(WORKSPACE_KEY_IMPORT_PROBLEM, importProblem);
   const stored = loadCaseGroups(ctx.workspaceState);
+  // The cases file wins over workspace state on `restore` (see loadCaseGroupsFromFile), and a
+  // cold webview answers the reveal below with `restore`. Write it here - awaited, before the
+  // view is revealed - or the previous problem's file replies to this import.
+  const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri;
+  if (wsFolder) {
+    try {
+      await persistCaseGroupsToFile(stored, wsFolder);
+    } catch (e) {
+      log.warn(
+        `cases file not written: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
   log.info(
     `loaded ${total} sample(s) in ${stored.length} group(s) from ${logSource}`,
   );

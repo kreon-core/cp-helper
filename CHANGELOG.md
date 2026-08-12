@@ -4,6 +4,14 @@ All notable changes to CP Helper are documented in this file.
 
 Versioning from 1.0.0 follows SemVer: MAJOR.MINOR.PATCH.
 
+## [1.0.6] - 2026-08-12
+
+### Fixed
+- OJ Sync imports no longer show the previously imported problem when the Samples view was not opened since the window started. The import path now writes `.vscode/.cp-helper-cases.json` as well as workspace state, so the cold webview's `restore` no longer answers with the last problem's cases file.
+
+### Changed
+- Run buttons (toolbar, per problem, per sample, and the palette shortcuts) stay enabled during a run and now restart: clicking one kills the running compile/program and starts the new run. The superseded run's results are discarded so they cannot repaint the UI of the run that replaced it. Stop still cancels without starting anything.
+
 ## [1.0.5] - 2026-07-26
 
 ### Changed

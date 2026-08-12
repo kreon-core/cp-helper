@@ -506,7 +506,8 @@
     const tc = totalCaseCount();
     btnRunAll.hidden = multi;
     runAllPassedSummaryEl.hidden = multi || busy;
-    btnRunAll.disabled = tc === 0 || busy;
+    // Run stays clickable while busy: a click restarts, replacing the run in flight.
+    btnRunAll.disabled = tc === 0;
     btnLoad.disabled = busy;
     btnClear.disabled = busy;
     btnExport.disabled = busy || totalCaseCount() === 0;
@@ -651,7 +652,7 @@
       }
       const runAllBtn = wrap.querySelector(".case-group__run-all");
       if (runAllBtn) {
-        runAllBtn.disabled = busy || group.cases.length === 0;
+        runAllBtn.disabled = group.cases.length === 0;
       }
       const clearBtn = wrap.querySelector(".case-group__clear");
       if (clearBtn) {
@@ -863,10 +864,10 @@
         btnRunG.title = "Run all cases in this group";
         btnRunG.setAttribute("aria-label", `Run all cases in ${(group.label ?? "").trim() || `group ${gi + 1}`}`);
         btnRunG.appendChild(mkIcon("runAll"));
-        btnRunG.disabled = busy || group.cases.length === 0;
+        btnRunG.disabled = group.cases.length === 0;
         btnRunG.addEventListener("click", () => {
           hideErr();
-          if (busy || group.cases.length === 0) return;
+          if (group.cases.length === 0) return;
           purgeLastRunForGroup(gi);
           runState = { active: true, mode: "all", phase: "compile", groupIndex: gi, index: null, total: group.cases.length };
           if (incrementalDomReady()) {
@@ -971,7 +972,7 @@
         runOne.title = `Run sample ${c.sample}`;
         runOne.setAttribute("aria-label", `Run sample ${c.sample}`);
         runOne.appendChild(mkIcon("play"));
-        runOne.disabled = busy;
+        runOne.disabled = false;
         runOne.addEventListener("click", () => {
           delete lastRun[rk(gi, index)];
           runState = { active: true, mode: "one", phase: "run", groupIndex: gi, index, total: 1 };
@@ -1267,11 +1268,11 @@
   }
 
   /**
-   * Run all samples in the first problem group (flat or multi-header). No-op if busy or group 0 empty.
+   * Run all samples in the first problem group (flat or multi-header). No-op if group 0 is empty;
+   * while a run is in flight this restarts, replacing it.
    */
   function triggerRunAll() {
     hideErr();
-    if (runState.active) return;
     ensureDefaultGroup();
     const g0 = groups[0];
     if (!g0 || g0.cases.length === 0) return;
@@ -1290,13 +1291,14 @@
   }
 
   /**
-   * Run first row of first problem group (sample index 0). No-op if busy or no cases in group 0.
+   * Run first row of first problem group (sample index 0). No-op if group 0 has no cases;
+   * while a run is in flight this restarts, replacing it.
    */
   function triggerRunFirst() {
     hideErr();
     ensureDefaultGroup();
     const g0 = groups[0];
-    if (!g0 || g0.cases.length === 0 || runState.active) return;
+    if (!g0 || g0.cases.length === 0) return;
     runState = { active: true, mode: "one", phase: "run", groupIndex: 0, index: 0, total: 1 };
     if (incrementalDomReady()) {
       refreshIncrementalRunUi();
