@@ -24,6 +24,13 @@
     total: null,
   };
 
+  /**
+   * Groups whose case indices changed while a run was in flight. The host keys results by the
+   * index it captured at run start, so those are dropped until the next run for that group.
+   * @type {Set<number>}
+   */
+  const staleResultGroups = new Set();
+
   /** Workspace: add `-DLOCAL` after the compiler in `compileCommand` when true. */
   let defineLocal = false;
 
@@ -1015,6 +1022,18 @@
         remove.appendChild(mkIcon("close"));
         remove.disabled = false;
         remove.addEventListener("click", () => {
+          if (runState.active && runState.groupIndex === gi) {
+            vscode.postMessage({ type: "stopRun" });
+            staleResultGroups.add(gi);
+            runState = {
+              active: false,
+              mode: null,
+              phase: null,
+              groupIndex: null,
+              index: null,
+              total: null,
+            };
+          }
           group.cases.splice(index, 1);
           reindexLastRunAfterCaseRemove(gi, index);
           delete lastRunAllSummaryByGroup[gi];
@@ -1354,6 +1373,7 @@
         const giClear =
           typeof m.groupIndex === "number" ? m.groupIndex : 0;
         delete lastRunAllSummaryByGroup[giClear];
+        staleResultGroups.delete(giClear);
       }
       runState = {
         active: !!m.running,
@@ -1422,6 +1442,9 @@
     }
     if (m.type === "runResult") {
       const gi = typeof m.groupIndex === "number" ? m.groupIndex : 0;
+      if (staleResultGroups.has(gi)) {
+        return;
+      }
       const i = m.index;
       const key = rk(gi, i);
       const disp = streamDisplay;
@@ -1497,6 +1520,9 @@
     if (m.type === "runAllDone") {
       if (m.error) showErr(m.error);
       const gi = typeof m.groupIndex === "number" ? m.groupIndex : 0;
+      if (staleResultGroups.has(gi)) {
+        return;
+      }
       const gr = groups[gi];
       let passed = 0;
       const n = gr?.cases.length ?? 0;
