@@ -80,7 +80,6 @@ async function compileForDebug(
           "No debug build configured. Set cp-helper.debugCompileCommand, or add a launch.json configuration and point cp-helper.debugConfigName at it.",
       };
     }
-    // Debug info is what makes breakpoints and line numbers work; -O0 keeps locals readable.
     const m = /^(\S+)(.*)/su.exec(base);
     tpl = m ? `${m[1]} -g -O0${m[2]}` : `${base} -g -O0`;
   }
