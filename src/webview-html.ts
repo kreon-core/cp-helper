@@ -61,7 +61,7 @@ export function buildSamplesWebviewHtml(
           title=""
         ></span>
         <button id="btnClear" type="button" class="btn-secondary btn-icon" title="Remove all samples from the list" aria-label="Clear"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 2h6M2 5h12M4 5l1 8h6l1-8"/></svg></button>
-        <button id="btnExport" type="button" class="btn-secondary btn-icon" title="Write all cases to testcases/sample_N.{in,out}" aria-label="Export"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 11V2M4 6l4-4 4 4M2 14h12"/></svg></button>
+        <button id="btnExport" type="button" class="btn-secondary btn-icon" title="Write all cases to testcases/sample_N.{in,out}.txt (replaces existing sample files)" aria-label="Export"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 11V2M4 6l4-4 4 4M2 14h12"/></svg></button>
         <span id="run-status" class="run-status" hidden>
           <span class="run-status-spinner" aria-hidden="true"></span>
           <span id="run-status-label" class="run-status-label"></span>

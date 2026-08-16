@@ -15,6 +15,7 @@ import {
 } from "./constants";
 import { importFromClipboardAndReveal } from "./clipboard-import";
 import { loadCaseGroups, loadCaseGroupsFromFile } from "./case-groups";
+import { exportCasesToTestcasesDir } from "./export-cases";
 import { importSamplesFromJsonText } from "./import-samples";
 import { startLocalImportHttpServer } from "./local-import-server";
 import {
@@ -205,24 +206,8 @@ export async function activate(
         void vscode.window.showInformationMessage("CP Helper: No test cases to export.");
         return;
       }
-      const testcasesDir = vscode.Uri.joinPath(wsFolder, "testcases");
       try {
-        try {
-          await vscode.workspace.fs.stat(testcasesDir);
-        } catch {
-          await vscode.workspace.fs.createDirectory(testcasesDir);
-        }
-        for (const tc of cases) {
-          const n = tc.sample > 0 ? tc.sample : cases.indexOf(tc) + 1;
-          await vscode.workspace.fs.writeFile(
-            vscode.Uri.joinPath(testcasesDir, `sample_${n}.in`),
-            Buffer.from(tc.input, "utf8"),
-          );
-          await vscode.workspace.fs.writeFile(
-            vscode.Uri.joinPath(testcasesDir, `sample_${n}.out`),
-            Buffer.from(tc.output, "utf8"),
-          );
-        }
+        await exportCasesToTestcasesDir(wsFolder, cases);
         log.info(`exported ${cases.length} case(s) to testcases/`);
         void vscode.window.showInformationMessage(
           `CP Helper: Exported ${cases.length} case(s) to testcases/`,
