@@ -39,6 +39,9 @@ export const MAX_STDERR_CHARS_WEBVIEW = 4_096;
 /** Compile error text sent to the webview (often shorter than full compiler spew). */
 export const MAX_COMPILE_STDERR_WEBVIEW = 8_192;
 
+/** Fallback for `debugConfigName` (keep in sync with package.json default). */
+export const DEFAULT_DEBUG_CONFIG_NAME = "LLDB Debug";
+
 /** Fallback when `runTimeoutMs` is missing or invalid (keep in sync with package.json default). */
 export const DEFAULT_RUN_TIMEOUT_MS = 5000;
 

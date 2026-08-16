@@ -100,6 +100,16 @@
           "default": "g++ -std=c++23 -o \"{{out}}\" \"{{file}}\"",
           "description": "C++ compile line; empty skips compile (use only if you pre-build the binary that runCommand runs). Placeholders: {{file}}, {{dir}} (source dir), {{out}} (temp binary)."
         },
+        "cp-helper.debugConfigName": {
+          "type": "string",
+          "default": "LLDB Debug",
+          "description": "Name of the launch.json configuration the per-testcase Debug button starts; the sample's input is injected as the debuggee's stdin. Its preLaunchTask does the build. When no configuration matches, an inline CodeLLDB config is used with debugCompileCommand."
+        },
+        "cp-helper.debugCompileCommand": {
+          "type": "string",
+          "default": "",
+          "description": "Compile line for the inline CodeLLDB fallback, used only when debugConfigName matches no launch.json configuration. Empty derives it from compileCommand by adding -g -O0. Placeholders: {{file}}, {{dir}}, {{out}}."
+        },
         "cp-helper.runCommand": {
           "type": "string",
           "default": "\"{{out}}\"",
