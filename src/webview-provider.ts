@@ -14,6 +14,7 @@ import {
   persistCaseGroups,
   persistCaseGroupsToFile,
 } from "./case-groups";
+import { startDebugCase } from "./debug-case";
 import { createCpLogger, maybeShowOutputOnRun } from "./log";
 import {
   importSamplesFromJsonText,
@@ -536,6 +537,38 @@ export class CpHelperViewProvider
             if (isCurrentRun()) {
               postActiveSourceHint(webviewView.webview);
             }
+          }
+          break;
+        }
+        case "debugOne": {
+          const dbgCase = validateTestCase(msg.case);
+          log.info(`debug requested: sample ${dbgCase.sample}`);
+          const resolvedDbg = getActiveSourceFilePath();
+          if ("error" in resolvedDbg) {
+            log.error(`debug rejected: ${resolvedDbg.error}`);
+            void vscode.window.showErrorMessage(
+              `CP Helper: ${resolvedDbg.error}`,
+            );
+            break;
+          }
+          const dbgFile = resolvedDbg.file;
+          const savedDbg = await ensureSourceSavedBeforeRun(dbgFile);
+          if ("error" in savedDbg) {
+            log.error(`debug rejected: ${savedDbg.error}`);
+            void vscode.window.showErrorMessage(`CP Helper: ${savedDbg.error}`);
+            break;
+          }
+          const started = await startDebugCase(
+            this.ctx,
+            dbgFile,
+            dbgCase,
+            this.ctx.workspaceState.get<boolean>(WORKSPACE_KEY_DEFINE_LOCAL) ===
+              true,
+          );
+          if ("error" in started) {
+            maybeShowOutputOnRun();
+            log.error(`debug failed: ${started.error}`);
+            void vscode.window.showErrorMessage(`CP Helper: ${started.error}`);
           }
           break;
         }
