@@ -44,6 +44,7 @@
     download: { d: "M8 2v8M4 7l4 4 4-4M2 14h12", stroke: true },
     export:   { d: "M8 11V2M4 6l4-4 4 4M2 14h12", stroke: true },
     copy:     { d: "M6 2H14V12H6ZM2 6H10V14H2Z", stroke: true },
+    debug:    { d: "M6 4a2 2 0 014 0M5 6h6v4a3 3 0 01-6 0zM2 7h3M11 7h3M2.5 11h2.6M10.9 11h2.6M4 4l1.3 1.3M12 4l-1.3 1.3", stroke: true },
   };
   function mkIcon(type) {
     const svg = document.createElementNS(_NS, "svg");
@@ -989,13 +990,30 @@
           });
         });
 
+        const debugOne = document.createElement("button");
+        debugOne.type = "button";
+        debugOne.className = "btn-secondary btn-icon";
+        debugOne.title = `Debug sample ${c.sample} (input piped to stdin)`;
+        debugOne.setAttribute("aria-label", `Debug sample ${c.sample}`);
+        debugOne.appendChild(mkIcon("debug"));
+        debugOne.disabled = false;
+        debugOne.addEventListener("click", () => {
+          hideErr();
+          vscode.postMessage({
+            type: "debugOne",
+            groupIndex: gi,
+            index,
+            case: group.cases[index],
+          });
+        });
+
         const remove = document.createElement("button");
         remove.type = "button";
         remove.className = "btn-secondary btn-icon";
         remove.title = "Remove this testcase";
         remove.setAttribute("aria-label", "Remove this testcase");
         remove.appendChild(mkIcon("close"));
-        remove.disabled = busy;
+        remove.disabled = false;
         remove.addEventListener("click", () => {
           group.cases.splice(index, 1);
           reindexLastRunAfterCaseRemove(gi, index);
@@ -1005,6 +1023,7 @@
         });
 
         actions.appendChild(runOne);
+        actions.appendChild(debugOne);
         actions.appendChild(remove);
 
         head.appendChild(tEl);
