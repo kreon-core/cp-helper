@@ -15,6 +15,7 @@ import {
   persistCaseGroupsToFile,
 } from "./case-groups";
 import { startDebugCase } from "./debug-case";
+import { exportCasesToTestcasesDir } from "./export-cases";
 import { createCpLogger, maybeShowOutputOnRun } from "./log";
 import {
   importSamplesFromJsonText,
@@ -400,24 +401,8 @@ export class CpHelperViewProvider
             });
             break;
           }
-          const testcasesDir = vscode.Uri.joinPath(wsForExport, "testcases");
           try {
-            try {
-              await vscode.workspace.fs.stat(testcasesDir);
-            } catch {
-              await vscode.workspace.fs.createDirectory(testcasesDir);
-            }
-            for (const tc of exportCaseList) {
-              const n = tc.sample > 0 ? tc.sample : exportCaseList.indexOf(tc) + 1;
-              await vscode.workspace.fs.writeFile(
-                vscode.Uri.joinPath(testcasesDir, `sample_${n}.in`),
-                Buffer.from(tc.input, "utf8"),
-              );
-              await vscode.workspace.fs.writeFile(
-                vscode.Uri.joinPath(testcasesDir, `sample_${n}.out`),
-                Buffer.from(tc.output, "utf8"),
-              );
-            }
+            await exportCasesToTestcasesDir(wsForExport, exportCaseList);
             log.info(`exported ${exportCaseList.length} case(s) to testcases/`);
             webviewView.webview.postMessage({
               type: "exportDone",
