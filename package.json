@@ -22,7 +22,7 @@
         {
           "id": "cp-helper",
           "title": "CP Helper",
-          "icon": "public/icon.svg"
+          "icon": "$(play)"
         }
       ]
     },
@@ -32,7 +32,7 @@
           "type": "webview",
           "id": "cp-helper.webview",
           "name": "Samples",
-          "icon": "public/icon.svg"
+          "icon": "$(play)"
         }
       ]
     },
