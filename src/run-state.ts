@@ -13,7 +13,8 @@ import type { ActiveShellHandle, ShellRunOutcome } from "./types";
  * Mutable run lifecycle (compile/run subprocess, Stop, Run-all cancel, overlap guard).
  */
 export const runState = {
-  activeShell: null as ActiveShellHandle | null,
+  /** Every live compile/run child: Run all executes samples concurrently. */
+  activeShells: new Set<ActiveShellHandle>(),
   cancelRequested: false,
   runLocked: false,
 };
@@ -59,7 +60,7 @@ function listUnixPidTreePostOrder(rootPid: number): number[] {
  * With `shell: true`, Node's child is usually `sh`/`bash` - killing only that pid can leave the
  * real binary running. Kill descendants first (`pgrep -P`), then the shell; Windows uses `taskkill /T`.
  * Do not use `detached: true` here: it can let the shell close before the program exits, clearing
- * `activeShell` while the program is still running (Stop then reports no subprocess).
+ * `activeShells` while the program is still running (Stop then reports no subprocess).
  * @param child direct child from spawn(..., { shell: true })
  */
 export function forceKillShellChild(child: ChildProcess): void {
@@ -95,16 +96,17 @@ export function forceKillShellChild(child: ChildProcess): void {
 }
 
 /**
- * SIGKILL the active compile/run subprocess tree, if any.
+ * SIGKILL every active compile/run subprocess tree.
  * @returns false only when there is no tracked shell child
  */
 export function killActiveShell(): boolean {
-  const h = runState.activeShell;
-  if (!h) {
+  if (runState.activeShells.size === 0) {
     return false;
   }
-  h.markUserKill();
-  forceKillShellChild(h.child);
+  for (const h of [...runState.activeShells]) {
+    h.markUserKill();
+    forceKillShellChild(h.child);
+  }
   return true;
 }
 
@@ -135,7 +137,8 @@ export function runShell(
         endReason = "user";
       }
     };
-    runState.activeShell = { child, markUserKill };
+    const handle: ActiveShellHandle = { child, markUserKill };
+    runState.activeShells.add(handle);
 
     let stdout = "";
     let stdoutBytes = 0;
@@ -166,9 +169,7 @@ export function runShell(
       }
       settled = true;
       clearTimeout(timer);
-      if (runState.activeShell?.child === child) {
-        runState.activeShell = null;
-      }
+      runState.activeShells.delete(handle);
       resolve({
         stdout,
         stderr,
@@ -187,9 +188,7 @@ export function runShell(
       }
       settled = true;
       clearTimeout(timer);
-      if (runState.activeShell?.child === child) {
-        runState.activeShell = null;
-      }
+      runState.activeShells.delete(handle);
       resolve({
         stdout,
         stderr: String(err),

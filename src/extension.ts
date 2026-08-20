@@ -23,6 +23,11 @@ import {
   getCpHelperOutputChannel,
   setCpHelperOutputChannel,
 } from "./log";
+import {
+  ensureCacheDir,
+  pruneBinaryCache,
+  setBinaryCacheDir,
+} from "./compile-cache";
 import { runState } from "./run-state";
 import { runStressTest } from "./run-tests";
 import { getActiveSourceFilePath, ensureSourceSavedBeforeRun } from "./source-hints";
@@ -45,6 +50,9 @@ export async function activate(
     false,
   );
   log.info(`CP Helper activated (${context.extension.packageJSON.version ?? "dev"})`);
+
+  setBinaryCacheDir(path.join(context.globalStorageUri.fsPath, "bin"));
+  void ensureCacheDir().then(() => pruneBinaryCache());
 
   const provider = new CpHelperViewProvider(context.extensionUri, context);
   context.subscriptions.push(
@@ -165,13 +173,13 @@ export async function activate(
   context.subscriptions.push(
     vscode.commands.registerCommand(CMD_SELECT_COMPILE_PRESET, async () => {
       const presets = [
-        { label: "g++ C++23 -O2 (recommended)", description: "g++ -std=c++23 -O2 -o \"{{out}}\" \"{{file}}\"" },
-        { label: "g++ C++23", description: "g++ -std=c++23 -o \"{{out}}\" \"{{file}}\"" },
-        { label: "g++ C++20 -O2", description: "g++ -std=c++20 -O2 -o \"{{out}}\" \"{{file}}\"" },
-        { label: "g++ C++20", description: "g++ -std=c++20 -o \"{{out}}\" \"{{file}}\"" },
-        { label: "g++ C++17 -O2", description: "g++ -std=c++17 -O2 -o \"{{out}}\" \"{{file}}\"" },
-        { label: "g++ C++17", description: "g++ -std=c++17 -o \"{{out}}\" \"{{file}}\"" },
-        { label: "clang++ C++23 -O2", description: "clang++ -std=c++23 -O2 -o \"{{out}}\" \"{{file}}\"" },
+        { label: "g++ C++23 -O2 (recommended)", description: "g++ -std=c++23 -O2 -pipe -o \"{{out}}\" \"{{file}}\"" },
+        { label: "g++ C++23 fast compile", description: "g++ -std=c++23 -O0 -pipe -o \"{{out}}\" \"{{file}}\"" },
+        { label: "g++ C++23 + sanitizers", description: "g++ -std=c++23 -O1 -pipe -g -fsanitize=address,undefined -fno-omit-frame-pointer -o \"{{out}}\" \"{{file}}\"" },
+        { label: "g++ C++23 + debug asserts", description: "g++ -std=c++23 -O0 -pipe -g -D_GLIBCXX_DEBUG -D_GLIBCXX_ASSERTIONS -o \"{{out}}\" \"{{file}}\"" },
+        { label: "g++ C++20 -O2", description: "g++ -std=c++20 -O2 -pipe -o \"{{out}}\" \"{{file}}\"" },
+        { label: "g++ C++17 -O2", description: "g++ -std=c++17 -O2 -pipe -o \"{{out}}\" \"{{file}}\"" },
+        { label: "clang++ C++23 -O2", description: "clang++ -std=c++23 -O2 -pipe -o \"{{out}}\" \"{{file}}\"" },
       ];
       const picked = await vscode.window.showQuickPick(presets, {
         title: "CP Helper: Select Compile Preset",

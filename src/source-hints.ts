@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { WORKSPACE_KEY_DEFINE_LOCAL } from "./constants";
+import { CPP_EXTENSIONS_HINT, WORKSPACE_KEY_DEFINE_LOCAL } from "./constants";
+import { isCppSourcePath } from "./cpp-source";
 import { postRunnerLabel } from "./runner-label";
 
 function sameFsPath(a: string, b: string): boolean {
@@ -45,10 +46,23 @@ export function getActiveSourceFilePath():
   | { error: string } {
   const ed = vscode.window.activeTextEditor;
   const u = ed?.document.uri;
-  if (u?.scheme === "file" && u.fsPath) {
-    return { file: u.fsPath };
+  if (u?.scheme !== "file" || !u.fsPath) {
+    return { error: "No active editor with a file path." };
   }
-  return { error: "No active editor with a file path." };
+  if (!isCppSourcePath(u.fsPath)) {
+    return {
+      error: `CP Helper runs C++ only. Open a ${CPP_EXTENSIONS_HINT} file and run again.`,
+    };
+  }
+  return { file: u.fsPath };
+}
+
+/**
+ * Active editor path regardless of language, so the webview can name the file it is refusing.
+ */
+function activeEditorPath(): string | null {
+  const u = vscode.window.activeTextEditor?.document.uri;
+  return u?.scheme === "file" && u.fsPath ? u.fsPath : null;
 }
 
 /**
@@ -56,14 +70,15 @@ export function getActiveSourceFilePath():
  * @param webview
  */
 export function postActiveSourceHint(webview: vscode.Webview): void {
-  const r = getActiveSourceFilePath();
-  const p = "error" in r ? null : r.file;
+  const p = activeEditorPath();
+  const cpp = p !== null && isCppSourcePath(p);
   webview.postMessage({
     type: "sourceFile",
     path: p,
     running: false,
+    cpp,
   });
-  void postRunnerLabel(webview, p);
+  void postRunnerLabel(webview, cpp ? p : null);
 }
 
 /**
@@ -94,5 +109,6 @@ export function postRunSourceSnapshot(
     type: "sourceFile",
     path: file,
     running: true,
+    cpp: true,
   });
 }

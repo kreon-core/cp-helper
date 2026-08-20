@@ -9,6 +9,8 @@
   --cp-space-1: 4px;
   --cp-space-2: 6px;
   --cp-space-3: 8px;
+  /** Inset of row content from the list edge: `.case` 1px border + `.case-head` padding. */
+  --cp-gutter: 7px;
 }
 
 /**
@@ -31,27 +33,54 @@ html {
 
 body {
   margin: 0;
-  padding: var(--cp-space-2) var(--cp-space-2) 12px;
+  padding: 0 var(--cp-space-2) 12px;
   font-family: var(--vscode-font-family);
   font-size: var(--vscode-font-size);
   color: var(--vscode-foreground);
-  background: var(--vscode-sideBar-background);
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
   line-height: 1.4;
   height: 100%;
   max-height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.5))
+    transparent;
 }
 
 body::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
+  display: block;
+  width: 10px;
+  height: 10px;
 }
 
-/** Any nested scrollers (textareas, pre, etc.) - same hidden bar; wheel still works. */
+body::-webkit-scrollbar-track,
+body::-webkit-scrollbar-corner {
+  display: block;
+  background: transparent;
+}
+
+body::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.5));
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: 5px;
+}
+
+body::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground, rgba(121, 121, 121, 0.7));
+  background-clip: content-box;
+}
+
+body::-webkit-scrollbar-thumb:active {
+  background: var(--vscode-scrollbarSlider-activeBackground, rgba(191, 191, 191, 0.6));
+  background-clip: content-box;
+}
+
+/**
+ * Incidental scrollers stay bar-free; the view itself and the sample/output fields opt back in
+ * below, so a bar always means "this box has more content".
+ */
 *,
 *::before,
 *::after {
@@ -86,22 +115,72 @@ body::-webkit-scrollbar {
   line-height: 1.35;
 }
 
-.panel {
-  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
-  border-radius: var(--cp-radius-lg);
-  background: var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.08));
-  padding: var(--cp-space-2) var(--cp-space-2);
-  margin-bottom: var(--cp-space-3);
+.import {
+  margin-bottom: var(--cp-space-2);
+}
+
+.import__identity {
+  display: flex;
+  align-items: center;
+  gap: 6px 10px;
+  min-width: 0;
+  padding: var(--cp-space-2) var(--cp-gutter);
+}
+
+/**
+ * Sticky offsets resolve against the scrollport (body's padding box), so `body` carries no
+ * top padding: any would leave a gap where scrolled case rows show above the bar.
+ * Negative inline margins let the background span the body's side padding.
+ */
+.import__actions {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-1) var(--cp-space-2);
+  margin: 0 calc(-1 * var(--cp-space-2));
+  padding: var(--cp-space-2) calc(var(--cp-space-2) + var(--cp-gutter));
+  background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  background-image: linear-gradient(
+    var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12)),
+    var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12))
+  );
+  border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.28));
+  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.28));
+}
+
+.import--stuck .import__actions {
+  box-shadow: 0 4px 8px -6px rgba(0, 0, 0, 0.55);
+}
+
+.btn-sep {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 1px;
+  min-height: 16px;
+  margin: 0 2px;
+  background: var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
+  opacity: 0.7;
+}
+
+.btn-row__cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-1);
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .active-source-wrap {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--cp-space-2);
   min-width: 0;
   flex-shrink: 1;
-  max-width: min(220px, 50vw);
+  max-width: min(240px, 55vw);
 }
 
 .active-source-label {
@@ -111,7 +190,7 @@ body::-webkit-scrollbar {
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: right;
-  padding: 2px 0 2px 4px;
+  padding: 2px 0;
   color: var(--vscode-descriptionForeground, var(--vscode-foreground));
   font-family: var(--vscode-editor-font-family);
   font-size: 11px;
@@ -151,7 +230,7 @@ button.btn-debug-local--on {
   box-shadow: inset 0 0 0 1px var(--vscode-focusBorder, rgba(0, 127, 212, 0.55));
 }
 
-button.btn-debug-local__icon {
+.btn-debug-local__icon {
   display: block;
   pointer-events: none;
 }
@@ -161,60 +240,61 @@ button.btn-debug-local__icon {
   font-style: italic;
 }
 
+.active-source-label--foreign {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  opacity: 0.95;
+}
+
 .active-source-label--running {
   opacity: 0.95;
   color: var(--vscode-progressBar-background, var(--vscode-textLink-foreground));
 }
 
-.section-title {
-  margin: 0 0 6px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  opacity: 0.75;
-}
-
-.import-panel-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 10px;
-  margin-bottom: var(--cp-space-1);
-}
-
-.import-panel-head__title {
-  margin: 0;
-  flex-shrink: 0;
-}
-
+/**
+ * Fixed track so the toolbar never shifts when a problem is imported: `ch` is sized off the
+ * editor font, and 20 fits the "No problem imported" placeholder. Longer ids scroll (shift+wheel).
+ */
 .import-problem-title {
-  flex: 1;
-  min-width: 0;
+  display: block;
+  flex: 0 0 auto;
+  width: 20ch;
+  max-width: 100%;
   margin: 0;
-  padding: 0 2px;
-  font-family: var(--vscode-editor-font-family);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.2;
-  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
-  opacity: 0.9;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
   white-space: nowrap;
-  text-align: right;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--vscode-foreground);
+}
+
+/** Right-edge fade as the only affordance for the scroll: the scrollbar is hidden document-wide. */
+.import-problem-title--overflow {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 14px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 14px), transparent);
+}
+
+.import-problem-title--empty {
+  font-weight: 500;
+  font-style: italic;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  opacity: 0.6;
 }
 
 .runner-hint {
-  flex-shrink: 0;
-  margin: 0;
-  margin-left: auto;
-  max-width: min(100%, 300px);
+  flex: 0 1 auto;
+  margin: 0 0 0 auto;
+  max-width: min(100%, 320px);
   min-width: 0;
   padding: 0;
-  line-height: 1.2;
+  line-height: 1.3;
   font-family: var(--vscode-editor-font-family);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--vscode-descriptionForeground, var(--vscode-foreground));
   opacity: 0.88;
@@ -229,7 +309,8 @@ button.btn-debug-local__icon {
 }
 
 #import-json {
-  width: 100%;
+  width: calc(100% - 2 * var(--cp-gutter));
+  margin: var(--cp-space-2) var(--cp-gutter) 0;
   min-height: 48px;
   font-family: var(--vscode-editor-font-family);
   font-size: 12px;
@@ -252,36 +333,6 @@ button.btn-debug-local__icon {
   outline: none;
   border-color: var(--vscode-focusBorder, #007fd4);
   box-shadow: 0 0 0 1px var(--vscode-focusBorder, #007fd4);
-}
-
-.btn-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--cp-space-1);
-  margin-top: var(--cp-space-1);
-}
-
-.btn-row--import {
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--cp-space-1) var(--cp-space-2);
-}
-
-.btn-row__cluster {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--cp-space-1);
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.btn-row__source {
-  display: flex;
-  align-items: center;
-  flex: 0 0 auto;
-  margin-left: auto;
 }
 
 .run-status {
@@ -426,23 +477,26 @@ button.btn-ghost {
   list-style: none;
 }
 
+/**
+ * Both "add" affordances read as toolbar controls, not full-width dashed drop zones: same
+ * secondary fill, radius, and 22px control height as the case-header buttons.
+ */
 button.btn-add-problem-group {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--cp-space-2);
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 28px;
-  margin-top: 0;
-  padding: 6px var(--cp-space-2);
-  font-size: 12px;
+  gap: var(--cp-space-1);
+  width: auto;
+  min-height: 22px;
+  margin-left: var(--cp-gutter);
+  padding: 3px var(--cp-space-2);
+  font-size: 11px;
   font-weight: 500;
   line-height: 1.25;
-  border-radius: var(--cp-radius-md);
-  border: 1px dashed var(--vscode-widget-border, rgba(128, 128, 128, 0.4));
-  background: transparent;
-  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  border: none;
+  border-radius: var(--cp-radius-sm);
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
 }
 
 button.btn-add-problem-group .btn-add-problem-group__plus {
@@ -452,33 +506,22 @@ button.btn-add-problem-group .btn-add-problem-group__plus {
 }
 
 button.btn-add-problem-group .btn-add-problem-group__label {
-  flex: 1;
   min-width: 0;
   text-align: left;
 }
 
-button.btn-add-problem-group:hover:not(:disabled) {
-  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.1));
-  filter: none;
-}
-
 button.btn-add-case {
-  width: 100%;
-  box-sizing: border-box;
-  display: grid;
+  display: inline-grid;
   place-items: center;
-  min-height: 28px;
-  margin-top: 0;
+  width: 26px;
+  min-width: 26px;
+  height: 22px;
+  margin-left: var(--cp-gutter);
   padding: 0;
-  border-radius: var(--cp-radius-md);
-  border: 1px dashed var(--vscode-widget-border, rgba(128, 128, 128, 0.4));
-  background: transparent;
-  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
-}
-
-button.btn-add-case:hover:not(:disabled) {
-  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.1));
-  filter: none;
+  border: none;
+  border-radius: var(--cp-radius-sm);
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
 }
 
 .list-empty {
@@ -498,7 +541,7 @@ button.btn-add-case:hover:not(:disabled) {
 }
 
 .cases-section {
-  margin-top: 0;
+  margin-top: var(--cp-space-3);
 }
 
 .case-group-wrap {
@@ -517,7 +560,7 @@ button.btn-add-case:hover:not(:disabled) {
   align-items: center;
   gap: var(--cp-space-1) var(--cp-space-2);
   margin-bottom: var(--cp-space-2);
-  padding: var(--cp-space-1) 0;
+  padding: var(--cp-space-1) var(--cp-gutter);
   border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
 }
 
@@ -578,8 +621,6 @@ button.case-group-disclose:focus-visible {
   background: rgba(46, 160, 67, 0.12);
   border-bottom-color: rgba(46, 160, 67, 0.35);
   border-radius: var(--cp-radius-sm) var(--cp-radius-sm) 0 0;
-  padding-left: var(--cp-space-2);
-  padding-right: var(--cp-space-2);
 }
 
 .case-group-wrap--ac .case-group-passed {
@@ -595,8 +636,6 @@ button.case-group-disclose:focus-visible {
   background: rgba(248, 81, 73, 0.1);
   border-bottom-color: rgba(248, 81, 73, 0.35);
   border-radius: var(--cp-radius-sm) var(--cp-radius-sm) 0 0;
-  padding-left: var(--cp-space-2);
-  padding-right: var(--cp-space-2);
 }
 
 .case-group-wrap--wa .case-group-passed {
@@ -650,7 +689,7 @@ button.case-group-disclose:focus-visible {
   border-radius: var(--cp-radius-md);
   margin-bottom: var(--cp-space-1);
   overflow: hidden;
-  background: var(--vscode-sideBar-background);
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -658,46 +697,7 @@ button.case-group-disclose:focus-visible {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
-/* Verdict tint: border, header, and body share one palette (plain text verdict in header). */
-.case.case--ac {
-  border-color: rgba(46, 160, 67, 0.45);
-  background: rgba(46, 160, 67, 0.07);
-}
-
-.case.case--ac .case-head {
-  background: rgba(46, 160, 67, 0.14);
-  border-bottom-color: rgba(46, 160, 67, 0.28);
-}
-
-.case.case--wa {
-  border-color: rgba(248, 81, 73, 0.42);
-  background: rgba(248, 81, 73, 0.06);
-}
-
-.case.case--wa .case-head {
-  background: rgba(248, 81, 73, 0.12);
-  border-bottom-color: rgba(248, 81, 73, 0.28);
-}
-
-.case.case--tle {
-  border-color: rgba(88, 166, 255, 0.42);
-  background: rgba(88, 166, 255, 0.07);
-}
-
-.case.case--tle .case-head {
-  background: rgba(88, 166, 255, 0.12);
-  border-bottom-color: rgba(88, 166, 255, 0.3);
-}
-
-.case.case--re {
-  border-color: rgba(210, 153, 34, 0.45);
-  background: rgba(210, 153, 34, 0.07);
-}
-
-.case.case--re .case-head {
-  background: rgba(210, 153, 34, 0.14);
-  border-bottom-color: rgba(210, 153, 34, 0.3);
-}
+/* The verdict badge carries the status on its own: the card keeps the neutral chrome. */
 
 .case-head {
   display: flex;
@@ -816,6 +816,17 @@ button.case-group-disclose:focus-visible {
   gap: 2px;
 }
 
+/**
+ * Both label rows are one control tall (the copy button's 18px) so a plain label and a
+ * label+copy header put their textareas on the same line in the side-by-side grid.
+ */
+.field > label,
+.field-header {
+  display: flex;
+  align-items: center;
+  min-height: 18px;
+}
+
 .field label {
   font-size: 10px;
   font-weight: 600;
@@ -841,21 +852,62 @@ button.case-group-disclose:focus-visible {
   overflow-x: hidden;
   overflow-y: hidden;
   tab-size: 2;
+  /**
+   * Composed so the coloured left stripe and the focus ring can be set independently:
+   * box-shadow is a single property and both need to be live at once.
+   */
+  --field-stripe: 0 0 #0000;
+  --field-focus-ring: 0 0 #0000;
+  box-shadow: var(--field-stripe), var(--field-focus-ring);
+  /**
+   * Scrollbars are hidden document-wide; these fields opt back in, since a clipped sample or
+   * run output otherwise looks identical to a complete one.
+   */
+  scrollbar-width: thin;
+  scrollbar-color: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.5))
+    transparent;
+}
+
+.input-area::-webkit-scrollbar {
+  display: block;
+  width: 10px;
+  height: 10px;
+}
+
+.input-area::-webkit-scrollbar-track,
+.input-area::-webkit-scrollbar-corner {
+  display: block;
+  background: transparent;
+}
+
+.input-area::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.5));
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: 5px;
+}
+
+.input-area::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground, rgba(121, 121, 121, 0.7));
+  background-clip: content-box;
+}
+
+.input-area::-webkit-scrollbar-thumb:active {
+  background: var(--vscode-scrollbarSlider-activeBackground, rgba(191, 191, 191, 0.6));
+  background-clip: content-box;
 }
 
 .field--sample .input-area--sample {
   background: var(--vscode-textCodeBlock-background, rgba(127, 127, 127, 0.12));
   color: var(--vscode-editor-foreground, var(--vscode-foreground));
-  box-shadow: inset 2px 0 0 var(--vscode-textLink-foreground, rgba(88, 166, 255, 0.55));
+  --field-stripe: inset 2px 0 0 var(--vscode-textLink-foreground, rgba(88, 166, 255, 0.55));
   cursor: text;
 }
 
 .field--sample .input-area--sample:focus {
   outline: none;
   border-color: var(--vscode-focusBorder, #007fd4);
-  box-shadow:
-    inset 2px 0 0 var(--vscode-textLink-foreground, rgba(88, 166, 255, 0.55)),
-    0 0 0 1px var(--vscode-focusBorder, #007fd4);
+  --field-focus-ring: 0 0 0 1px var(--vscode-focusBorder, #007fd4);
 }
 
 .field--sample .input-area--sample::placeholder {
@@ -863,27 +915,49 @@ button.case-group-disclose:focus-visible {
   opacity: 0.65;
 }
 
-.field--result .input-area[readonly] {
+.field--result .input-area {
   background: var(--vscode-textCodeBlock-background, rgba(127, 127, 127, 0.12));
   color: var(--vscode-editor-foreground, var(--vscode-foreground));
   cursor: default;
 }
 
+/** Read-only streams are a `pre`, so they need what the textarea got from the user agent. */
+pre.input-area {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+pre.input-area:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: -1px;
+}
+
+/** Tokens of stdout with no match at the same position in expected output. */
+.diff-token {
+  font-weight: 700;
+  color: var(--vscode-errorForeground, #f85149);
+  background: var(--vscode-diffEditor-removedTextBackground, rgba(248, 81, 73, 0.16));
+  border-radius: 2px;
+}
+
 /* Stdout: auto-height in JS; green left stripe = run output. */
-.field--result textarea.input-area--stream-stdout {
+.field--result .input-area--stream-stdout {
   min-height: 32px;
   overflow-x: auto;
-  box-shadow: inset 2px 0 0 var(--vscode-testing-iconPassed, rgba(63, 185, 80, 0.55));
+  --field-stripe: inset 2px 0 0 var(--vscode-testing-iconPassed, rgba(63, 185, 80, 0.55));
 }
 
 /* Stderr: auto-height in JS (same cap as stdout) + scroll when long; amber left stripe = errors. */
-.field--result textarea.input-area--stream-stderr {
+.field--result .input-area--stream-stderr {
   min-height: 32px;
   overflow-x: auto;
-  box-shadow: inset 2px 0 0 var(--vscode-editorWarning-foreground, rgba(210, 153, 34, 0.65));
+  --field-stripe: inset 2px 0 0 var(--vscode-editorWarning-foreground, rgba(210, 153, 34, 0.65));
 }
 
 .cases-heading {
+  padding: 0 var(--cp-gutter);
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
@@ -904,6 +978,12 @@ button.case-group-disclose:focus-visible {
   }
 }
 
+.codicon[class*="codicon-"] {
+  font-size: 14px;
+  line-height: 1;
+  pointer-events: none;
+}
+
 button.btn-icon {
   display: inline-grid;
   place-items: center;
@@ -919,6 +999,12 @@ button.btn-icon {
   min-width: 22px;
 }
 
+button.btn-icon--on {
+  color: var(--vscode-textLink-foreground, #3794ff);
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.18));
+  box-shadow: inset 0 0 0 1px var(--vscode-focusBorder, rgba(0, 127, 212, 0.55));
+}
+
 /* Expand/fade-in when case group panel becomes visible */
 @keyframes cp-expand-in {
   from { opacity: 0.4; transform: translateY(-3px); }
@@ -931,11 +1017,8 @@ button.btn-icon {
 
 /* Field header: label + copy button side-by-side */
 .field-header {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
   gap: 4px;
-  min-height: 16px;
 }
 
 .field-header label {
@@ -986,3 +1069,94 @@ button.btn-icon {
   box-shadow: 0 1px 0 rgba(248, 81, 73, 0.2);
 }
 
+/**
+ * Wide (panel / bottom bar): two rows anchored at opposite edges read as mostly empty space, so
+ * `display: contents` drops both wrappers and `order` lays their children out as one dense row.
+ * The whole section sticks here, since the title now sits on the action line.
+ */
+@media (min-width: 560px) {
+  .import {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--cp-space-1) var(--cp-space-2);
+    margin: 0 calc(-1 * var(--cp-space-2));
+    padding: var(--cp-space-2) calc(var(--cp-space-2) + var(--cp-gutter));
+    background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
+    background-image: linear-gradient(
+      var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12)),
+      var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12))
+    );
+    border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.28));
+    border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.28));
+  }
+
+  .import--stuck {
+    box-shadow: 0 4px 8px -6px rgba(0, 0, 0, 0.55);
+  }
+
+  .import__identity,
+  .import__actions {
+    display: contents;
+  }
+
+  .import-problem-title {
+    order: 1;
+  }
+
+  .btn-row__cluster {
+    order: 2;
+    flex: 0 0 auto;
+    margin-left: var(--cp-space-2);
+    margin-right: auto;
+  }
+
+  .runner-hint {
+    order: 3;
+    margin-left: 0;
+  }
+
+  .active-source-wrap {
+    order: 4;
+    margin-left: 0;
+  }
+
+  #import-json {
+    order: 5;
+    flex: 1 0 100%;
+    width: 100%;
+    margin: 0 0 var(--cp-space-1);
+  }
+}
+
+/**
+ * Wide (panel / bottom bar): expected and actual sit side by side so a mismatch is read across
+ * rather than scrolled between. Input spans the full width above them; stderr spans it below.
+ * Children are positioned by document order (input, expected, stdout, stderr) - the case body
+ * appends stdout/stderr after a run, so no marker class is needed for the first two.
+ */
+@media (min-width: 560px) {
+  .case-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+    column-gap: var(--cp-space-3);
+  }
+
+  .case-body > .field:nth-child(1) {
+    grid-column: 1 / -1;
+  }
+
+  /** No stdout column (before a run, or a run that only wrote stderr): expected takes the row. */
+  .case-body > .field:nth-child(2):last-child,
+  .case-body > .field:nth-child(2):has(+ .field--stderr) {
+    grid-column: 1 / -1;
+  }
+
+  .case-body > .field--stderr {
+    grid-column: 1 / -1;
+  }
+}
