@@ -233,10 +233,14 @@ export class CpHelperViewProvider
     const styleUri = webviewView.webview.asWebviewUri(
       vscode.Uri.joinPath(this.extUri, "public", "cp-helper-view.css"),
     );
+    const codiconUri = webviewView.webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extUri, "public", "codicon", "codicon.css"),
+    );
     webviewView.webview.html = buildSamplesWebviewHtml(
       webviewView.webview,
       scriptUri,
       styleUri,
+      codiconUri,
       nonce,
     );
 

@@ -14,8 +14,13 @@ import {
   expand,
   expandChecker,
   withLocalDefineExpanded,
-  wrapForLoginShell,
 } from "./compile-expansion";
+import {
+  binaryPathForBuild,
+  cachedBinaryUsable,
+  commitBinary,
+  stagingPathFor,
+} from "./compile-cache";
 import { createCpLogger, truncateForLog } from "./log";
 import {
   coerceFloatAbsEpsilon,
@@ -35,15 +40,18 @@ const compileLog = createCpLogger("compile");
 const runLog = createCpLogger("runner");
 const stressLog = createCpLogger("stress");
 
-interface CacheEntry {
-  mtime: number;
-  compileCmd: string;
-  defineLocal: boolean;
-  binPath: string;
+/**
+ * Concurrency for Run all. Auto leaves a core for the editor and caps at 8 so per-sample
+ * elapsed times stay meaningful (they are read as a rough TLE signal).
+ * @param caseCount samples about to run
+ */
+function sampleConcurrency(caseCount: number): number {
+  const cfg = vscode.workspace.getConfiguration("cp-helper");
+  const raw = Number(cfg.get<number>("maxParallelSamples"));
+  const configured = Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 0;
+  const auto = Math.min(8, Math.max(1, (os.cpus()?.length ?? 2) - 1));
+  return Math.max(1, Math.min(caseCount, configured || auto));
 }
-
-// Survives across runs for the lifetime of the extension host process.
-const compileCache = new Map<string, CacheEntry>();
 
 /**
  * Shared paths, cwd, and shell exec for one binary path (compile once, run many).
@@ -73,25 +81,16 @@ export function createRunSession(
   const checkerCmd = (cfg.get<string>("checkerCommand") ?? "").trim();
   const wdSetting = (cfg.get<string>("workingDirectory") ?? "").trim();
   const cwd = wdSetting || path.dirname(file);
-  const viaLogin =
-    cfg.get<boolean>("invokeViaLoginShell") === true &&
-    process.platform !== "win32";
-  const loginPrefix = (
-    cfg.get<string>("loginShellInvoke") ?? "bash -l -c"
-  ).trim();
   const ext = process.platform === "win32" ? ".exe" : "";
   const outBin = path.join(
     os.tmpdir(),
     `cp-helper-${randomBytes(8).toString("hex")}${ext}`,
   );
-  const exec = (cmd: string, stdin: string | undefined) => {
-    const finalCmd = viaLogin ? wrapForLoginShell(cmd, loginPrefix) : cmd;
-    return runShell(finalCmd, cwd, stdin, timeoutMs);
-  };
+  const exec = (cmd: string, stdin: string | undefined) =>
+    runShell(cmd, cwd, stdin, timeoutMs);
   return {
     file,
     outBin,
-    cleanupBin: outBin,
     cwd,
     compileCmd,
     defineLocal,
@@ -100,17 +99,14 @@ export function createRunSession(
     floatAbsEpsilon,
     floatRelEpsilon,
     checkerCmd,
-    viaLogin,
-    loginPrefix,
     execLogged: false,
     exec,
   };
 }
 
 /**
- * Compile into session.outBin if compileCmd is set; otherwise no-op success.
- * On a cache hit (same file mtime, compileCmd, and defineLocal flag) the existing
- * binary is reused and s.cleanupBin is set to null so the finally block won't delete it.
+ * Build `s.file` into the content-addressed binary cache and point `s.outBin` at it.
+ * A hit skips the compiler entirely; a miss compiles to a staging path and renames into place.
  * @param s
  */
 async function compileOnce(
@@ -122,59 +118,43 @@ async function compileOnce(
     return { ok: true };
   }
 
-  // Check mtime-based cache before invoking the compiler.
+  let binPath: string;
   try {
-    const { mtimeMs } = await fs.stat(s.file);
-    const entry = compileCache.get(s.file);
-    if (
-      entry &&
-      entry.mtime === mtimeMs &&
-      entry.compileCmd === s.compileCmd &&
-      entry.defineLocal === s.defineLocal
-    ) {
-      // Verify the cached binary is present, executable, and non-empty.
-      try {
-        await fs.access(entry.binPath, fsConstants.X_OK);
-        const { size } = await fs.stat(entry.binPath);
-        if (size > 0) {
-          s.outBin = entry.binPath;
-          s.cleanupBin = null; // don't delete a cached binary
-          compileLog.info("cache skipped: binary is up to date");
-          return { ok: true };
-        }
-      } catch {
-        // fall through
-      }
-      compileCache.delete(s.file);
-      fs.unlink(entry.binPath).catch(() => { /* already gone */ });
-    }
-  } catch {
-    // stat failed - fall through to normal compile
+    binPath = await binaryPathForBuild(s.file, s.compileCmd, s.defineLocal);
+  } catch (e) {
+    const err = e instanceof Error ? e.message : String(e);
+    compileLog.error(`failed to read source: ${err}`);
+    return { ok: false, verdict: "RE", compileStderr: err };
   }
 
-  // Avoid executing a leftover binary at {{out}} if a prior run left the path behind.
-  await fs.unlink(s.outBin).catch(() => {
-    /* ENOENT */
+  if (await cachedBinaryUsable(binPath)) {
+    s.outBin = binPath;
+    compileLog.info("cache hit: source unchanged, skipping compile");
+    return { ok: true };
+  }
+
+  const staging = stagingPathFor(binPath);
+  await fs.mkdir(path.dirname(staging), { recursive: true }).catch(() => {
+    /* exists */
   });
-  let compile = expand(s.compileCmd, s.file, s.outBin);
+  let compile = expand(s.compileCmd, s.file, staging);
   if (s.defineLocal) {
     compile = withLocalDefineExpanded(compile);
   }
-  const shown = s.viaLogin
-    ? wrapForLoginShell(compile, s.loginPrefix)
-    : compile;
-  compileLog.info(`exec: ${truncateForLog(shown, 400)}`);
+  compileLog.info(`exec: ${truncateForLog(compile, 400)}`);
   const c = await s.exec(compile, undefined);
+  const dropStaging = () =>
+    fs.unlink(staging).catch(() => {
+      /* never created */
+    });
   if (c.cancelled) {
     compileLog.warn("aborted: stopped by user");
-    return {
-      ok: false,
-      verdict: "TLE",
-      compileStderr: "Stopped by user",
-    };
+    await dropStaging();
+    return { ok: false, verdict: "TLE", compileStderr: "Stopped by user" };
   }
   if (c.timedOut) {
     compileLog.error("aborted: time limit exceeded");
+    await dropStaging();
     return {
       ok: false,
       verdict: "TLE",
@@ -184,6 +164,7 @@ async function compileOnce(
   if (c.code !== 0) {
     const errText = c.stderr || c.stdout || `exit ${c.code}`;
     compileLog.error(`failed: exit code ${c.code}`);
+    await dropStaging();
     return {
       ok: false,
       verdict: "WA",
@@ -191,23 +172,15 @@ async function compileOnce(
     };
   }
 
-  // Store the freshly-compiled binary in the cache.
   try {
-    const { mtimeMs } = await fs.stat(s.file);
-    // Evict the old cached binary for this file if it differs from the new one.
-    const prev = compileCache.get(s.file);
-    if (prev && prev.binPath !== s.outBin) {
-      fs.unlink(prev.binPath).catch(() => { /* already gone */ });
-    }
-    compileCache.set(s.file, {
-      mtime: mtimeMs,
-      compileCmd: s.compileCmd,
-      defineLocal: s.defineLocal,
-      binPath: s.outBin,
-    });
-    s.cleanupBin = null; // binary is now owned by the cache
-  } catch {
-    // stat failed after compile - leave cleanupBin as-is so the binary gets deleted
+    await commitBinary(staging, binPath);
+    s.outBin = binPath;
+  } catch (e) {
+    // Compile template wrote elsewhere (custom -o): run whatever it did produce.
+    compileLog.warn(
+      `binary not cached: ${e instanceof Error ? e.message : String(e)}`,
+    );
+    s.outBin = staging;
   }
 
   compileLog.info("ok");
@@ -224,9 +197,7 @@ async function runProgramForCase(
   tc: TestCase,
 ): Promise<RunSampleResult> {
   const runCmd = expand(s.runCmdTpl, s.file, s.outBin);
-  const runShown = s.viaLogin
-    ? wrapForLoginShell(runCmd, s.loginPrefix)
-    : runCmd;
+  const runShown = runCmd;
   if (!s.execLogged) {
     runLog.info(`exec: ${truncateForLog(runShown, 500)}`);
     s.execLogged = true;
@@ -388,83 +359,76 @@ export async function runSingleTest(
   defineLocal: boolean,
 ): Promise<RunSampleResult> {
   const s = createRunSession(file, defineLocal);
-  try {
-    runLog.info(`run one: sample ${tc.sample}`);
-    runLog.info(`source: ${s.file}`);
-    runLog.info(`cwd: ${s.cwd}`);
-    if (s.viaLogin) {
-      runLog.info(`login shell: ${s.loginPrefix}`);
-    }
-    if (s.defineLocal && s.compileCmd.length > 0) {
-      compileLog.info("flag: -DLOCAL enabled");
-    }
-    const built = await compileOnce(s);
-    if (!built.ok) {
-      return compileFailureSampleResult(tc, built.verdict, built.compileStderr);
-    }
-    return await runProgramForCase(s, tc);
-  } finally {
-    if (s.cleanupBin !== null) {
-      await fs.unlink(s.cleanupBin).catch(() => { /* ignore */ });
-    }
+  runLog.info(`run one: sample ${tc.sample}`);
+  runLog.info(`source: ${s.file}`);
+  runLog.info(`cwd: ${s.cwd}`);
+  if (s.defineLocal && s.compileCmd.length > 0) {
+    compileLog.info("flag: -DLOCAL enabled");
   }
+  const built = await compileOnce(s);
+  if (!built.ok) {
+    return compileFailureSampleResult(tc, built.verdict, built.compileStderr);
+  }
+  return await runProgramForCase(s, tc);
 }
 
 /**
- * One compile (if configured), then run every case against the same binary.
+ * One compile (if configured), then run every case against the same binary. Samples run
+ * concurrently, so `onResult` fires out of order and `onProgress` reports a completion count.
  * @param file
  * @param cases
  * @param onResult
- * @param onBeforeSample
+ * @param onProgress
  * @param defineLocal
  */
 export async function runAllTestsSharedCompile(
   file: string,
   cases: TestCase[],
   onResult: (index: number, result: RunSampleResult) => void,
-  onBeforeSample?: (index: number, total: number) => void,
+  onProgress?: (completed: number, total: number) => void,
   defineLocal = false,
 ): Promise<void> {
   const s = createRunSession(file, defineLocal);
-  try {
-    runLog.info(`run all: ${cases.length} test(s)`);
-    runLog.info(`source: ${s.file}`);
-    runLog.info(`cwd: ${s.cwd}`);
-    if (s.viaLogin) {
-      runLog.info(`login shell: ${s.loginPrefix}`);
-    }
-    if (s.defineLocal && s.compileCmd.length > 0) {
-      compileLog.info("flag: -DLOCAL enabled");
-    }
+  runLog.info(`run all: ${cases.length} test(s)`);
+  runLog.info(`source: ${s.file}`);
+  runLog.info(`cwd: ${s.cwd}`);
+  if (s.defineLocal && s.compileCmd.length > 0) {
+    compileLog.info("flag: -DLOCAL enabled");
+  }
 
-    const built = await compileOnce(s);
-    if (!built.ok) {
-      for (let i = 0; i < cases.length; i++) {
-        onResult(
-          i,
-          compileFailureSampleResult(
-            cases[i],
-            built.verdict,
-            built.compileStderr,
-          ),
-        );
-      }
-      return;
-    }
-
-    if (s.compileCmd.length > 0) {
-      runLog.info("run all: reusing one binary for every sample");
-    }
-
-    let passed = 0;
-    let ran = 0;
-    const batchStart = Date.now();
+  const built = await compileOnce(s);
+  if (!built.ok) {
     for (let i = 0; i < cases.length; i++) {
+      onResult(
+        i,
+        compileFailureSampleResult(cases[i], built.verdict, built.compileStderr),
+      );
+    }
+    return;
+  }
+
+  if (s.compileCmd.length > 0) {
+    runLog.info("run all: reusing one binary for every sample");
+  }
+
+  const workers = sampleConcurrency(cases.length);
+  runLog.info(`run all: ${workers} sample(s) at a time`);
+
+  let passed = 0;
+  let ran = 0;
+  let started = 0;
+  let finished = 0;
+  const batchStart = Date.now();
+
+  const runNext = async (): Promise<void> => {
+    for (;;) {
       if (runState.cancelRequested) {
-        runLog.warn("run all: stopped by user, remaining samples skipped");
-        break;
+        return;
       }
-      onBeforeSample?.(i, cases.length);
+      const i = started++;
+      if (i >= cases.length) {
+        return;
+      }
       ran++;
       try {
         const r = await runProgramForCase(s, cases[i]);
@@ -482,18 +446,24 @@ export async function runAllTestsSharedCompile(
           error: err,
         });
       }
+      // Progress is completion count, not position: samples finish out of order.
+      onProgress?.(finished++, cases.length);
     }
-    const batchMs = Date.now() - batchStart;
-    const done = `run all: ${passed}/${ran} passed in ${batchMs}ms`;
-    if (passed === ran) {
-      runLog.info(done);
-    } else {
-      runLog.warn(done);
-    }
-  } finally {
-    if (s.cleanupBin !== null) {
-      await fs.unlink(s.cleanupBin).catch(() => { /* ignore */ });
-    }
+  };
+
+  await Promise.all(
+    Array.from({ length: workers }, () => runNext()),
+  );
+
+  if (runState.cancelRequested) {
+    runLog.warn("run all: stopped by user, remaining samples skipped");
+  }
+  const batchMs = Date.now() - batchStart;
+  const done = `run all: ${passed}/${ran} passed in ${batchMs}ms`;
+  if (passed === ran) {
+    runLog.info(done);
+  } else {
+    runLog.warn(done);
   }
 }
 
@@ -523,78 +493,72 @@ export async function runStressTest(
   onProgress?: (i: number, max: number) => void,
 ): Promise<StressTestResult> {
   const s = createRunSession(file, defineLocal);
-  try {
-    stressLog.info(`start: ${maxIterations} iteration(s)`);
-    if (generatorCmd.length === 0) {
-      return { status: "generator_error", iterations: 0 };
-    }
+  stressLog.info(`start: ${maxIterations} iteration(s)`);
+  if (generatorCmd.length === 0) {
+    return { status: "generator_error", iterations: 0 };
+  }
 
-    if (s.compileCmd.length > 0) {
-      const built = await compileOnce(s);
-      if (!built.ok) {
-        stressLog.error("aborted: compile failed");
-        return { status: "compile_error", iterations: 0 };
-      }
-    }
-
-    for (let i = 1; i <= maxIterations; i++) {
-      if (runState.cancelRequested) {
-        stressLog.warn(`stopped by user at iteration ${i}`);
-        return { status: "stopped", iterations: i - 1 };
-      }
-
-      onProgress?.(i, maxIterations);
-
-      const genR = await s.exec(generatorCmd, undefined);
-      if (genR.timedOut || genR.code !== 0) {
-        stressLog.error(`generator failed at iteration ${i} (exit ${genR.code ?? "null"})`);
-        return { status: "generator_error", iterations: i - 1 };
-      }
-      const input = genR.stdout;
-
-      let expected = "";
-      if (referenceCmd.length > 0) {
-        const refR = await s.exec(referenceCmd, input);
-        if (refR.code !== 0 || refR.timedOut) {
-          stressLog.warn(`reference failed at iteration ${i}, skipping`);
-          continue;
-        }
-        expected = normalizeOutput(refR.stdout, s.trim);
-      }
-
-      const runCmd = expand(s.runCmdTpl, s.file, s.outBin);
-      const r = await s.exec(runCmd, input);
-
-      if (r.timedOut) {
-        stressLog.error(`TLE at iteration ${i}`);
-        return { status: "bug", iterations: i, failedCase: { input, expected, actual: r.stdout } };
-      }
-      if (r.code !== 0) {
-        stressLog.error(`RE at iteration ${i} (exit ${r.code ?? "null"})`);
-        return { status: "bug", iterations: i, failedCase: { input, expected, actual: r.stdout } };
-      }
-
-      if (referenceCmd.length > 0) {
-        const actual = normalizeOutput(r.stdout, s.trim);
-        const match =
-          actual === expected ||
-          outputsEqualFloatAware(actual, expected, s.floatAbsEpsilon, s.floatRelEpsilon);
-        if (!match) {
-          stressLog.error(`WA at iteration ${i}`);
-          return { status: "bug", iterations: i, failedCase: { input, expected, actual: r.stdout } };
-        }
-      }
-
-      if (i % 10 === 0) {
-        stressLog.info(`progress: ${i} iteration(s) passed`);
-      }
-    }
-
-    stressLog.info(`done: all ${maxIterations} iteration(s) passed`);
-    return { status: "passed", iterations: maxIterations };
-  } finally {
-    if (s.cleanupBin !== null) {
-      await fs.unlink(s.cleanupBin).catch(() => { /* ignore */ });
+  if (s.compileCmd.length > 0) {
+    const built = await compileOnce(s);
+    if (!built.ok) {
+      stressLog.error("aborted: compile failed");
+      return { status: "compile_error", iterations: 0 };
     }
   }
+
+  for (let i = 1; i <= maxIterations; i++) {
+    if (runState.cancelRequested) {
+      stressLog.warn(`stopped by user at iteration ${i}`);
+      return { status: "stopped", iterations: i - 1 };
+    }
+
+    onProgress?.(i, maxIterations);
+
+    const genR = await s.exec(generatorCmd, undefined);
+    if (genR.timedOut || genR.code !== 0) {
+      stressLog.error(`generator failed at iteration ${i} (exit ${genR.code ?? "null"})`);
+      return { status: "generator_error", iterations: i - 1 };
+    }
+    const input = genR.stdout;
+
+    let expected = "";
+    if (referenceCmd.length > 0) {
+      const refR = await s.exec(referenceCmd, input);
+      if (refR.code !== 0 || refR.timedOut) {
+        stressLog.warn(`reference failed at iteration ${i}, skipping`);
+        continue;
+      }
+      expected = normalizeOutput(refR.stdout, s.trim);
+    }
+
+    const runCmd = expand(s.runCmdTpl, s.file, s.outBin);
+    const r = await s.exec(runCmd, input);
+
+    if (r.timedOut) {
+      stressLog.error(`TLE at iteration ${i}`);
+      return { status: "bug", iterations: i, failedCase: { input, expected, actual: r.stdout } };
+    }
+    if (r.code !== 0) {
+      stressLog.error(`RE at iteration ${i} (exit ${r.code ?? "null"})`);
+      return { status: "bug", iterations: i, failedCase: { input, expected, actual: r.stdout } };
+    }
+
+    if (referenceCmd.length > 0) {
+      const actual = normalizeOutput(r.stdout, s.trim);
+      const match =
+        actual === expected ||
+        outputsEqualFloatAware(actual, expected, s.floatAbsEpsilon, s.floatRelEpsilon);
+      if (!match) {
+        stressLog.error(`WA at iteration ${i}`);
+        return { status: "bug", iterations: i, failedCase: { input, expected, actual: r.stdout } };
+      }
+    }
+
+    if (i % 10 === 0) {
+      stressLog.info(`progress: ${i} iteration(s) passed`);
+    }
+  }
+
+  stressLog.info(`done: all ${maxIterations} iteration(s) passed`);
+  return { status: "passed", iterations: maxIterations };
 }

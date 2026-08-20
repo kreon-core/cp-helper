@@ -193,6 +193,17 @@ function truncateRunnerLabel(s: string, max: number): string {
 }
 
 /**
+ * Raw templates behind the runner label, for the hover tooltip.
+ */
+function configuredCommands(): { compileCommand: string; runCommand: string } {
+  const cfg = vscode.workspace.getConfiguration("cp-helper");
+  return {
+    compileCommand: (cfg.get<string>("compileCommand") ?? "").trim(),
+    runCommand: (cfg.get<string>("runCommand") ?? "").trim(),
+  };
+}
+
+/**
  * Posts `runner` message after async probe; ignores stale results if a newer probe started.
  * @param webview
  * @param filePath active source path or null (for cwd fallback)
@@ -209,11 +220,11 @@ export async function postRunnerLabel(
       return;
     }
     const label = truncateRunnerLabel(raw, RUNNER_LABEL_MAX);
-    webview.postMessage({ type: "runner", label });
+    webview.postMessage({ type: "runner", label, ...configuredCommands() });
   } catch {
     if (gen !== runnerProbeGeneration) {
       return;
     }
-    webview.postMessage({ type: "runner", label: "" });
+    webview.postMessage({ type: "runner", label: "", ...configuredCommands() });
   }
 }

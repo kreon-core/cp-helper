@@ -7,7 +7,6 @@ import { DEFAULT_DEBUG_CONFIG_NAME } from "./constants";
 import {
   expand,
   withLocalDefineExpanded,
-  wrapForLoginShell,
 } from "./compile-expansion";
 import { createCpLogger } from "./log";
 import { runShell } from "./run-state";
@@ -96,16 +95,6 @@ async function compileForDebug(
   if (defineLocal) {
     cmd = withLocalDefineExpanded(cmd);
   }
-  const viaLogin =
-    cfg.get<boolean>("invokeViaLoginShell") === true &&
-    process.platform !== "win32";
-  if (viaLogin) {
-    cmd = wrapForLoginShell(
-      cmd,
-      (cfg.get<string>("loginShellInvoke") ?? "bash -l -c").trim(),
-    );
-  }
-
   log.info(`compile: ${cmd}`);
   const r = await runShell(cmd, cwd, undefined, 120_000);
   if (r.code !== 0) {
