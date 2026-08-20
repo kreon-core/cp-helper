@@ -14,6 +14,10 @@
   /** @type {Record<string, boolean>} */
   let groupCollapsed = {};
 
+  /** Collapsed testcases: key = `ck()`, value true = collapsed (`setState` while session lasts). */
+  /** @type {Record<string, boolean>} */
+  let caseCollapsed = {};
+
   /** @type {{ active: boolean; mode: "one" | "all" | null; phase: "compile" | "run" | null; groupIndex: number | null; index: number | null; total: number | null }} */
   let runState = {
     active: false,
@@ -30,6 +34,14 @@
    * @type {Set<number>}
    */
   const staleResultGroups = new Set();
+
+  /**
+   * Group indices still to run for a toolbar Run all. The host runs one group at a time, so the
+   * rest wait here and are started from `runAllDone`. Any other run trigger clears it - the user
+   * asking for something else outranks the sweep.
+   * @type {number[]}
+   */
+  let runAllQueue = [];
 
   /** Workspace: add `-DLOCAL` after the compiler in `compileCommand` when true. */
   let defineLocal = false;
@@ -129,6 +141,39 @@
     return ` ${(ms / 1000).toFixed(2)}s`;
   }
 
+  /**
+   * Verdict and elapsed time read as two separate chips: the verdict keeps the pass/fail colour,
+   * the timing stays neutral so it is not mistaken for part of the status. A case with no result
+   * still gets both chips as blank placeholders, so the action buttons sit in the same column on
+   * every row of the list.
+   * @param {HTMLElement} head
+   * @param {{ verdict: string; elapsedMs?: number } | null} runInfo
+   * @param {Element | null} before insertion anchor, or null to append
+   */
+  function appendCaseStatus(head, runInfo, before) {
+    const elapsed = runInfo ? formatElapsed(runInfo.elapsedMs).trim() : "";
+    const mk = (kind, text, hint) => {
+      const el = document.createElement("span");
+      el.className = `case-status case-${kind}`;
+      if (text === "") {
+        el.classList.add("case-status--blank");
+        el.setAttribute("aria-hidden", "true");
+      } else {
+        el.textContent = text;
+        if (hint) {
+          el.title = hint;
+        }
+      }
+      if (before) {
+        head.insertBefore(el, before);
+      } else {
+        head.appendChild(el);
+      }
+    };
+    mk("verdict", runInfo ? runInfo.verdict : "");
+    mk("time", elapsed, "Run time");
+  }
+
   /** @returns {number} */
   function maxFieldHeight() {
     return Math.min(400, Math.floor(window.innerHeight * 0.48));
@@ -185,6 +230,51 @@
     scheduleEqualizeResultColumns();
   }
 
+  /**
+   * Draws the `.field-scroll` line for one sample or output area, creating it on first need. The
+   * line is never shorter than 16px, so a heavily clipped field still shows something.
+   * @param {HTMLElement} area
+   */
+  function syncFieldScrollIndicator(area) {
+    const field = area.closest(".field");
+    if (!(field instanceof HTMLElement)) {
+      return;
+    }
+    let bar = field.querySelector(":scope > .field-scroll");
+    const view = area.clientHeight;
+    const total = area.scrollHeight;
+    /**
+     * `fitTextarea` and the equalize pass both set `overflow-y` inline, so it is the exact record
+     * of whether this field was left scrollable. Checking it keeps the line off a field that only
+     * overflows by a rounding pixel, where a full-height bar would claim hidden content.
+     */
+    const scrollable =
+      area.style.overflowY === "auto" && view > 0 && total - view >= 4;
+    if (!scrollable) {
+      if (bar instanceof HTMLElement) {
+        bar.hidden = true;
+      }
+      return;
+    }
+    if (!(bar instanceof HTMLElement)) {
+      bar = document.createElement("span");
+      bar.className = "field-scroll";
+      bar.setAttribute("aria-hidden", "true");
+      field.appendChild(bar);
+    }
+    const h = Math.max(16, Math.round((view * view) / total));
+    const progress = Math.min(1, Math.max(0, area.scrollTop / (total - view)));
+    bar.hidden = false;
+    bar.style.height = `${h}px`;
+    bar.style.top = `${area.offsetTop + 2 + Math.round((view - h - 4) * progress)}px`;
+  }
+
+  function syncAllFieldScrollIndicators() {
+    listEl
+      .querySelectorAll(".input-area")
+      .forEach((el) => syncFieldScrollIndicator(/** @type {HTMLElement} */ (el)));
+  }
+
   let equalizeQueued = false;
   let equalizing = false;
 
@@ -202,6 +292,7 @@
       } finally {
         equalizing = false;
       }
+      syncAllFieldScrollIndicators();
     });
   }
 
@@ -291,6 +382,9 @@
     if (!(src instanceof HTMLElement)) {
       return;
     }
+    if (src.classList.contains("input-area")) {
+      syncFieldScrollIndicator(src);
+    }
     if (src === scrollSyncEcho) {
       scrollSyncEcho = null;
       return;
@@ -347,6 +441,7 @@
       .forEach((el) => {
         fitStdoutReadonly(/** @type {HTMLElement} */ (el));
       });
+    syncAllFieldScrollIndicators();
   }
 
   window.addEventListener("resize", syncProblemTitleOverflow);
@@ -433,6 +528,19 @@
     return `${gi}-${ci}`;
   }
 
+  /**
+   * Collapse key for a testcase. Keyed by group id and sample number so it survives the
+   * reindexing that a case or group removal does to `rk()` keys.
+   * @param {number} gi
+   * @param {number} ci
+   * @returns {string}
+   */
+  function ck(gi, ci) {
+    const gid = String(groups[gi]?.id ?? gi);
+    const sample = groups[gi]?.cases?.[ci]?.sample ?? ci + 1;
+    return `${gid}::${sample}`;
+  }
+
   function totalCaseCount() {
     return groups.reduce((n, g) => n + g.cases.length, 0);
   }
@@ -510,6 +618,25 @@
     return out;
   }
 
+  /**
+   * Testcases start collapsed so a long sample list reads as a list. Keys absent from the map
+   * count as expanded, which is what a case added later wants.
+   * @param {{ id: string; cases: { sample: number }[] }[]} gs
+   * @returns {Record<string, boolean>}
+   */
+  function defaultCollapsedAllCases(gs) {
+    /** @type {Record<string, boolean>} */
+    const out = {};
+    for (let i = 0; i < gs.length; i++) {
+      const gid = String(gs[i]?.id ?? i);
+      const cases = gs[i]?.cases ?? [];
+      for (let j = 0; j < cases.length; j++) {
+        out[`${gid}::${cases[j]?.sample ?? j + 1}`] = true;
+      }
+    }
+    return out;
+  }
+
   function persistWebviewNavState() {
     const prev = vscode.getState();
     const base =
@@ -517,6 +644,7 @@
         ? { ...prev }
         : {};
     base.groupCollapsed = { ...groupCollapsed };
+    base.caseCollapsed = { ...caseCollapsed };
     delete base.lastCollapseFingerprint;
     vscode.setState(base);
   }
@@ -550,6 +678,46 @@
     }
     persistWebviewNavState();
     render();
+  }
+
+  /**
+   * @param {string} key
+   * @returns {boolean} the new collapsed state
+   */
+  function toggleCaseCollapsed(key) {
+    const k = String(key ?? "");
+    if (!k) {
+      return false;
+    }
+    if (caseCollapsed[k]) {
+      delete caseCollapsed[k];
+    } else {
+      caseCollapsed[k] = true;
+    }
+    persistWebviewNavState();
+    return !!caseCollapsed[k];
+  }
+
+  /**
+   * Applies one case's collapsed state to its own row. Toggling patches these four nodes rather
+   * than calling `render()`: rebuilding the list for a disclosure flashes every other row and
+   * restarts the group's expand animation.
+   * @param {HTMLElement} li
+   * @param {HTMLElement} body
+   * @param {HTMLElement} btn
+   * @param {number} sample
+   * @param {boolean} collapsed
+   */
+  function applyCaseCollapsedUi(li, body, btn, sample, collapsed) {
+    li.classList.toggle("case--collapsed", collapsed);
+    body.hidden = collapsed;
+    body.setAttribute("aria-hidden", collapsed ? "true" : "false");
+    btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    const hint = collapsed
+      ? `Expand sample ${sample}`
+      : `Collapse sample ${sample}`;
+    btn.title = hint;
+    btn.setAttribute("aria-label", hint);
   }
 
   function ensureDefaultGroup() {
@@ -714,10 +882,14 @@
     const busy = runState.active;
     const multi = showGroupHeaders();
     const tc = totalCaseCount();
-    btnRunAll.hidden = multi;
     runAllPassedSummaryEl.hidden = multi || busy;
     // Run stays clickable while busy: a click restarts, replacing the run in flight.
     btnRunAll.disabled = tc === 0;
+    const runAllHint = multi
+      ? "Run every sample in every problem, one problem at a time"
+      : "Compile once (if configured), then run every sample";
+    btnRunAll.title = runAllHint;
+    btnRunAll.setAttribute("aria-label", multi ? "Run all problems" : "Run all");
     btnToggleJson.disabled = busy;
     btnLoad.disabled = busy;
     btnClear.disabled = busy;
@@ -923,8 +1095,8 @@
         spin.className = "run-row-spinner";
         spin.title = "Running";
         spin.setAttribute("aria-label", "Running");
-        const verdict = head.querySelector(".case-verdict");
-        head.insertBefore(spin, verdict ?? actions);
+        const status = head.querySelector(".case-status");
+        head.insertBefore(spin, status ?? actions);
       }
     });
   }
@@ -942,23 +1114,21 @@
       return false;
     }
     const runInfo = lastRun[rk(gi, ci)];
+    const collapsed = li.classList.contains("case--collapsed");
     li.className = "case";
     if (runInfo) {
       li.classList.add(`case--${runInfo.badge}`);
+    }
+    if (collapsed) {
+      li.classList.add("case--collapsed");
     }
     const head = li.querySelector(".case-head");
     const actions = head && head.querySelector(".case-actions");
     if (!head || !actions) {
       return false;
     }
-    head.querySelectorAll(".case-verdict").forEach((el) => el.remove());
-    if (runInfo) {
-      const verdictEl = document.createElement("span");
-      verdictEl.className = "case-verdict";
-      const timeHint = formatElapsed(runInfo.elapsedMs);
-      verdictEl.textContent = runInfo.verdict + timeHint;
-      head.insertBefore(verdictEl, actions);
-    }
+    head.querySelectorAll(".case-status").forEach((el) => el.remove());
+    appendCaseStatus(head, runInfo ?? null, actions);
     const body = li.querySelector(".case-body");
     if (!body) {
       return true;
@@ -1018,6 +1188,7 @@
       wrap.setAttribute("data-cp-gi", String(gi));
 
       if (multi) {
+        wrap.classList.add("case-group-wrap--panel");
         const gid = String(group.id ?? gi);
         const panelId = `case-group-panel-${gi}`;
         const collapsed = !!groupCollapsed[gid];
@@ -1104,6 +1275,7 @@
         btnRunG.disabled = group.cases.length === 0;
         btnRunG.addEventListener("click", () => {
           hideErr();
+          runAllQueue = [];
           if (group.cases.length === 0) return;
           purgeLastRunForGroup(gi);
           runState = { active: true, mode: "all", phase: "compile", groupIndex: gi, index: null, total: group.cases.length };
@@ -1180,6 +1352,9 @@
         li.className = "case";
         li.dataset.groupIndex = String(gi);
         li.dataset.index = String(index);
+        const caseKey = ck(gi, index);
+        const caseIsCollapsed = !!caseCollapsed[caseKey];
+        const casePanelId = `case-panel-${gi}-${index}`;
         const runInfo = lastRun[rk(gi, index)];
         if (runInfo) {
           li.classList.add(`case--${runInfo.badge}`);
@@ -1188,17 +1363,21 @@
         const head = document.createElement("div");
         head.className = "case-head";
 
-        const tEl = document.createElement("div");
-        tEl.className = "case-title";
-        tEl.setAttribute("role", "group");
-        tEl.setAttribute("aria-label", `Sample ${c.sample}`);
+        const tEl = document.createElement("button");
+        tEl.type = "button";
+        tEl.className = "case-disclose";
+        tEl.setAttribute("aria-controls", casePanelId);
         const num = document.createElement("span");
         num.className = "case-num";
         num.textContent = String(c.sample);
-        const lbl = document.createElement("span");
-        lbl.textContent = "";
         tEl.appendChild(num);
-        tEl.appendChild(lbl);
+        tEl.addEventListener("click", () => {
+          const collapsed = toggleCaseCollapsed(caseKey);
+          applyCaseCollapsedUi(li, body, tEl, c.sample, collapsed);
+          if (!collapsed) {
+            refitAll();
+          }
+        });
 
         const actions = document.createElement("div");
         actions.className = "case-actions";
@@ -1211,6 +1390,7 @@
         runOne.appendChild(mkIcon("play"));
         runOne.disabled = false;
         runOne.addEventListener("click", () => {
+          runAllQueue = [];
           delete lastRun[rk(gi, index)];
           runState = { active: true, mode: "one", phase: "run", groupIndex: gi, index, total: 1 };
           if (incrementalDomReady()) {
@@ -1251,6 +1431,7 @@
         remove.appendChild(mkIcon("close"));
         remove.disabled = false;
         remove.addEventListener("click", () => {
+          runAllQueue = [];
           if (runState.active && runState.groupIndex === gi) {
             vscode.postMessage({ type: "stopRun" });
             staleResultGroups.add(gi);
@@ -1290,17 +1471,13 @@
           spin.setAttribute("aria-label", "Running");
           head.appendChild(spin);
         }
-        if (runInfo) {
-          const verdictEl = document.createElement("span");
-          verdictEl.className = "case-verdict";
-          const timeHint = formatElapsed(runInfo.elapsedMs);
-          verdictEl.textContent = runInfo.verdict + timeHint;
-          head.appendChild(verdictEl);
-        }
+        appendCaseStatus(head, runInfo ?? null, null);
         head.appendChild(actions);
 
         const body = document.createElement("div");
         body.className = "case-body";
+        body.id = casePanelId;
+        applyCaseCollapsedUi(li, body, tEl, c.sample, caseIsCollapsed);
         body.appendChild(makeField("Input", gi, index, "input"));
         body.appendChild(makeField("Expected output", gi, index, "output"));
 
@@ -1617,13 +1794,17 @@
    * Run all samples in the first problem group (flat or multi-header). No-op if group 0 is empty;
    * while a run is in flight this restarts, replacing it.
    */
-  function triggerRunAll() {
-    hideErr();
-    ensureDefaultGroup();
-    const g0 = groups[0];
-    if (!g0 || g0.cases.length === 0) return;
-    purgeLastRunForGroup(0);
-    runState = { active: true, mode: "all", phase: "compile", groupIndex: 0, index: null, total: g0.cases.length };
+  /**
+   * @param {number} gi
+   * @returns {boolean} false when the group has nothing to run
+   */
+  function startRunAllForGroup(gi) {
+    const g = groups[gi];
+    if (!g || g.cases.length === 0) {
+      return false;
+    }
+    purgeLastRunForGroup(gi);
+    runState = { active: true, mode: "all", phase: "compile", groupIndex: gi, index: null, total: g.cases.length };
     if (incrementalDomReady()) {
       refreshIncrementalRunUi();
     } else {
@@ -1631,9 +1812,30 @@
     }
     vscode.postMessage({
       type: "runAll",
-      groupIndex: 0,
-      cases: g0.cases,
+      groupIndex: gi,
+      cases: g.cases,
     });
+    return true;
+  }
+
+  /** Runs every problem group that has cases, one after the other. */
+  function triggerRunAll() {
+    hideErr();
+    ensureDefaultGroup();
+    runAllQueue = groups
+      .map((g, gi) => (g.cases.length > 0 ? gi : -1))
+      .filter((gi) => gi >= 0);
+    startNextQueuedRunAll();
+  }
+
+  function startNextQueuedRunAll() {
+    while (runAllQueue.length > 0) {
+      const gi = runAllQueue.shift();
+      if (gi != null && startRunAllForGroup(gi)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -1642,6 +1844,7 @@
    */
   function triggerRunFirst() {
     hideErr();
+    runAllQueue = [];
     ensureDefaultGroup();
     const g0 = groups[0];
     if (!g0 || g0.cases.length === 0) return;
@@ -1713,6 +1916,7 @@
         groups = [];
       }
       groupCollapsed = defaultCollapsedAllHeaders(groups);
+      caseCollapsed = defaultCollapsedAllCases(groups);
       persistWebviewNavState();
       if (Object.prototype.hasOwnProperty.call(m, "importProblem")) {
         updateImportProblemTitle(m.importProblem);
@@ -1727,17 +1931,10 @@
         setJsonBoxOpen(false);
 
   function syncStuckState() {
-    const stickyEl =
-      getComputedStyle(importActionsEl).position === "sticky"
-        ? importActionsEl
-        : importSectionEl;
-    importSectionEl.classList.toggle(
-      "import--stuck",
-      document.body.scrollTop > stickyEl.offsetTop,
-    );
+    importSectionEl.classList.toggle("import--stuck", listEl.scrollTop > 0);
   }
 
-  document.body.addEventListener("scroll", syncStuckState, { passive: true });
+  listEl.addEventListener("scroll", syncStuckState, { passive: true });
   syncStuckState();
       }
       render();
@@ -1857,6 +2054,10 @@
       }
       lastRunAllSummaryByGroup[gi] =
         n > 0 ? { passed, total: n } : undefined;
+      if (!m.error && startNextQueuedRunAll()) {
+        return;
+      }
+      runAllQueue = [];
       if (incrementalDomReady()) {
         refreshIncrementalRunUi();
       } else {
@@ -1914,6 +2115,7 @@
   });
 
   btnStopRun.addEventListener("click", () => {
+    runAllQueue = [];
     vscode.postMessage({ type: "stopRun" });
   });
 
@@ -1929,6 +2131,7 @@
 
   btnClear.addEventListener("click", () => {
     hideErr();
+    runAllQueue = [];
     groups = [];
     Object.keys(lastRun).forEach((k) => delete lastRun[k]);
     Object.keys(lastRunAllSummaryByGroup).forEach(

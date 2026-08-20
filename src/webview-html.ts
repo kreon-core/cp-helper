@@ -48,7 +48,7 @@ export function buildSamplesWebviewHtml(
       <span class="active-source-wrap">
         <span id="activeSourceLabel" class="active-source-label" title="" role="status" aria-live="polite" aria-label="Active file for Run">No file</span>
         <button id="btnToggleLocal" type="button" class="btn-debug-local" title="" aria-pressed="false" aria-label="Toggle -DLOCAL for compile">
-          <span class="codicon codicon-bug btn-debug-local__icon" aria-hidden="true"></span>
+          <span class="codicon codicon-output btn-debug-local__icon" aria-hidden="true"></span>
         </button>
       </span>
     </div>
