@@ -48,9 +48,8 @@ export interface RunSampleResult {
 
 export interface RunSession {
   file: string;
+  /** Cached binary the run executes; resolved by `compileOnce`. */
   outBin: string;
-  /** Path to delete after the run; null when outBin is a cached binary that must survive. */
-  cleanupBin: string | null;
   cwd: string;
   compileCmd: string;
   /** When true and compileCmd is non-empty, `-DLOCAL` is injected after the compiler token. */
@@ -63,8 +62,6 @@ export interface RunSession {
   floatRelEpsilon: number;
   /** Optional checker command (empty = disabled). Runs after WA to allow multiple-correct-answer problems. */
   checkerCmd: string;
-  viaLogin: boolean;
-  loginPrefix: string;
   /** Set once the run command has been logged, so a batch logs it a single time. */
   execLogged: boolean;
   exec: (

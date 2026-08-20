@@ -4,6 +4,9 @@ CP Helper is a Visual Studio Code extension for competitive programming workflow
 
 It runs C++ code against imported sample cases and reports AC, WA, TLE, or RE.
 
+C++ is the only supported language. Run, Debug, and Export refuse a non-C++ active editor
+(accepted extensions: .cpp, .cc, .cxx, .c++, .cp, .ixx, and .C on case-sensitive filesystems).
+
 ## Release scope
 
 - Stable baseline: 1.0.5
@@ -54,12 +57,20 @@ Default keybindings:
 | cp-helper.compileCommand | Compile command template |
 | cp-helper.runCommand | Execute command template |
 | cp-helper.runTimeoutMs | Compile/run timeout in ms |
+| cp-helper.maxParallelSamples | Samples Run all executes at once (0 = auto) |
 | cp-helper.floatAbsEpsilon | Absolute float tolerance |
 | cp-helper.floatRelEpsilon | Relative float tolerance |
 | cp-helper.trimOutput | Trim trailing whitespace before compare |
 | cp-helper.enableLocalImportServer | Enable localhost import server |
 | cp-helper.localImportPort | Local import port (default 17337) |
 | cp-helper.instantRunAllOnLocalImport | Auto-run after single-group local import |
+
+## Build cache
+
+Compiled binaries are content-addressed: the cache key is a hash of the source bytes plus the
+compile command and the -DLOCAL flag, so a save that changed nothing reuses the existing binary
+instead of recompiling. Binaries live under the extension's global storage and survive a window
+reload; the 64 most recently used are kept and older ones are pruned on activation.
 
 ## Output log
 

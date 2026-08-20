@@ -9,6 +9,7 @@
     "vscode": "^1.82.0"
   },
   "categories": [
+    "Testing",
     "Other"
   ],
   "repository": {},
@@ -97,8 +98,8 @@
       "properties": {
         "cp-helper.compileCommand": {
           "type": "string",
-          "default": "g++ -std=c++23 -o \"{{out}}\" \"{{file}}\"",
-          "description": "C++ compile line; empty skips compile (use only if you pre-build the binary that runCommand runs). Placeholders: {{file}}, {{dir}} (source dir), {{out}} (temp binary)."
+          "default": "g++ -std=c++23 -pipe -o \"{{out}}\" \"{{file}}\"",
+          "description": "C++ compile line; empty skips compile (use only if you pre-build the binary that runCommand runs). Placeholders: {{file}}, {{dir}} (source dir), {{out}} (cached binary path)."
         },
         "cp-helper.debugConfigName": {
           "type": "string",
@@ -113,22 +114,18 @@
         "cp-helper.runCommand": {
           "type": "string",
           "default": "\"{{out}}\"",
-          "description": "Shell command run with each test's stdin; default runs the compiled C++ binary at {{out}}. For a wrapper script, use invokeViaLoginShell instead of embedding bash -lc here."
-        },
-        "cp-helper.invokeViaLoginShell": {
-          "type": "boolean",
-          "default": false,
-          "description": "If true, compile and run commands are executed via loginShellInvoke (loads ~/.bashrc etc.) so a shell alias/function named `run` works."
-        },
-        "cp-helper.loginShellInvoke": {
-          "type": "string",
-          "default": "bash -l -c",
-          "description": "Prefix used when invokeViaLoginShell is true; the full command is passed as a single quoted argument (e.g. zsh -il -c for zsh login)."
+          "description": "Shell command run with each test's stdin; default runs the compiled binary at {{out}}."
         },
         "cp-helper.runTimeoutMs": {
           "type": "number",
           "default": 5000,
           "description": "Compile and run are killed after this many ms. The whole process tree is stopped (not only the shell), so TLE applies to the real program."
+        },
+        "cp-helper.maxParallelSamples": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "description": "Samples Run all executes at once. 0 auto-sizes to the CPU count (capped at 8, one core left for the editor). Set 1 for strictly sequential runs when per-sample timings must be comparable."
         },
         "cp-helper.floatAbsEpsilon": {
           "type": "number",
@@ -196,6 +193,7 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
+    "sync-codicons": "cp node_modules/@vscode/codicons/dist/codicon.css node_modules/@vscode/codicons/dist/codicon.ttf public/codicon/",
     "watch": "tsc -watch -p ./",
     "vsix": "vsce package",
     "vsix:bump": "npm version patch --no-git-tag-version && npm run vsix",
@@ -204,7 +202,16 @@
   "devDependencies": {
     "@types/node": "^20.19.39",
     "@types/vscode": "^1.82.0",
+    "@vscode/codicons": "^0.0.46-24",
     "@vscode/vsce": "^3.9.2",
     "typescript": "^5.3.0"
-  }
+  },
+  "keywords": [
+    "competitive programming",
+    "c++",
+    "cpp",
+    "codeforces",
+    "atcoder",
+    "leetcode"
+  ]
 }

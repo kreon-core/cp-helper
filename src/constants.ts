@@ -66,3 +66,19 @@ export const LOCAL_IMPORT_MAX_BODY = 32 * 1024 * 1024;
 /** Raw accumulation caps inside runShell to prevent OOM on runaway output. */
 export const MAX_STDOUT_ACCUMULATE_BYTES = 4 * 1024 * 1024;
 export const MAX_STDERR_ACCUMULATE_BYTES = 1 * 1024 * 1024;
+
+/** Extensions CP Helper accepts as a solution source. C++ only, by design. */
+export const CPP_SOURCE_EXTENSIONS = [
+  ".cpp",
+  ".cc",
+  ".cxx",
+  ".c++",
+  ".cp",
+  ".ixx",
+] as const;
+
+/** Human-readable list for error messages. */
+export const CPP_EXTENSIONS_HINT = CPP_SOURCE_EXTENSIONS.join(", ");
+
+/** Compiled binaries kept in the on-disk cache before the oldest are pruned. */
+export const BINARY_CACHE_MAX_ENTRIES = 64;

@@ -40,43 +40,29 @@
     return el;
   };
 
-  const _NS = "http://www.w3.org/2000/svg";
-  const _ICON_PATHS = {
-    play:     { d: "M3 2l10 6-10 6V2z" },
-    runAll:   { d: "M1 2l7 6-7 6V2zm8 0l7 6-7 6V2z" },
-    stop:     { d: "M3 3h10v10H3z" },
-    trash:    { d: "M5 2h6M2 5h12M4 5l1 8h6l1-8", stroke: true },
-    add:      { d: "M8 2v12M2 8h12", stroke: true },
-    close:    { d: "M3 3l10 10M13 3L3 13", stroke: true },
-    download: { d: "M8 2v8M4 7l4 4 4-4M2 14h12", stroke: true },
-    export:   { d: "M8 11V2M4 6l4-4 4 4M2 14h12", stroke: true },
-    copy:     { d: "M6 2H14V12H6ZM2 6H10V14H2Z", stroke: true },
-    debug:    { d: "M6 4a2 2 0 014 0M5 6h6v4a3 3 0 01-6 0zM2 7h3M11 7h3M2.5 11h2.6M10.9 11h2.6M4 4l1.3 1.3M12 4l-1.3 1.3", stroke: true },
+  const _CODICONS = {
+    play: "play",
+    runAll: "run-all",
+    trash: "trash",
+    add: "add",
+    close: "close",
+    copy: "copy",
+    debug: "debug-alt",
   };
+
+  /**
+   * @param {keyof typeof _CODICONS} type
+   * @returns {HTMLSpanElement}
+   */
   function mkIcon(type) {
-    const svg = document.createElementNS(_NS, "svg");
-    svg.setAttribute("viewBox", "0 0 16 16");
-    svg.setAttribute("width", "12");
-    svg.setAttribute("height", "12");
-    svg.setAttribute("aria-hidden", "true");
-    svg.setAttribute("focusable", "false");
-    const def = _ICON_PATHS[type];
-    const path = document.createElementNS(_NS, "path");
-    path.setAttribute("d", def.d);
-    if (def.stroke) {
-      path.setAttribute("fill", "none");
-      path.setAttribute("stroke", "currentColor");
-      path.setAttribute("stroke-width", "1.5");
-      path.setAttribute("stroke-linecap", "round");
-      path.setAttribute("stroke-linejoin", "round");
-    } else {
-      path.setAttribute("fill", "currentColor");
-    }
-    svg.appendChild(path);
-    return svg;
+    const el = document.createElement("span");
+    el.className = `codicon codicon-${_CODICONS[type]}`;
+    el.setAttribute("aria-hidden", "true");
+    return el;
   }
 
   const jsonEl = $("import-json");
+  const btnToggleJson = $("btnToggleJson");
   const btnLoad = $("btnLoad");
   const btnRunAll = $("btnRunAll");
   const runAllPassedSummaryEl = $("runAllPassedSummary");
@@ -94,6 +80,13 @@
   const runnerHintValueEl = runnerHintEl.querySelector(".runner-hint__value");
   if (!runnerHintValueEl) throw new Error("missing .runner-hint__value");
   const importProblemTitleEl = $("importProblemTitle");
+  /** @type {{ label: string; compile: string; run: string }} */
+  let runnerInfo = { label: "", compile: "", run: "" };
+  const importActionsEl = $("importActions");
+  const importSectionEl = importActionsEl.closest(".import");
+  if (!(importSectionEl instanceof HTMLElement)) throw new Error("missing .import");
+  const actionClusterEl = importActionsEl.querySelector(".btn-row__cluster");
+  if (!actionClusterEl) throw new Error("missing .btn-row__cluster");
 
   // Register ASAP so host `postMessage` (e.g. cpHelper.runFirstSample right after reveal) is not
   // dropped while the rest of this script still runs. Handler functions are hoisted in this IIFE.
@@ -152,7 +145,7 @@
   }
 
   /**
-   * @param {HTMLTextAreaElement} ta
+   * @param {HTMLElement} ta editable field or read-only `pre`
    * @param {number} capPx
    */
   function fitTextarea(ta, capPx) {
@@ -180,18 +173,168 @@
    */
   function fitFieldTextarea(ta) {
     fitTextarea(ta, maxFieldHeight());
+    scheduleEqualizeResultColumns();
   }
 
   /**
    * Sizes readonly stdout or stderr to content up to `maxStdoutReadonlyHeight`.
-   * @param {HTMLTextAreaElement} ta
+   * @param {HTMLElement} ta
    */
   function fitStdoutReadonly(ta) {
     fitTextarea(ta, maxStdoutReadonlyHeight());
+    scheduleEqualizeResultColumns();
   }
 
+  let equalizeQueued = false;
+  let equalizing = false;
+
+  /** Batches one equalize pass per frame; re-entrant calls from the pass itself are ignored. */
+  function scheduleEqualizeResultColumns() {
+    if (equalizeQueued || equalizing) {
+      return;
+    }
+    equalizeQueued = true;
+    requestAnimationFrame(() => {
+      equalizeQueued = false;
+      equalizing = true;
+      try {
+        equalizeResultColumns();
+      } finally {
+        equalizing = false;
+      }
+    });
+  }
+
+  /**
+   * Expected and stdout share the grid row, so they must share a height or the comparison reads
+   * as broken. Input spans its own full-width row above and keeps its own fitted height, as does
+   * every field once the layout stacks below the breakpoint.
+   */
+  function equalizeResultColumns() {
+    const sideBySide = window.matchMedia("(min-width: 560px)").matches;
+    /** @type {{ ta: HTMLElement; cap: number }[][]} */
+    const rows = [];
+    document.querySelectorAll(".case-body").forEach((body) => {
+      const fields = [
+        {
+          ta: body.querySelector(
+            ".field:nth-child(1) textarea.input-area--sample",
+          ),
+          cap: maxFieldHeight(),
+          inRow: false,
+        },
+        {
+          ta: body.querySelector(
+            ".field:nth-child(2) textarea.input-area--sample",
+          ),
+          cap: maxFieldHeight(),
+          inRow: true,
+        },
+        {
+          ta: body.querySelector(
+            ".field--stdout .input-area--stream-stdout",
+          ),
+          cap: maxStdoutReadonlyHeight(),
+          inRow: true,
+        },
+      ].filter((f) => f.ta instanceof HTMLElement);
+
+      const row = sideBySide ? fields.filter((f) => f.inRow) : [];
+      // A lone field has nothing to match, so fit it to its own content instead.
+      if (row.length < 2) {
+        for (const f of fields) {
+          fitTextarea(f.ta, f.cap);
+        }
+        return;
+      }
+      for (const f of fields) {
+        if (!row.includes(f)) {
+          fitTextarea(f.ta, f.cap);
+        }
+      }
+      rows.push(row);
+    });
+    if (rows.length === 0) {
+      return;
+    }
+    // Write, then read, then write: one reflow for the batch instead of one per case.
+    for (const row of rows) {
+      for (const f of row) {
+        f.ta.style.height = "auto";
+      }
+    }
+    const measured = rows.map((row) => row.map((f) => f.ta.scrollHeight));
+    rows.forEach((row, i) => {
+      const cap = Math.min(...row.map((f) => f.cap));
+      const target = Math.max(32, Math.min(cap, Math.max(...measured[i])));
+      row.forEach((f, j) => {
+        f.ta.style.height = `${target}px`;
+        f.ta.style.overflowY = measured[i][j] > target ? "auto" : "hidden";
+      });
+    });
+  }
+
+  /**
+   * The element whose next scroll event is an echo of a mirrored scroll, not a user action.
+   * Also cleared on the next frame, in case the assignment clamped and fired no event at all.
+   */
+  let scrollSyncEcho = null;
+
+  /**
+   * Expected and stdout scroll together while they sit side by side: comparing line 40 of one
+   * against line 40 of the other is the whole point of the two-column layout.
+   * `scroll` does not bubble, so this listens in the capture phase.
+   * @param {Event} e
+   */
+  function onFieldScroll(e) {
+    const src = e.target;
+    if (!(src instanceof HTMLElement)) {
+      return;
+    }
+    if (src === scrollSyncEcho) {
+      scrollSyncEcho = null;
+      return;
+    }
+    const expected = src.classList.contains("input-area--sample");
+    const stdout = src.classList.contains("input-area--stream-stdout");
+    if (!expected && !stdout) {
+      return;
+    }
+    if (!window.matchMedia("(min-width: 560px)").matches) {
+      return;
+    }
+    const body = src.closest(".case-body");
+    if (!body) {
+      return;
+    }
+    // Only the expected field pairs with stdout; the input field scrolls on its own.
+    if (expected && src.closest(".field") !== body.children[1]) {
+      return;
+    }
+    const partner = expected
+      ? body.querySelector(".field--stdout .input-area--stream-stdout")
+      : body.querySelector(".field:nth-child(2) textarea.input-area--sample");
+    if (!(partner instanceof HTMLElement)) {
+      return;
+    }
+    const { scrollTop, scrollLeft } = src;
+    if (partner.scrollTop === scrollTop && partner.scrollLeft === scrollLeft) {
+      return;
+    }
+    scrollSyncEcho = partner;
+    partner.scrollTop = scrollTop;
+    partner.scrollLeft = scrollLeft;
+    requestAnimationFrame(() => {
+      if (scrollSyncEcho === partner) {
+        scrollSyncEcho = null;
+      }
+    });
+  }
+
+  document.addEventListener("scroll", onFieldScroll, true);
+
   function refitAll() {
-    fitJsonTextarea(jsonEl);
+    if (!jsonEl.hidden) fitJsonTextarea(jsonEl);
     listEl
       .querySelectorAll("textarea.input-area--sample")
       .forEach((el) => {
@@ -199,12 +342,16 @@
       });
     listEl
       .querySelectorAll(
-        "textarea.input-area--stream-stdout, textarea.input-area--stream-stderr",
+        ".input-area--stream-stdout, .input-area--stream-stderr",
       )
       .forEach((el) => {
-        fitStdoutReadonly(/** @type {HTMLTextAreaElement} */ (el));
+        fitStdoutReadonly(/** @type {HTMLElement} */ (el));
       });
   }
+
+  window.addEventListener("resize", syncProblemTitleOverflow);
+  window.addEventListener("resize", scheduleEqualizeResultColumns);
+  requestAnimationFrame(syncProblemTitleOverflow);
 
   let resizeTimer = 0;
   window.addEventListener("resize", () => {
@@ -239,12 +386,21 @@
 
   /**
    * Active editor path, or snapshotted path while a run is in progress.
-   * @param {{ path: string | null; running?: boolean }} m
+   * @param {{ path: string | null; running?: boolean; cpp?: boolean }} m
    */
   function updateActiveSourceLabel(m) {
     const p = m.path ?? null;
     const running = !!m.running;
-    if (p) {
+    const cpp = m.cpp !== false;
+    if (p && !cpp) {
+      activeSourceLabelEl.textContent = pathToParentAndName(p);
+      activeSourceLabelEl.title = `Not a C++ file - CP Helper runs C++ only:\n${p}`;
+      activeSourceLabelEl.setAttribute(
+        "aria-label",
+        `Not a C++ file: ${p}`,
+      );
+      activeSourceLabelEl.classList.remove("active-source-label--empty");
+    } else if (p) {
       activeSourceLabelEl.textContent = pathToParentAndName(p);
       activeSourceLabelEl.title = running
         ? `Run in progress (this file only; tab switches are OK):\n${p}`
@@ -266,6 +422,10 @@
     activeSourceLabelEl.classList.toggle(
       "active-source-label--running",
       running && !!p,
+    );
+    activeSourceLabelEl.classList.toggle(
+      "active-source-label--foreign",
+      !!p && !cpp,
     );
   }
 
@@ -409,21 +569,54 @@
   }
 
   /**
-   * @param {unknown} label
+   * @param {{ label?: string; compileCommand?: string; runCommand?: string }} m
    */
-  function updateRunnerHint(label) {
-    const t = typeof label === "string" ? label.trim() : "";
-    if (!t) {
+  function updateRunnerHint(m) {
+    runnerInfo = {
+      label: typeof m?.label === "string" ? m.label.trim() : "",
+      compile: typeof m?.compileCommand === "string" ? m.compileCommand : "",
+      run: typeof m?.runCommand === "string" ? m.runCommand : "",
+    };
+    renderRunnerHint();
+  }
+
+  /**
+   * Hover text spells out what the label stands for: the compile line actually in effect
+   * (including -DLOCAL) and the run line.
+   */
+  function renderRunnerHint() {
+    const { label, compile, run } = runnerInfo;
+    if (!label) {
       runnerHintValueEl.textContent = "";
       runnerHintEl.hidden = true;
       runnerHintEl.removeAttribute("title");
       runnerHintEl.removeAttribute("aria-label");
       return;
     }
-    runnerHintValueEl.textContent = t;
+    runnerHintValueEl.textContent = label;
     runnerHintEl.hidden = false;
-    runnerHintEl.title = `Runner: ${t}`;
-    runnerHintEl.setAttribute("aria-label", `Runner: ${t}`);
+    const lines = [`Runner: ${label}`];
+    lines.push(
+      compile
+        ? `Compile: ${defineLocal ? withLocalDefine(compile) : compile}`
+        : "Compile: skipped (compileCommand is empty)",
+    );
+    if (run) {
+      lines.push(`Run: ${run}`);
+    }
+    const text = lines.join("\n");
+    runnerHintEl.title = text;
+    runnerHintEl.setAttribute("aria-label", text);
+  }
+
+  /**
+   * Mirrors the extension's `-DLOCAL` insertion (right after the compiler token) for display only.
+   * @param {string} cmd
+   */
+  function withLocalDefine(cmd) {
+    const t = cmd.trimStart();
+    const m = /^(\S+)(.*)/su.exec(t);
+    return m ? `${m[1]} -DLOCAL${m[2]}` : `${t} -DLOCAL`;
   }
 
   /**
@@ -432,20 +625,29 @@
    */
   function updateImportProblemTitle(label) {
     const t = typeof label === "string" ? label.trim() : "";
+    importProblemTitleEl.classList.toggle("import-problem-title--empty", !t);
     if (!t) {
-      importProblemTitleEl.textContent = "";
-      importProblemTitleEl.hidden = true;
+      importProblemTitleEl.textContent = "No problem imported";
       importProblemTitleEl.removeAttribute("title");
       importProblemTitleEl.setAttribute("aria-label", "Imported problem");
-      return;
+    } else {
+      importProblemTitleEl.textContent = t;
+      importProblemTitleEl.title = t;
+      importProblemTitleEl.setAttribute("aria-label", `Imported problem: ${t}`);
     }
-    importProblemTitleEl.textContent = t;
-    importProblemTitleEl.hidden = false;
-    importProblemTitleEl.title = t;
-    importProblemTitleEl.setAttribute("aria-label", `Imported problem: ${t}`);
+    importProblemTitleEl.scrollLeft = 0;
+    requestAnimationFrame(syncProblemTitleOverflow);
+  }
+
+  function syncProblemTitleOverflow() {
+    importProblemTitleEl.classList.toggle(
+      "import-problem-title--overflow",
+      importProblemTitleEl.scrollWidth > importProblemTitleEl.clientWidth + 1,
+    );
   }
 
   function syncLocalToggleUi() {
+    renderRunnerHint();
     btnToggleLocal.setAttribute("aria-pressed", String(defineLocal));
     btnToggleLocal.classList.toggle("btn-debug-local--on", defineLocal);
     btnToggleLocal.title = defineLocal
@@ -516,6 +718,7 @@
     runAllPassedSummaryEl.hidden = multi || busy;
     // Run stays clickable while busy: a click restarts, replacing the run in flight.
     btnRunAll.disabled = tc === 0;
+    btnToggleJson.disabled = busy;
     btnLoad.disabled = busy;
     btnClear.disabled = busy;
     btnExport.disabled = busy || totalCaseCount() === 0;
@@ -560,6 +763,30 @@
       }
     } else {
       runStatusLabel.textContent = "";
+    }
+    syncSeparators();
+  }
+
+  /**
+   * Hides a group separator with no visible control on one of its sides: the run cluster empties
+   * out in multi-group mode, which would otherwise leave two rules butted together.
+   */
+  function syncSeparators() {
+    const kids = Array.from(actionClusterEl.children);
+    const seps = [];
+    let visibleSinceSep = 0;
+    for (const el of kids) {
+      if (el.classList.contains("btn-sep")) {
+        seps.push({ el, before: visibleSinceSep, after: 0 });
+        visibleSinceSep = 0;
+        continue;
+      }
+      if (!(el instanceof HTMLElement) || el.hidden) continue;
+      visibleSinceSep++;
+      for (const s of seps) s.after++;
+    }
+    for (const s of seps) {
+      s.el.hidden = s.before === 0 || s.after === 0;
     }
   }
 
@@ -741,7 +968,9 @@
       const so = runInfo.stdout ?? "";
       const se = runInfo.stderr ?? "";
       if (so.trim() !== "") {
-        body.appendChild(makeReadonlyOutput("Stdout", so, "stdout"));
+        body.appendChild(
+          makeReadonlyOutput("Stdout", so, "stdout", diffTarget(runInfo, gi, ci)),
+        );
       }
       if (se.trim() !== "") {
         body.appendChild(makeReadonlyOutput("Stderr", se, "stderr"));
@@ -750,10 +979,10 @@
     requestAnimationFrame(() => {
       body
         .querySelectorAll(
-          "textarea.input-area--stream-stdout, textarea.input-area--stream-stderr",
+          ".input-area--stream-stdout, .input-area--stream-stderr",
         )
         .forEach((el) =>
-          fitStdoutReadonly(/** @type {HTMLTextAreaElement} */ (el)),
+          fitStdoutReadonly(/** @type {HTMLElement} */ (el)),
         );
     });
     return true;
@@ -1079,7 +1308,9 @@
           const so = runInfo.stdout ?? "";
           const se = runInfo.stderr ?? "";
           if (so.trim() !== "") {
-            body.appendChild(makeReadonlyOutput("Stdout", so, "stdout"));
+            body.appendChild(
+              makeReadonlyOutput("Stdout", so, "stdout", diffTarget(runInfo, gi, index)),
+            );
           }
           if (se.trim() !== "") {
             body.appendChild(makeReadonlyOutput("Stderr", se, "stderr"));
@@ -1211,7 +1442,7 @@
    */
   function makeField(label, gi, index, key) {
     const wrap = document.createElement("div");
-    wrap.className = "field field--sample";
+    wrap.className = `field field--sample field--${key}`;
     const lb = document.createElement("label");
     lb.textContent = label;
     const ta = document.createElement("textarea");
@@ -1242,15 +1473,81 @@
   }
 
   /**
-   * Read-only run output: stdout/stderr grow to content up to `maxStdoutReadonlyHeight`, then scroll.
+   * Expected output to mark stdout against, or null when marking would mislead: only a WA is a
+   * plain text mismatch. AC can differ textually (float tolerance, checker), and TLE/RE outputs
+   * are truncated, where flagging every trailing token says nothing.
+   * @param {{ verdict?: string }} runInfo
+   * @param {number} gi
+   * @param {number} ci
+   */
+  function diffTarget(runInfo, gi, ci) {
+    if (runInfo?.verdict !== "WA") {
+      return null;
+    }
+    const expected = groups[gi]?.cases[ci]?.output;
+    return typeof expected === "string" ? trimTrailingNewlines(expected) : null;
+  }
+
+  /**
+   * Splits a line into whitespace-preserving chunks: even indices are tokens, odd are separators.
+   * @param {string} line
+   */
+  function splitTokens(line) {
+    return line.split(/(\s+)/u);
+  }
+
+  /**
+   * Marks the tokens of `actual` that differ from `expected` at the same position. Whole extra
+   * lines count as differing. Comparison is positional and textual, so it is only meaningful for
+   * a WA - the host's float-aware compare can accept text the eye reads as different.
+   * @param {HTMLElement} host
+   * @param {string} actual
+   * @param {string} expected
+   */
+  function appendDiffedText(host, actual, expected) {
+    const expLines = expected.split("\n");
+    actual.split("\n").forEach((line, li) => {
+      if (li > 0) {
+        host.appendChild(document.createTextNode("\n"));
+      }
+      const expTokens = splitTokens(expLines[li] ?? "").filter(
+        (_, i) => i % 2 === 0,
+      );
+      let tokenIndex = 0;
+      for (const [i, chunk] of splitTokens(line).entries()) {
+        if (i % 2 === 1) {
+          host.appendChild(document.createTextNode(chunk));
+          continue;
+        }
+        const same = li < expLines.length && chunk === expTokens[tokenIndex];
+        tokenIndex += 1;
+        if (chunk === "") {
+          continue;
+        }
+        if (same) {
+          host.appendChild(document.createTextNode(chunk));
+          continue;
+        }
+        const mark = document.createElement("span");
+        mark.className = "diff-token";
+        mark.textContent = chunk;
+        host.appendChild(mark);
+      }
+    });
+  }
+
+  /**
+   * Read-only run output: stdout/stderr grow to content up to `maxStdoutReadonlyHeight`, then
+   * scroll. Rendered as a `pre` rather than a textarea so mismatching tokens can be marked.
    * Includes a copy-to-clipboard button.
    * @param {string} label
    * @param {string} value
    * @param {"stdout" | "stderr"} stream
+   * @param {string | null} [diffAgainst] expected output to mark differences against
    */
-  function makeReadonlyOutput(label, value, stream) {
+  function makeReadonlyOutput(label, value, stream, diffAgainst) {
     const wrap = document.createElement("div");
-    wrap.className = "field field--result";
+    wrap.className = `field field--result field--${stream}`;
 
     const hdr = document.createElement("div");
     hdr.className = "field-header";
@@ -1267,15 +1564,20 @@
     copyBtn.setAttribute("aria-label", `Copy ${copyLbl}`);
     copyBtn.appendChild(mkIcon("copy"));
 
-    const ta = document.createElement("textarea");
-    ta.className =
+    const out = document.createElement("pre");
+    out.className =
       stream === "stderr"
         ? "input-area input-area--stream-stderr"
         : "input-area input-area--stream-stdout";
-    ta.readOnly = true;
-    ta.spellcheck = false;
-    ta.value = value;
-    ta.rows = 1;
+    out.tabIndex = 0;
+    out.setAttribute("role", "textbox");
+    out.setAttribute("aria-readonly", "true");
+    out.setAttribute("aria-label", label);
+    if (typeof diffAgainst === "string" && diffAgainst !== "") {
+      appendDiffedText(out, value, diffAgainst);
+    } else {
+      out.textContent = value;
+    }
 
     function showCopied() {
       copyBtn.title = "Copied!";
@@ -1286,22 +1588,28 @@
       }, 1500);
     }
 
+    function copyViaSelection() {
+      const range = document.createRange();
+      range.selectNodeContents(out);
+      const sel = window.getSelection();
+      if (!sel) return;
+      sel.removeAllRanges();
+      sel.addRange(range);
+      try { document.execCommand("copy"); showCopied(); } catch (_) {}
+    }
+
     copyBtn.addEventListener("click", () => {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(value).then(showCopied, () => {
-          ta.select();
-          try { document.execCommand("copy"); showCopied(); } catch (_) {}
-        });
+        navigator.clipboard.writeText(value).then(showCopied, copyViaSelection);
       } else {
-        ta.select();
-        try { document.execCommand("copy"); showCopied(); } catch (_) {}
+        copyViaSelection();
       }
     });
 
     hdr.appendChild(copyBtn);
     wrap.appendChild(hdr);
-    wrap.appendChild(ta);
-    requestAnimationFrame(() => fitStdoutReadonly(ta));
+    wrap.appendChild(out);
+    requestAnimationFrame(() => fitStdoutReadonly(out));
     return wrap;
   }
 
@@ -1414,6 +1722,24 @@
         (k) => delete lastRunAllSummaryByGroup[k],
       );
       hideErr();
+      if (jsonBoxOpen()) {
+        jsonEl.value = "";
+        setJsonBoxOpen(false);
+
+  function syncStuckState() {
+    const stickyEl =
+      getComputedStyle(importActionsEl).position === "sticky"
+        ? importActionsEl
+        : importSectionEl;
+    importSectionEl.classList.toggle(
+      "import--stuck",
+      document.body.scrollTop > stickyEl.offsetTop,
+    );
+  }
+
+  document.body.addEventListener("scroll", syncStuckState, { passive: true });
+  syncStuckState();
+      }
       render();
       return;
     }
@@ -1429,7 +1755,7 @@
       return;
     }
     if (m.type === "runner") {
-      updateRunnerHint(m.label);
+      updateRunnerHint(m);
       return;
     }
     if (m.type === "sourceFile") {
@@ -1551,7 +1877,32 @@
     }
   }
 
+  /**
+   * @param {boolean} open
+   * @param {boolean} [focus]
+   */
+  function setJsonBoxOpen(open, focus) {
+    jsonEl.hidden = !open;
+    btnLoad.hidden = !open;
+    btnToggleJson.setAttribute("aria-expanded", String(open));
+    btnToggleJson.classList.toggle("btn-icon--on", open);
+    btnToggleJson.title = open ? "Hide the JSON paste box" : "Show the JSON paste box";
+    syncSeparators();
+    if (open) {
+      fitJsonTextarea(jsonEl);
+      if (focus) jsonEl.focus();
+    }
+  }
+
+  function jsonBoxOpen() {
+    return !jsonEl.hidden;
+  }
+
   jsonEl.addEventListener("input", () => fitJsonTextarea(jsonEl));
+
+  btnToggleJson.addEventListener("click", () => {
+    setJsonBoxOpen(!jsonBoxOpen(), true);
+  });
 
   btnLoad.addEventListener("click", () => {
     hideErr();
@@ -1598,7 +1949,7 @@
 
   syncLocalToggleUi();
 
-  requestAnimationFrame(() => fitJsonTextarea(jsonEl));
+  setJsonBoxOpen(false);
 
   /**
    * Tell the extension whether this document has keyboard focus (drives `cp-helper.samplesFocus`).

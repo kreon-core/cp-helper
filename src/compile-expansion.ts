@@ -65,17 +65,6 @@ export function withLocalDefineExpanded(compileExpanded: string): string {
 }
 
 /**
- * Wrap so login rc files load (aliases/functions like `run`).
- * @param inner full shell command
- * @param prefix e.g. bash -l -c
- */
-export function wrapForLoginShell(inner: string, prefix: string): string {
-  const p = prefix.trim();
-  if (!p) return inner;
-  return `${p} ${JSON.stringify(inner)}`;
-}
-
-/**
  * Expand a checker command template with standard placeholders plus checker-specific ones.
  * Placeholders: {{file}}, {{dir}}, {{out}}, {{input}}, {{expected}}, {{actual}}.
  * @param tpl checker command template
