@@ -669,7 +669,7 @@
   function toggleGroupCollapsed(groupId) {
     const id = String(groupId ?? "");
     if (!id) {
-      return;
+      return false;
     }
     if (groupCollapsed[id]) {
       delete groupCollapsed[id];
@@ -677,7 +677,40 @@
       groupCollapsed[id] = true;
     }
     persistWebviewNavState();
-    render();
+    return !!groupCollapsed[id];
+  }
+
+  /**
+   * Applies one group's collapsed state to its own header and panel. Like the per-case
+   * disclosure, toggling patches these nodes instead of calling `render()`, and `animate` keeps
+   * the expand animation on a real disclosure - replaying it for every group on an unrelated
+   * render (adding a group, a run finishing) is what reads as a flick.
+   * @param {HTMLElement} wrap
+   * @param {HTMLElement} inner
+   * @param {HTMLElement} disclose
+   * @param {HTMLElement} chev
+   * @param {string} labelText
+   * @param {boolean} collapsed
+   * @param {boolean} animate
+   */
+  function applyGroupCollapsedUi(
+    wrap,
+    inner,
+    disclose,
+    chev,
+    labelText,
+    collapsed,
+    animate,
+  ) {
+    wrap.classList.toggle("case-group-wrap--collapsed", collapsed);
+    inner.hidden = collapsed;
+    inner.setAttribute("aria-hidden", collapsed ? "true" : "false");
+    inner.classList.toggle("case-group-cases--expanding", animate && !collapsed);
+    disclose.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    chev.textContent = collapsed ? "▸" : "▾";
+    const hint = collapsed ? `Expand ${labelText}` : `Collapse ${labelText}`;
+    disclose.title = hint;
+    disclose.setAttribute("aria-label", hint);
   }
 
   /**
@@ -1182,6 +1215,13 @@
     applyToolbarAndImportState();
     listEmptyEl.hidden = totalCaseCount() > 0;
 
+    /**
+     * Group disclosure state is applied after the loop: it needs both the header nodes and the
+     * `inner` panel, which is built further down.
+     * @type {(() => void)[]}
+     */
+    const groupDisclosures = [];
+
     groups.forEach((group, gi) => {
       const wrap = document.createElement("li");
       wrap.className = "case-group-wrap";
@@ -1191,7 +1231,6 @@
         wrap.classList.add("case-group-wrap--panel");
         const gid = String(group.id ?? gi);
         const panelId = `case-group-panel-${gi}`;
-        const collapsed = !!groupCollapsed[gid];
         const gs = lastRunAllSummaryByGroup[gi];
         wrap.classList.remove("case-group-wrap--ac", "case-group-wrap--wa");
         if (gs && gs.total > 0) {
@@ -1212,27 +1251,41 @@
         const disclose = document.createElement("button");
         disclose.type = "button";
         disclose.className = "case-group-disclose";
-        disclose.setAttribute("aria-expanded", collapsed ? "false" : "true");
         disclose.setAttribute("aria-controls", panelId);
-        disclose.title = collapsed
-          ? `Expand ${labelText}`
-          : `Collapse ${labelText}`;
-        disclose.setAttribute(
-          "aria-label",
-          collapsed ? `Expand ${labelText}` : `Collapse ${labelText}`,
-        );
         const chev = document.createElement("span");
         chev.className = "case-group-disclose__chev";
         chev.setAttribute("aria-hidden", "true");
-        chev.textContent = collapsed ? "▸" : "▾";
         const lbl = document.createElement("span");
         lbl.className = "case-group-disclose__label";
         lbl.textContent = labelText;
         disclose.appendChild(chev);
         disclose.appendChild(lbl);
         disclose.addEventListener("click", () => {
-          toggleGroupCollapsed(gid);
+          const nowCollapsed = toggleGroupCollapsed(gid);
+          applyGroupCollapsedUi(
+            wrap,
+            inner,
+            disclose,
+            chev,
+            labelText,
+            nowCollapsed,
+            true,
+          );
+          if (!nowCollapsed) {
+            refitAll();
+          }
         });
+        groupDisclosures.push(() =>
+          applyGroupCollapsedUi(
+            wrap,
+            inner,
+            disclose,
+            chev,
+            labelText,
+            !!groupCollapsed[gid],
+            false,
+          ),
+        );
         ghead.appendChild(disclose);
 
         const sumEl = document.createElement("span");
@@ -1333,18 +1386,12 @@
         ghead.appendChild(btnClrG);
 
         wrap.appendChild(ghead);
-        wrap.classList.toggle("case-group-wrap--collapsed", collapsed);
       }
 
       const inner = document.createElement("ul");
       inner.className = "case-group-cases";
       if (multi) {
         inner.id = `case-group-panel-${gi}`;
-        inner.hidden = !!groupCollapsed[String(group.id ?? gi)];
-        inner.setAttribute(
-          "aria-hidden",
-          inner.hidden ? "true" : "false",
-        );
       }
 
       group.cases.forEach((c, index) => {
@@ -1502,6 +1549,8 @@
       wrap.appendChild(inner);
       listEl.appendChild(wrap);
     });
+
+    groupDisclosures.forEach((apply) => apply());
 
     if (showAddProblemGroupRow()) {
       const addProblemRow = document.createElement("li");
