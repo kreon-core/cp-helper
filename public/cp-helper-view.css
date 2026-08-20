@@ -1057,7 +1057,7 @@ button.btn-icon--on {
   to   { opacity: 1;   transform: translateY(0); }
 }
 
-.case-group-cases:not([hidden]) {
+.case-group-cases--expanding {
   animation: cp-expand-in 0.12s ease-out;
 }
 
