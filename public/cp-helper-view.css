@@ -22,8 +22,9 @@
 }
 
 /**
- * Single scroll container on `body` so the bar isn't on `html` (Chromium often scrolls
- * `document.scrollingElement` = html otherwise - that scrollbar is still inside our iframe).
+ * The document itself never scrolls: `body` is a fixed-height column whose only flexible track
+ * is the case list, so the toolbar and the Test cases heading stay put and the scrollbar belongs
+ * to the list rather than to the whole view.
  * Workbench chrome *outside* the webview iframe cannot be styled by the extension.
  */
 html {
@@ -33,7 +34,7 @@ html {
 
 body {
   margin: 0;
-  padding: 0 var(--cp-space-2) 12px;
+  padding: 0 var(--cp-space-2);
   font-family: var(--vscode-font-family);
   font-size: var(--vscode-font-size);
   color: var(--vscode-foreground);
@@ -41,41 +42,11 @@ body {
   line-height: 1.4;
   height: 100%;
   max-height: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.5))
-    transparent;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-body::-webkit-scrollbar {
-  display: block;
-  width: 10px;
-  height: 10px;
-}
-
-body::-webkit-scrollbar-track,
-body::-webkit-scrollbar-corner {
-  display: block;
-  background: transparent;
-}
-
-body::-webkit-scrollbar-thumb {
-  background: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.5));
-  border: 2px solid transparent;
-  background-clip: content-box;
-  border-radius: 5px;
-}
-
-body::-webkit-scrollbar-thumb:hover {
-  background: var(--vscode-scrollbarSlider-hoverBackground, rgba(121, 121, 121, 0.7));
-  background-clip: content-box;
-}
-
-body::-webkit-scrollbar-thumb:active {
-  background: var(--vscode-scrollbarSlider-activeBackground, rgba(191, 191, 191, 0.6));
-  background-clip: content-box;
-}
 
 /**
  * Incidental scrollers stay bar-free; the view itself and the sample/output fields opt back in
@@ -116,6 +87,7 @@ body::-webkit-scrollbar-thumb:active {
 }
 
 .import {
+  flex: 0 0 auto;
   margin-bottom: var(--cp-space-2);
 }
 
@@ -128,13 +100,12 @@ body::-webkit-scrollbar-thumb:active {
 }
 
 /**
- * Sticky offsets resolve against the scrollport (body's padding box), so `body` carries no
- * top padding: any would leave a gap where scrolled case rows show above the bar.
- * Negative inline margins let the background span the body's side padding.
+ * The bar is outside the scroller, so it needs no sticky offset - only a stacking context, to
+ * keep its bottom shadow above the list. Negative inline margins let the background span the
+ * body's side padding.
  */
 .import__actions {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 5;
   display: flex;
   align-items: center;
@@ -450,6 +421,7 @@ button.btn-ghost {
 
 /* Neutral surface + error text/border: inputValidation errorBackground + errorForeground can both be red in some themes (unreadable). */
 .err {
+  flex: 0 0 auto;
   color: var(--vscode-errorForeground);
   background: var(--vscode-editor-background, var(--vscode-sideBar-background));
   padding: var(--cp-space-1) var(--cp-space-2);
@@ -461,9 +433,13 @@ button.btn-ghost {
 }
 
 .list {
+  flex: 1 1 auto;
+  min-height: 0;
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 0 0 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .add-case-row {
@@ -525,6 +501,7 @@ button.btn-add-case {
 }
 
 .list-empty {
+  flex: 0 0 auto;
   font-size: 11px;
   line-height: 1.6;
   opacity: 0.7;
@@ -541,13 +518,29 @@ button.btn-add-case {
 }
 
 .cases-section {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   margin-top: var(--cp-space-3);
 }
 
+
+/**
+ * A problem is one panel: the header is flush against the top edge and its samples sit inside the
+ * same border, so a case row reads as belonging to the header above it rather than floating free.
+ */
 .case-group-wrap {
   list-style: none;
   margin: 0 0 var(--cp-space-3);
   padding: 0;
+}
+
+.case-group-wrap--panel {
+  overflow: hidden;
+  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
+  border-radius: var(--cp-radius-lg);
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
 }
 
 .case-group-wrap:last-child {
@@ -559,8 +552,8 @@ button.btn-add-case {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--cp-space-1) var(--cp-space-2);
-  margin-bottom: var(--cp-space-2);
   padding: var(--cp-space-1) var(--cp-gutter);
+  background: var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12));
   border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
 }
 
@@ -613,14 +606,17 @@ button.case-group-disclose:focus-visible {
 }
 
 .case-group-wrap--collapsed .case-group-head {
-  margin-bottom: var(--cp-space-1);
+  border-bottom: none;
 }
 
 /* After Run all: group header tint (same palette as per-sample AC / WA). */
+.case-group-wrap--panel.case-group-wrap--ac {
+  border-color: rgba(46, 160, 67, 0.35);
+}
+
 .case-group-wrap--ac .case-group-head {
   background: rgba(46, 160, 67, 0.12);
   border-bottom-color: rgba(46, 160, 67, 0.35);
-  border-radius: var(--cp-radius-sm) var(--cp-radius-sm) 0 0;
 }
 
 .case-group-wrap--ac .case-group-passed {
@@ -632,10 +628,13 @@ button.case-group-disclose:focus-visible {
   filter: none;
 }
 
+.case-group-wrap--panel.case-group-wrap--wa {
+  border-color: rgba(248, 81, 73, 0.35);
+}
+
 .case-group-wrap--wa .case-group-head {
   background: rgba(248, 81, 73, 0.1);
   border-bottom-color: rgba(248, 81, 73, 0.35);
-  border-radius: var(--cp-radius-sm) var(--cp-radius-sm) 0 0;
 }
 
 .case-group-wrap--wa .case-group-passed {
@@ -684,6 +683,19 @@ button.case-group-disclose:focus-visible {
   padding: 0;
 }
 
+/**
+ * Inset and tinted against the panel body, so the rows read as contents of the header above them
+ * rather than as siblings of the group itself.
+ */
+.case-group-wrap--panel > .case-group-cases {
+  padding: var(--cp-space-2);
+  background: rgba(128, 128, 128, 0.05);
+}
+
+.case-group-cases > .case + .case {
+  margin-top: var(--cp-space-1);
+}
+
 .case {
   border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
   border-radius: var(--cp-radius-md);
@@ -691,6 +703,10 @@ button.case-group-disclose:focus-visible {
   overflow: hidden;
   background: var(--vscode-sideBar-background, var(--vscode-editor-background));
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.case-group-cases > .case {
+  margin-bottom: 0;
 }
 
 .case:hover {
@@ -710,14 +726,34 @@ button.case-group-disclose:focus-visible {
   --case-head-ctrl-h: 22px;
 }
 
-.case-title {
+/** The whole title strip is the disclosure, matching the group header's own bar. */
+button.case-disclose {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-weight: 600;
-  font-size: 11px;
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
+  margin: 0;
+  padding: 2px 6px;
+  border: none;
+  border-radius: var(--cp-radius-sm);
+  background: transparent;
+  color: var(--vscode-foreground);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.case-disclose:hover:not(:disabled) {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12));
+  filter: none;
+}
+
+button.case-disclose:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: 2px;
 }
 
 .case-num {
@@ -737,7 +773,15 @@ button.case-group-disclose:focus-visible {
   line-height: 1;
 }
 
-.case-verdict {
+/**
+ * Both chips are sized for their widest value ("TLE", "150ms"/"1.20s") rather than their own
+ * text, so the run buttons after them line up down the list instead of stepping in and out.
+ */
+.case-status {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -747,6 +791,24 @@ button.case-group-disclose:focus-visible {
   padding: 2px 6px;
   border-radius: 3px;
   border: 1px solid transparent;
+}
+
+.case-status--blank {
+  visibility: hidden;
+}
+
+.case-verdict {
+  min-width: 34px;
+}
+
+.case-time {
+  min-width: 46px;
+  font-weight: 600;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  background: rgba(128, 128, 128, 0.1);
+  border-color: rgba(128, 128, 128, 0.18);
 }
 
 .case--ac .case-verdict {
@@ -803,6 +865,10 @@ button.case-group-disclose:focus-visible {
   line-height: 1;
 }
 
+.case--collapsed .case-head {
+  border-bottom: none;
+}
+
 .case-body {
   padding: var(--cp-space-2);
   display: flex;
@@ -811,9 +877,24 @@ button.case-group-disclose:focus-visible {
 }
 
 .field {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+/**
+ * The view's scrollbars are all hidden, but a clipped sample or run output still has to look
+ * different from a complete one, and this line says so without a scrollbar's bulk. Inset from the
+ * field's right border and pointer-transparent - `syncFieldScrollIndicator()` sizes and offsets it.
+ */
+.field-scroll {
+  position: absolute;
+  right: 4px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.5));
+  pointer-events: none;
 }
 
 /**
@@ -859,42 +940,6 @@ button.case-group-disclose:focus-visible {
   --field-stripe: 0 0 #0000;
   --field-focus-ring: 0 0 #0000;
   box-shadow: var(--field-stripe), var(--field-focus-ring);
-  /**
-   * Scrollbars are hidden document-wide; these fields opt back in, since a clipped sample or
-   * run output otherwise looks identical to a complete one.
-   */
-  scrollbar-width: thin;
-  scrollbar-color: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.5))
-    transparent;
-}
-
-.input-area::-webkit-scrollbar {
-  display: block;
-  width: 10px;
-  height: 10px;
-}
-
-.input-area::-webkit-scrollbar-track,
-.input-area::-webkit-scrollbar-corner {
-  display: block;
-  background: transparent;
-}
-
-.input-area::-webkit-scrollbar-thumb {
-  background: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.5));
-  border: 2px solid transparent;
-  background-clip: content-box;
-  border-radius: 5px;
-}
-
-.input-area::-webkit-scrollbar-thumb:hover {
-  background: var(--vscode-scrollbarSlider-hoverBackground, rgba(121, 121, 121, 0.7));
-  background-clip: content-box;
-}
-
-.input-area::-webkit-scrollbar-thumb:active {
-  background: var(--vscode-scrollbarSlider-activeBackground, rgba(191, 191, 191, 0.6));
-  background-clip: content-box;
 }
 
 .field--sample .input-area--sample {
@@ -957,6 +1002,7 @@ pre.input-area:focus-visible {
 }
 
 .cases-heading {
+  flex: 0 0 auto;
   padding: 0 var(--cp-gutter);
   font-size: 10px;
   font-weight: 600;
@@ -1072,12 +1118,11 @@ button.btn-icon--on {
 /**
  * Wide (panel / bottom bar): two rows anchored at opposite edges read as mostly empty space, so
  * `display: contents` drops both wrappers and `order` lays their children out as one dense row.
- * The whole section sticks here, since the title now sits on the action line.
+ * The bar's chrome moves to the section here, since the title now sits on the action line.
  */
 @media (min-width: 560px) {
   .import {
-    position: sticky;
-    top: 0;
+    position: relative;
     z-index: 5;
     display: flex;
     flex-wrap: wrap;
@@ -1135,8 +1180,8 @@ button.btn-icon--on {
 /**
  * Wide (panel / bottom bar): expected and actual sit side by side so a mismatch is read across
  * rather than scrolled between. Input spans the full width above them; stderr spans it below.
- * Children are positioned by document order (input, expected, stdout, stderr) - the case body
- * appends stdout/stderr after a run, so no marker class is needed for the first two.
+ * Input is the first child; expected, stdout and stderr are placed by column so the layout does
+ * not shift with which result fields a run produced.
  */
 @media (min-width: 560px) {
   .case-body {
@@ -1148,6 +1193,18 @@ button.btn-icon--on {
 
   .case-body > .field:nth-child(1) {
     grid-column: 1 / -1;
+  }
+
+  /**
+   * Expected output holds column 1 so its edge lands in the same place on every run sample, and
+   * stdout is placed by class rather than by document order.
+   */
+  .case-body > .field:nth-child(2) {
+    grid-column: 1;
+  }
+
+  .case-body > .field--stdout {
+    grid-column: 2;
   }
 
   /** No stdout column (before a run, or a run that only wrote stderr): expected takes the row. */
