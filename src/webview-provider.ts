@@ -36,6 +36,19 @@ import { buildSamplesWebviewHtml, getNonce } from "./webview-html";
 
 const log = createCpLogger("webview");
 
+/**
+ * Open the CP Helper container wherever the user docked it. `<viewId>.focus` follows the view, so it
+ * also switches the panel tab when the container was dragged out of the secondary sidebar;
+ * `workbench.view.extension.cp-helper` only opens the container in its contributed location.
+ */
+export async function revealSamplesContainer(): Promise<void> {
+  try {
+    await vscode.commands.executeCommand(`${VIEW_TYPE_SAMPLES}.focus`);
+  } catch {
+    await vscode.commands.executeCommand("workbench.view.extension.cp-helper");
+  }
+}
+
 function validateTestCase(v: unknown): TestCase {
   const o = v as Record<string, unknown> | null | undefined;
   return {
@@ -51,6 +64,15 @@ export class CpHelperViewProvider
   public static readonly viewType = VIEW_TYPE_SAMPLES;
 
   private webviewView: vscode.WebviewView | undefined;
+
+  /** True once the current webview document has asked for `restore`, i.e. its case list is filled. */
+  private webviewReady = false;
+
+  /** Run shortcut asked for before the webview was ready; posted with the `restore` reply. */
+  private pendingRunShortcut:
+    | "shortcutRunFirst"
+    | "shortcutRunAll"
+    | undefined;
 
   /**
    * Bumped by every Run click. A run whose token is stale has been superseded and must stay
@@ -109,12 +131,12 @@ export class CpHelperViewProvider
   }
 
   /**
-   * If Samples is not visible, reveal CP Helper on the secondary sidebar **without moving
-   * keyboard focus** when possible (`show(true)`). After a cold open (`workbench.view.extension...`),
-   * focus may jump once; we then re-activate the text editor that was active before reveal.
+   * If Samples is not visible, reveal CP Helper **without moving keyboard focus** when possible
+   * (`show(true)`). After a cold open (`revealSamplesContainer`), focus may jump once; we then
+   * re-activate the text editor that was active before reveal.
    *
-   * @returns `true` if the view was hidden and we opened/showed it - caller should wait briefly
-   * before `postMessage` so the webview can attach (see extension shortcut handlers).
+   * @returns `true` if the view was hidden and we opened/showed it. Run requests do not need that
+   * answer: `requestRunShortcut` holds them until the webview reports back.
    */
   async revealSamplesViewIfHidden(): Promise<boolean> {
     if (this.webviewView?.visible) {
@@ -144,9 +166,7 @@ export class CpHelperViewProvider
       return true;
     }
 
-    await vscode.commands.executeCommand(
-      "workbench.view.extension.cp-helper",
-    );
+    await revealSamplesContainer();
     const deadline = Date.now() + 3000;
     while (Date.now() < deadline) {
       // `resolveWebviewView` assigns this field asynchronously; TS cannot see that after the
@@ -163,11 +183,18 @@ export class CpHelperViewProvider
   }
 
   /**
-   * Deliver a shortcut / palette action to the webview (host -> webview).
-   * @param msg
+   * Ask the webview to start a run. A webview that has not been opened yet holds no cases, so its
+   * `triggerRun*` would find an empty list: the request waits for the `restore` round trip instead
+   * of being posted into the gap (import into a hidden Samples view, shortcut before first open).
+   * @param type webview message to deliver
    */
-  postToWebview(msg: unknown): void {
-    void this.webviewView?.webview.postMessage(msg);
+  requestRunShortcut(type: "shortcutRunFirst" | "shortcutRunAll"): void {
+    this.pendingRunShortcut = undefined;
+    if (this.webviewReady && this.webviewView) {
+      void this.webviewView.webview.postMessage({ type });
+      return;
+    }
+    this.pendingRunShortcut = type;
   }
 
   /**
@@ -222,6 +249,7 @@ export class CpHelperViewProvider
 
   resolveWebviewView(webviewView: vscode.WebviewView): void {
     this.webviewView = webviewView;
+    this.webviewReady = false;
     webviewView.webview.options = {
       enableScripts: true,
       localResourceRoots: [vscode.Uri.joinPath(this.extUri, "public")],
@@ -281,6 +309,8 @@ export class CpHelperViewProvider
       editorListener.dispose();
       configListener.dispose();
       this.webviewView = undefined;
+      this.webviewReady = false;
+      this.pendingRunShortcut = undefined;
       void vscode.commands.executeCommand(
         "setContext",
         CONTEXT_SAMPLES_FOCUS,
@@ -350,6 +380,12 @@ export class CpHelperViewProvider
           });
           postActiveSourceHint(webviewView.webview);
           postOptions(webviewView.webview, this.ctx);
+          this.webviewReady = true;
+          const pending = this.pendingRunShortcut;
+          this.pendingRunShortcut = undefined;
+          if (pending) {
+            webviewView.webview.postMessage({ type: pending });
+          }
           break;
         }
         case "setDefineLocal": {
