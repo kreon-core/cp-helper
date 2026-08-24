@@ -4,6 +4,14 @@ All notable changes to CP Helper are documented in this file.
 
 Versioning from 1.0.0 follows SemVer: MAJOR.MINOR.PATCH.
 
+## [1.0.7] - 2026-08-24
+
+### Fixed
+- OJ Sync now reads Codeforces samples one line per line. Codeforces separates sample lines with `<br>` rather than newlines, so the previous `textContent` read imported `3`, `1 2`, `420 421` as the single line `31 2420 421...`. Block-level line wrappers (the newer `test-example-line` layout), CRLF, trailing spaces, and trailing blank lines are normalized as well.
+- OJ Sync import now starts Run all even when the Samples view has not been opened in this window (for example CP Helper docked in the panel while the terminal has focus). The run request waited on a fixed 120 ms timer and reached a webview whose case list was still empty, so nothing ran; it is now held until the webview has its cases. The `Run First Sample` / `Run All Samples` commands use the same path.
+- Revealing the Samples view now follows the view to wherever it is docked, so an OJ Sync import switches the panel to CP Helper on the first import of a window too. `workbench.view.extension.cp-helper` only opens the container in its contributed location (secondary sidebar), which is a no-op for a container dragged into the panel; the view's own focus command is used instead.
+- A failed Samples view reveal no longer makes the local import POST fail after the samples were already imported.
+
 ## [1.0.6] - 2026-08-12
 
 ### Fixed

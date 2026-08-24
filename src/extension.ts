@@ -31,7 +31,10 @@ import {
 import { runState } from "./run-state";
 import { runStressTest } from "./run-tests";
 import { getActiveSourceFilePath, ensureSourceSavedBeforeRun } from "./source-hints";
-import { CpHelperViewProvider } from "./webview-provider";
+import {
+  CpHelperViewProvider,
+  revealSamplesContainer,
+} from "./webview-provider";
 
 const log = createCpLogger("core");
 const stressLog = createCpLogger("stress");
@@ -64,14 +67,9 @@ export async function activate(
   );
 
   const revealSamplesAndFocus = async (): Promise<void> => {
-    await vscode.commands.executeCommand(
-      "workbench.view.extension.cp-helper",
-    );
+    await revealSamplesContainer();
     provider.focusSamplesView();
   };
-
-  /** Let webview apply cases before `shortcutRun*` messages (matches palette shortcuts). */
-  const SHORTCUT_POST_DELAY_MS = 120;
 
   const importAndReveal = async (body: string): Promise<void> => {
     const { groupCount } = await importSamplesFromJsonText(
@@ -79,14 +77,21 @@ export async function activate(
       provider,
       body,
     );
-    await revealSamplesAndFocus();
     const instantRun =
       vscode.workspace
         .getConfiguration("cp-helper")
         .get<boolean>("instantRunAllOnLocalImport") !== false;
     if (instantRun && groupCount === 1) {
-      await new Promise((r) => setTimeout(r, SHORTCUT_POST_DELAY_MS));
-      provider.postToWebview({ type: "shortcutRunAll" });
+      provider.requestRunShortcut("shortcutRunAll");
+    }
+    try {
+      await revealSamplesAndFocus();
+    } catch (e) {
+      // Reveal can fail when the view container was moved (e.g. into the panel); the import itself
+      // succeeded, so report it instead of failing the POST.
+      log.warn(
+        `samples view not revealed: ${e instanceof Error ? e.message : String(e)}`,
+      );
     }
   };
 
@@ -144,18 +149,12 @@ export async function activate(
     }),
   );
   const runFirstSample = async (): Promise<void> => {
-    const revealed = await provider.revealSamplesViewIfHidden();
-    if (revealed) {
-      await new Promise((r) => setTimeout(r, SHORTCUT_POST_DELAY_MS));
-    }
-    provider.postToWebview({ type: "shortcutRunFirst" });
+    provider.requestRunShortcut("shortcutRunFirst");
+    await provider.revealSamplesViewIfHidden();
   };
   const runAllSamples = async (): Promise<void> => {
-    const revealed = await provider.revealSamplesViewIfHidden();
-    if (revealed) {
-      await new Promise((r) => setTimeout(r, SHORTCUT_POST_DELAY_MS));
-    }
-    provider.postToWebview({ type: "shortcutRunAll" });
+    provider.requestRunShortcut("shortcutRunAll");
+    await provider.revealSamplesViewIfHidden();
   };
   context.subscriptions.push(
     vscode.commands.registerCommand(CMD_RUN_FIRST_SAMPLE, runFirstSample),
