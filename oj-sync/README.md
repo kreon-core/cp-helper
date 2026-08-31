@@ -20,23 +20,24 @@ On a problem page, the toolbar action:
 
 ## Source layout
 
-| File | Role |
-|------|------|
-| `background.js` | Service worker: injects `lib/inpage/*.js`, then calls `__ojSyncExtractSamplesInPage`; POST / fallback. |
-| `lib/inpage/inject-manifest.js` | **ES module** (SW only): ordered list of classic scripts to inject. |
-| `lib/inpage/shared-dom.js` | Injected: `prePlainText` (AtCoder + Codeforces). |
-| `lib/inpage/extract-atcoder.js` | Injected: AtCoder scrape. Remove + drop `dispatch.js` branch to disable. |
-| `lib/inpage/extract-codeforces.js` | Injected: Codeforces scrape. Remove + drop `dispatch.js` branch to disable. |
-| `lib/inpage/extract-leetcode.js` | Injected: LeetCode scrape + clipboard. Remove + drop `dispatch.js` branch to disable. |
-| `lib/inpage/dispatch.js` | Injected: hostname -> `extractAtcoder` / `extractCodeforces` / `extractLeetcode`. |
-| `lib/build-import-payload.js` | Normalize scrape result -> JSON string for CP Helper. |
-| `lib/pair-samples.js` | Pair input/output `<pre>` blocks into sample objects. |
-| `lib/contest-url.js` | Problem labels + supported-host check. |
-| `lib/cp-helper-client.js` | `fetch` POST to localhost; optional `vscode://` tab. |
-| `lib/settings.js` | `chrome.storage.sync` defaults for import/focus URIs. |
-| `lib/constants.js` | Default URIs and badge glyph. |
-| `lib/badge.js` | Toolbar badge flash success / error. |
-| `options.js` / `options.html` | Options page (separate from the service worker). |
+| File                               | Role                                                                                                   |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `background.js`                    | Service worker: injects `lib/inpage/*.js`, then calls `__ojSyncExtractSamplesInPage`; POST / fallback. |
+| `lib/inpage/inject-manifest.js`    | **ES module** (SW only): ordered list of classic scripts to inject.                                    |
+| `lib/inpage/shared-dom.js`         | Injected: `prePlainText` (AtCoder + Codeforces).                                                       |
+| `lib/inpage/extract-atcoder.js`    | Injected: AtCoder scrape. Remove + drop `dispatch.js` branch to disable.                               |
+| `lib/inpage/extract-codeforces.js` | Injected: Codeforces scrape. Remove + drop `dispatch.js` branch to disable.                            |
+| `lib/inpage/extract-leetcode.js`   | Injected: LeetCode scrape + clipboard. Remove + drop `dispatch.js` branch to disable.                  |
+| `lib/inpage/dispatch.js`           | Injected: hostname -> `extractAtcoder` / `extractCodeforces` / `extractLeetcode`.                      |
+| `lib/build-import-payload.js`      | Normalize scrape result -> JSON string for CP Helper.                                                  |
+| `lib/pair-samples.js`              | Pair input/output `<pre>` blocks into sample objects.                                                  |
+| `lib/contest-url.js`               | Problem labels + supported-host check.                                                                 |
+| `lib/cp-helper-client.js`          | `fetch` POST to localhost; optional `vscode://` tab.                                                   |
+| `lib/settings.js`                  | `chrome.storage.sync` defaults for import/focus URIs.                                                  |
+| `lib/constants.js`                 | Default URIs and badge glyph.                                                                          |
+| `lib/badge.js`                     | Toolbar badge flash success / error.                                                                   |
+| `options.js` / `options.html`      | Options page (separate from the service worker).                                                       |
+| `icons/icon.svg`                   | Toolbar / extensions-page icon: faceted white arrow on an orange disc. `icons/icon-*.png` are what the manifest loads. |
 
 The manifest uses **`"type": "module"`** so the service worker can `import` ES modules under **`lib/`**. **Site scrapers** under **`lib/inpage/`** are plain classic scripts (no `import`); Chrome loads them in order via **`scripting.executeScript({ files })`** so each OJ stays in its own file.
 
