@@ -1,17 +1,14 @@
 {
   "name": "cp-helper",
   "displayName": "CP Helper",
-  "description": "Run competitive programming samples against your C++ solution in Visual Studio Code (official Microsoft build only).",
+  "description": "Run online judge samples against your local C++ solution in VSCode.",
   "version": "1.0.7",
   "publisher": "from-cero",
   "license": "MIT",
   "engines": {
     "vscode": "^1.82.0"
   },
-  "categories": [
-    "Testing",
-    "Other"
-  ],
+  "categories": [],
   "repository": {},
   "activationEvents": [
     "onStartupFinished"
@@ -98,7 +95,7 @@
       "properties": {
         "cp-helper.compileCommand": {
           "type": "string",
-          "default": "g++ -std=c++23 -pipe -o \"{{out}}\" \"{{file}}\"",
+          "default": "g++ -std=c++23 -O0 -o \"{{out}}\" \"{{file}}\"",
           "description": "C++ compile line; empty skips compile (use only if you pre-build the binary that runCommand runs). Placeholders: {{file}}, {{dir}} (source dir), {{out}} (cached binary path)."
         },
         "cp-helper.debugConfigName": {
@@ -108,7 +105,7 @@
         },
         "cp-helper.debugCompileCommand": {
           "type": "string",
-          "default": "",
+          "default": "g++ -std=c++23 -g -O0 -o \"{{out}}\" \"{{file}}\"",
           "description": "Compile line for the inline CodeLLDB fallback, used only when debugConfigName matches no launch.json configuration. Empty derives it from compileCommand by adding -g -O0. Placeholders: {{file}}, {{dir}}, {{out}}."
         },
         "cp-helper.runCommand": {
