@@ -20,6 +20,7 @@ C++ is the only supported language. Run, Debug, and Export refuse a non-C++ acti
 ## Install
 
 - VSIX install: run npm run vsix, then use Extensions: Install from VSIX.
+- Local install: npm run vsix:local:run packages and installs into the "Problem Solving [ C++ ]" profile. Set CP_HELPER_PROFILE to target a different one, for example CP_HELPER_PROFILE="Default" npm run vsix:local:run.
 - Development: npm install, npm run compile, then press F5 (Run Extension).
 
 ## Quick start
