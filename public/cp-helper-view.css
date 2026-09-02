@@ -698,6 +698,8 @@ button.case-group-disclose:focus-visible {
 
 .case {
   border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
+  /** Accent cap: the row's own boundary, so a long sample never blends into the one above it. */
+  border-top: 2px solid var(--vscode-focusBorder, #007fd4);
   border-radius: var(--cp-radius-md);
   margin-bottom: var(--cp-space-1);
   overflow: hidden;
@@ -756,20 +758,31 @@ button.case-disclose:focus-visible {
   outline-offset: 2px;
 }
 
+.case-disclose__chev {
+  flex-shrink: 0;
+  width: 1em;
+  display: inline-flex;
+  justify-content: center;
+  opacity: 0.88;
+  font-size: 10px;
+  line-height: 1;
+}
+
 .case-num {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   min-width: 18px;
   height: 18px;
-  padding: 0 5px;
-  font-size: 10px;
-  font-weight: 600;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
-  background: rgba(128, 128, 128, 0.1);
+  color: var(--vscode-badge-foreground, var(--vscode-foreground));
+  background: var(--vscode-badge-background, rgba(128, 128, 128, 0.25));
   border-radius: 9px;
-  border: 1px solid rgba(128, 128, 128, 0.18);
+  border: 1px solid transparent;
   line-height: 1;
 }
 
@@ -821,6 +834,22 @@ button.case-disclose:focus-visible {
   background: transparent;
   border-color: rgba(128, 128, 128, 0.18);
   border-style: dashed;
+}
+
+.case--ac {
+  border-top-color: rgba(46, 160, 67, 0.65);
+}
+
+.case--wa {
+  border-top-color: rgba(248, 81, 73, 0.65);
+}
+
+.case--tle {
+  border-top-color: rgba(88, 166, 255, 0.65);
+}
+
+.case--re {
+  border-top-color: rgba(210, 153, 34, 0.65);
 }
 
 .case--ac .case-verdict {
