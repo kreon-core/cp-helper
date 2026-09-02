@@ -61,7 +61,9 @@ Default keybindings:
 | cp-helper.localCompileCommand | LOCAL build, used by the LOCAL Run buttons (empty = compileCommand with -DLOCAL injected) |
 | cp-helper.debugCompileCommand | DEBUG build behind each sample's Debug button, compiled without -DLOCAL (empty = compileCommand plus -g -O0) |
 | cp-helper.runCommand | Execute command template |
-| cp-helper.runTimeoutMs | Compile/run timeout in ms |
+| cp-helper.runTimeoutMs | Compile/run timeout in ms (used when the problem carries no judge limit) |
+| cp-helper.useJudgeTimeLimit | Judge NORMAL runs against the time limit scraped at import (LOCAL runs keep runTimeoutMs) |
+| cp-helper.timeLimitFactor | Slack over the judge limit before the process is killed |
 | cp-helper.maxParallelSamples | Samples Run all executes at once (0 = auto) |
 | cp-helper.floatAbsEpsilon | Absolute float tolerance |
 | cp-helper.floatRelEpsilon | Relative float tolerance |

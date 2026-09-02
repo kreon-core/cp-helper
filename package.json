@@ -123,6 +123,16 @@
           "default": 5000,
           "description": "Compile and run are killed after this many ms. The whole process tree is stopped (not only the shell), so TLE applies to the real program."
         },
+        "cp-helper.useJudgeTimeLimit": {
+          "type": "boolean",
+          "default": true,
+          "description": "Judge NORMAL runs against the time limit scraped at import (Codeforces and AtCoder). LOCAL runs and compiles always use runTimeoutMs. When off, only runTimeoutMs applies."
+        },
+        "cp-helper.timeLimitFactor": {
+          "type": "number",
+          "default": 2,
+          "description": "Slack over the judge's time limit before the process is killed. A sample is still marked TLE once its own execution time passes the judge limit; the factor only decides how long it is allowed to keep running so you can see how far over it is."
+        },
         "cp-helper.maxParallelSamples": {
           "type": "number",
           "default": 0,

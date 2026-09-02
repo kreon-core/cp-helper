@@ -20,6 +20,8 @@ export interface CaseGroup {
   /** Shown in UI; e.g. `codeforces/2204G`. */
   label: string;
   cases: TestCase[];
+  /** Judge time limit scraped at import (ms). Unset when the judge publishes none (e.g. LeetCode). */
+  timeLimitMs?: number;
 }
 
 export interface ShellRunOutcome {
@@ -50,6 +52,8 @@ export interface RunSampleResult {
   execMs?: number;
   /** `elapsedMs` minus `execMs`: process spawn setup and post-exit pipe drain. */
   overheadMs?: number;
+  /** Judge time limit the verdict was measured against (ms), when the group carries one. */
+  timeLimitMs?: number;
 }
 
 export interface RunSession {
@@ -72,8 +76,13 @@ export interface RunSession {
   checkerCmd: string;
   /** Set once the run command has been logged, so a batch logs it a single time. */
   execLogged: boolean;
+  /** Judge time limit for this group (ms), or 0 when the import carried none. */
+  judgeTimeLimitMs: number;
+  /** Kill timeout for a sample: `judgeTimeLimitMs * timeLimitFactor`, or 0 when unlimited. */
+  judgeKillMs: number;
   exec: (
     cmd: string,
     stdin: string | undefined,
+    timeoutMsOverride?: number,
   ) => Promise<ShellRunOutcome>;
 }
