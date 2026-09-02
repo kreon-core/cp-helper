@@ -10,9 +10,9 @@ you visited when the active tab is not C++, and are disabled until one has been 
 
 ## Release scope
 
-- Stable baseline: 1.0.5
+- Stable baseline: 1.0.8
 - Language support: C++ only
-- Companion browser extension: OJ Sync 1.0.5
+- Companion browser extension: OJ Sync 1.0.8
 
 ## Requirements
 
@@ -29,7 +29,8 @@ you visited when the active tab is not C++, and are disabled until one has been 
 1. Open a C++ source file.
 2. Open CP Helper in the secondary sidebar.
 3. Import sample JSON.
-4. Click Run all or Run per case; the second run button beside each compiles the LOCAL build.
+4. Click Run all or Run per case. Every run button has a LOCAL twin beside it that compiles
+   cp-helper.localCompileCommand instead of cp-helper.compileCommand.
 
 Sample JSON:
 
@@ -58,7 +59,7 @@ Default keybindings:
 | --- | --- |
 | cp-helper.compileCommand | NORMAL build, used by the plain Run buttons (keep it judge-like: -O2, no sanitizers) |
 | cp-helper.localCompileCommand | LOCAL build, used by the LOCAL Run buttons (empty = compileCommand with -DLOCAL injected) |
-| cp-helper.debugCompileCommand | DEBUG build behind each sample's Debug button (empty = active run command plus -g -O0) |
+| cp-helper.debugCompileCommand | DEBUG build behind each sample's Debug button, compiled without -DLOCAL (empty = compileCommand plus -g -O0) |
 | cp-helper.runCommand | Execute command template |
 | cp-helper.runTimeoutMs | Compile/run timeout in ms |
 | cp-helper.maxParallelSamples | Samples Run all executes at once (0 = auto) |
@@ -68,6 +69,16 @@ Default keybindings:
 | cp-helper.enableLocalImportServer | Enable localhost import server |
 | cp-helper.localImportPort | Local import port (default 17337) |
 | cp-helper.instantRunAllOnLocalImport | Auto-run after single-group local import |
+
+## Samples view
+
+- Each problem group header sticks to the top of the list while its samples scroll past, and each
+  sample header sticks below it, so the group's disclosure and the sample's number and buttons stay
+  reachable inside a long input or output.
+- A sample's header carries a coloured cap: neutral grey until it runs, then green AC, red WA,
+  blue TLE, or amber RE.
+- A verdict shows the program's own execution time and, separately, the overhead outside it
+  (process spawn and output drain).
 
 ## Build cache
 
