@@ -1,10 +1,10 @@
 (function () {
   const vscode = acquireVsCodeApi();
 
-  /** @type {{ id: string; label: string; cases: { sample: number; input: string; output: string }[] }[]} */
+  /** @type {{ id: string; label: string; timeLimitMs?: number; cases: { sample: number; input: string; output: string }[] }[]} */
   let groups = [];
 
-  /** @type {Record<string, { verdict: string; badge: string; stdout: string; stderr: string; elapsedMs?: number; execMs?: number; overheadMs?: number }>} */
+  /** @type {Record<string, { verdict: string; badge: string; stdout: string; stderr: string; elapsedMs?: number; execMs?: number; overheadMs?: number; timeLimitMs?: number }>} */
   const lastRun = {};
 
   /** Per-group Run all summary: key = group index string. */
@@ -164,7 +164,7 @@
    * no result still gets every chip as a blank placeholder, so the action buttons sit in the same
    * column on every row of the list.
    * @param {HTMLElement} head
-   * @param {{ verdict: string; elapsedMs?: number; execMs?: number; overheadMs?: number } | null} runInfo
+   * @param {{ verdict: string; elapsedMs?: number; execMs?: number; overheadMs?: number; timeLimitMs?: number } | null} runInfo
    * @param {Element | null} before insertion anchor, or null to append
    */
   function appendCaseStatus(head, runInfo, before) {
@@ -194,8 +194,13 @@
         head.appendChild(el);
       }
     };
+    const limitMs = runInfo && runInfo.timeLimitMs != null ? runInfo.timeLimitMs : null;
+    const timeHint =
+      limitMs != null
+        ? `Execution time (judge limit${formatElapsed(limitMs)})`
+        : "Execution time";
     mk("verdict", runInfo ? runInfo.verdict : "");
-    mk("time", elapsed, "Execution time");
+    mk("time", elapsed, timeHint);
     mk("overhead", overhead, "Overhead outside the program: process spawn and output drain");
   }
 
@@ -1339,6 +1344,13 @@
         lbl.textContent = labelText;
         disclose.appendChild(chev);
         disclose.appendChild(lbl);
+        if (typeof group.timeLimitMs === "number") {
+          const limitChip = document.createElement("span");
+          limitChip.className = "case-group-limit";
+          limitChip.textContent = formatElapsed(group.timeLimitMs).trim();
+          limitChip.title = "Judge time limit for this problem";
+          disclose.appendChild(limitChip);
+        }
         disclose.addEventListener("click", () => {
           const nowCollapsed = toggleGroupCollapsed(gid);
           applyGroupCollapsedUi(
@@ -1546,6 +1558,7 @@
               index,
               case: group.cases[index],
               defineLocal: local,
+              timeLimitMs: group.timeLimitMs,
             });
           });
           return runOne;
@@ -1960,6 +1973,7 @@
       groupIndex: gi,
       cases: g.cases,
       defineLocal: defineLocal === true,
+      timeLimitMs: g.timeLimitMs,
     });
     return true;
   }
@@ -2079,11 +2093,17 @@
     }
     if (m.type === "cases") {
       if (Array.isArray(m.groups) && m.groups.length > 0) {
-        groups = m.groups.map((g, i) => ({
-          id: typeof g.id === "string" ? g.id : String(i),
-          label: typeof g.label === "string" ? g.label : "",
-          cases: Array.isArray(g.cases) ? g.cases : [],
-        }));
+        groups = m.groups.map((g, i) => {
+          const out = {
+            id: typeof g.id === "string" ? g.id : String(i),
+            label: typeof g.label === "string" ? g.label : "",
+            cases: Array.isArray(g.cases) ? g.cases : [],
+          };
+          if (typeof g.timeLimitMs === "number") {
+            out.timeLimitMs = g.timeLimitMs;
+          }
+          return out;
+        });
       } else if (Array.isArray(m.cases)) {
         groups = [{ id: "0", label: "", cases: m.cases }];
       } else {
@@ -2202,6 +2222,9 @@
           execMs,
           overheadMs,
         };
+      }
+      if (typeof m.timeLimitMs === "number") {
+        lastRun[key].timeLimitMs = m.timeLimitMs;
       }
       if (incrementalDomReady() && patchCaseRowFromLastRun(gi, i)) {
         refreshIncrementalRunUi();

@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { WORKSPACE_KEY_IMPORT_PROBLEM } from "./constants";
 import {
+  coerceTimeLimitMs,
   loadCaseGroups,
   persistCaseGroups,
   persistCaseGroupsToFile,
@@ -91,11 +92,16 @@ export function parseImportPayload(text: string): {
           typeof bo.problem === "string" && bo.problem.trim() !== ""
             ? bo.problem.trim()
             : "";
-        groups.push({
+        const group: CaseGroup = {
           id: String(pi),
           label: probLabel,
           cases: renumberCases(parseCasesArray(arr)),
-        });
+        };
+        const tl = coerceTimeLimitMs(bo.timeLimitMs);
+        if (tl !== null) {
+          group.timeLimitMs = tl;
+        }
+        groups.push(group);
       }
       if (groups.length === 0) {
         throw new Error(
@@ -116,21 +122,24 @@ export function parseImportPayload(text: string): {
     }
     const samples = o.samples ?? o.cases;
     if (Array.isArray(samples)) {
+      const group: CaseGroup = {
+        id: "0",
+        label: importProblem ?? "",
+        cases: parseCasesArray(samples),
+      };
+      const tl = coerceTimeLimitMs(o.timeLimitMs);
+      if (tl !== null) {
+        group.timeLimitMs = tl;
+      }
       return {
-        groups: [
-          {
-            id: "0",
-            label: importProblem ?? "",
-            cases: parseCasesArray(samples),
-          },
-        ],
+        groups: [group],
         importProblem,
         starterCode: readStarterCodeField(o),
       };
     }
   }
   throw new Error(
-    "JSON must be a testcase array, { samples: [...], problem?: string, starterCode?: string }, or { problems: [{ samples, problem? }, ...] }",
+    "JSON must be a testcase array, { samples: [...], problem?: string, timeLimitMs?: number, starterCode?: string }, or { problems: [{ samples, problem?, timeLimitMs? }, ...] }",
   );
 }
 

@@ -7,8 +7,23 @@
   if (!ns) return;
 
   /**
+   * Statement header line: "Time Limit: 2 sec / Memory Limit: 1024 MB" (Japanese pages use
+   * the same line with a localized label).
+   * @returns {number | null}
+   */
+  function atcoderTimeLimitMs() {
+    for (const p of document.querySelectorAll("#main-container p, #main-div p")) {
+      const t = (p.textContent ?? "").trim();
+      if (!/time limit|\u5B9F\u884C\u6642\u9593\u5236\u9650/iu.test(t)) continue;
+      const ms = ns.parseTimeLimitMs(t.split("/")[0]);
+      if (ms !== null) return ms;
+    }
+    return null;
+  }
+
+  /**
    * @param {string} pageUrl unused (kept for API symmetry)
-   * @returns {{ id: string; text: string }[]}
+   * @returns {{ kind: string; timeLimitMs: number | null; items: { id: string; text: string }[] }}
    */
   ns.extractAtcoder = function extractAtcoder(pageUrl) {
     void pageUrl;
@@ -28,6 +43,10 @@
     results.sort((a, b) =>
       a.id.localeCompare(b.id, undefined, { numeric: true }),
     );
-    return results;
+    return {
+      kind: "single",
+      timeLimitMs: atcoderTimeLimitMs(),
+      items: results,
+    };
   };
 })(globalThis);
