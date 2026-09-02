@@ -10,9 +10,9 @@ you visited when the active tab is not C++, and are disabled until one has been 
 
 ## Release scope
 
-- Stable baseline: 1.0.8
+- Stable baseline: 1.0.9
 - Language support: C++ only
-- Companion browser extension: OJ Sync 1.0.8
+- Companion browser extension: OJ Sync 1.0.9
 
 ## Requirements
 
