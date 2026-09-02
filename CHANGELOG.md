@@ -4,6 +4,28 @@ All notable changes to CP Helper are documented in this file.
 
 Versioning from 1.0.0 follows SemVer: MAJOR.MINOR.PATCH.
 
+## [1.0.8] - 2026-09-02
+
+### Added
+- Each run affordance is now a NORMAL / LOCAL pair: the toolbar, every problem group header, and every sample row carry a plain Run button (`compileCommand`) next to a LOCAL one (`localCompileCommand`). The single `-DLOCAL` toggle is gone, so a LOCAL run no longer changes what the next plain run compiles.
+- Separate `cp-helper.localCompileCommand` (LOCAL build) and `cp-helper.debugCompileCommand` (DEBUG build) settings, so the judge-comparable build, the sanitizer build, and the debugger build no longer share one compile line. `cp-helper.compileCommand` now defaults to `-O2`.
+- Group headers and sample headers stick to the top of the list while scrolling. A group's disclosure, passed count, and run buttons stay reachable through its whole list of samples, and a sample's number and buttons stay put through a long input or output.
+- Verdict time now reads as two chips: the program's own execution time and, separately, the overhead outside it (process spawn and output drain). The default run command is spawned without `sh -c` when it needs no shell, keeping a shell fork out of both the timing and the kill tree.
+
+### Changed
+- Sample headers are distinguishable at a glance: an expand/collapse chevron like the group header's, the sample number as plain text, and a colour-coded 2px cap on the header itself (neutral grey until the sample runs, then green AC / red WA / blue TLE / amber RE). The cap travels with the header while it is stuck.
+- Run and Debug are disabled, with an explanatory tooltip, until a C++ file has been opened, instead of failing with an error after the click.
+- Run and Debug target the last C++ editor visited when the active tab is not C++ (a terminal, a settings tab, an `.in` file), so switching away from the source no longer changes or blocks the run target.
+- The Debug button compiles without `-DLOCAL`.
+- The runner hint tooltip lists both compile lines instead of whichever one the toggle had selected.
+- The stress test runs the NORMAL build; it previously followed the `-DLOCAL` toggle.
+- `npm run vsix:local:run` installs into the profile named by `CP_HELPER_PROFILE`, defaulting to "Problem Solving [ C++ ]".
+- OJ Sync ships an extension icon.
+
+### Fixed
+- During Run all, the per-row spinner now marks the samples that are actually executing. Progress from the host is a completion count, which the view read as a row index, so the spinner sat on a sample that had already finished and could point at an unrelated row when samples ran concurrently.
+- The import header's scrolled-state shading is wired once at startup. Its scroll listener sat inside a message handler branch, so it was only ever attached if a `cases` message arrived while the JSON paste box was open.
+
 ## [1.0.7] - 2026-08-24
 
 ### Fixed
