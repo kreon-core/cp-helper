@@ -64,6 +64,57 @@ export function withLocalDefineExpanded(compileExpanded: string): string {
   return `${m[1]} -DLOCAL${m[2]}`;
 }
 
+/** Optimisation levels a derived debug build has to drop, or a later -O2 would win over -O0. */
+const OPT_LEVEL_FLAG = /\s-O(?:fast|[0-3sgz])?(?=\s|$)/gu;
+
+/** A compile template plus whether `-DLOCAL` still has to be injected into it. */
+export interface SelectedCompile {
+  tpl: string;
+  injectLocalDefine: boolean;
+}
+
+/**
+ * Pick the compile line for a run: the LOCAL command while the -DLOCAL option is on, the NORMAL
+ * one otherwise. An empty LOCAL command falls back to the NORMAL one with `-DLOCAL` injected.
+ * @param normalCmd `cp-helper.compileCommand`
+ * @param localCmd `cp-helper.localCompileCommand`
+ * @param defineLocal -DLOCAL option state
+ */
+export function selectRunCompile(
+  normalCmd: string,
+  localCmd: string,
+  defineLocal: boolean,
+): SelectedCompile {
+  if (!defineLocal) {
+    return { tpl: normalCmd, injectLocalDefine: false };
+  }
+  if (localCmd.length > 0) {
+    return { tpl: localCmd, injectLocalDefine: false };
+  }
+  return { tpl: normalCmd, injectLocalDefine: true };
+}
+
+/**
+ * Pick the compile line for the debug button. An empty DEBUG command derives one from whichever
+ * run command is active by adding `-g -O0`.
+ * @param debugCmd `cp-helper.debugCompileCommand`
+ * @param run command the run buttons would use
+ */
+export function selectDebugCompile(
+  debugCmd: string,
+  run: SelectedCompile,
+): SelectedCompile {
+  if (debugCmd.length > 0) {
+    return { tpl: debugCmd, injectLocalDefine: false };
+  }
+  const base = run.tpl.trimStart().replace(OPT_LEVEL_FLAG, "");
+  const m = /^(\S+)(.*)/su.exec(base);
+  return {
+    tpl: m ? `${m[1]} -g -O0${m[2]}` : `${base} -g -O0`,
+    injectLocalDefine: run.injectLocalDefine,
+  };
+}
+
 /**
  * Expand a checker command template with standard placeholders plus checker-specific ones.
  * Placeholders: {{file}}, {{dir}}, {{out}}, {{input}}, {{expected}}, {{actual}}.

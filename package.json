@@ -95,8 +95,13 @@
       "properties": {
         "cp-helper.compileCommand": {
           "type": "string",
-          "default": "g++ -std=c++23 -O0 -o \"{{out}}\" \"{{file}}\"",
-          "description": "C++ compile line; empty skips compile (use only if you pre-build the binary that runCommand runs). Placeholders: {{file}}, {{dir}} (source dir), {{out}} (cached binary path)."
+          "default": "g++ -std=c++23 -O2 -o \"{{out}}\" \"{{file}}\"",
+          "description": "NORMAL build: the compile line used while the -DLOCAL option is off. Keep it close to the judge (-O2, no sanitizers) so the reported run time is comparable. Empty skips compile (use only if you pre-build the binary that runCommand runs). Placeholders: {{file}}, {{dir}} (source dir), {{out}} (cached binary path)."
+        },
+        "cp-helper.localCompileCommand": {
+          "type": "string",
+          "default": "g++ -std=c++23 -O2 -o \"{{out}}\" \"{{file}}\"",
+          "description": "LOCAL build: the compile line used while the -DLOCAL option is on. Meant for a debug build (-D_GLIBCXX_DEBUG, -fsanitize=...), whose run time is not comparable to the judge. Add -DLOCAL yourself. Empty derives it from compileCommand by injecting -DLOCAL. Placeholders: {{file}}, {{dir}}, {{out}}."
         },
         "cp-helper.debugConfigName": {
           "type": "string",
@@ -106,7 +111,7 @@
         "cp-helper.debugCompileCommand": {
           "type": "string",
           "default": "g++ -std=c++23 -g -O0 -o \"{{out}}\" \"{{file}}\"",
-          "description": "Compile line for the inline CodeLLDB fallback, used only when debugConfigName matches no launch.json configuration. Empty derives it from compileCommand by adding -g -O0. Placeholders: {{file}}, {{dir}}, {{out}}."
+          "description": "DEBUG build: the compile line behind each sample's Debug button, used only when debugConfigName matches no launch.json configuration. Used verbatim, independent of the -DLOCAL option. Empty derives it from whichever run command is active by adding -g -O0. Placeholders: {{file}}, {{dir}}, {{out}}."
         },
         "cp-helper.runCommand": {
           "type": "string",

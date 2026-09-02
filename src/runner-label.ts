@@ -195,10 +195,15 @@ function truncateRunnerLabel(s: string, max: number): string {
 /**
  * Raw templates behind the runner label, for the hover tooltip.
  */
-function configuredCommands(): { compileCommand: string; runCommand: string } {
+function configuredCommands(): {
+  compileCommand: string;
+  localCompileCommand: string;
+  runCommand: string;
+} {
   const cfg = vscode.workspace.getConfiguration("cp-helper");
   return {
     compileCommand: (cfg.get<string>("compileCommand") ?? "").trim(),
+    localCompileCommand: (cfg.get<string>("localCompileCommand") ?? "").trim(),
     runCommand: (cfg.get<string>("runCommand") ?? "").trim(),
   };
 }

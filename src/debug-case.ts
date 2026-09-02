@@ -6,6 +6,8 @@ import { randomBytes } from "crypto";
 import { DEFAULT_DEBUG_CONFIG_NAME } from "./constants";
 import {
   expand,
+  selectDebugCompile,
+  selectRunCompile,
   withLocalDefineExpanded,
 } from "./compile-expansion";
 import { createCpLogger } from "./log";
@@ -69,19 +71,19 @@ async function compileForDebug(
   defineLocal: boolean,
 ): Promise<{ bin: string; cwd: string } | { error: string }> {
   const cfg = vscode.workspace.getConfiguration("cp-helper");
-  const explicit = (cfg.get<string>("debugCompileCommand") ?? "").trim();
-  const base = (cfg.get<string>("compileCommand") ?? "").trim();
-  let tpl = explicit;
-  if (tpl.length === 0) {
-    if (base.length === 0) {
-      return {
-        error:
-          "No debug build configured. Set cp-helper.debugCompileCommand, or add a launch.json configuration and point cp-helper.debugConfigName at it.",
-      };
-    }
-    const m = /^(\S+)(.*)/su.exec(base);
-    tpl = m ? `${m[1]} -g -O0${m[2]}` : `${base} -g -O0`;
+  const run = selectRunCompile(
+    (cfg.get<string>("compileCommand") ?? "").trim(),
+    (cfg.get<string>("localCompileCommand") ?? "").trim(),
+    defineLocal,
+  );
+  const debugCmd = (cfg.get<string>("debugCompileCommand") ?? "").trim();
+  if (debugCmd.length === 0 && run.tpl.length === 0) {
+    return {
+      error:
+        "No debug build configured. Set cp-helper.debugCompileCommand, or add a launch.json configuration and point cp-helper.debugConfigName at it.",
+    };
   }
+  const selected = selectDebugCompile(debugCmd, run);
 
   const wdSetting = (cfg.get<string>("workingDirectory") ?? "").trim();
   const cwd = wdSetting || path.dirname(file);
@@ -91,8 +93,8 @@ async function compileForDebug(
     `cp-helper-dbg-${randomBytes(8).toString("hex")}${ext}`,
   );
 
-  let cmd = expand(tpl, file, bin);
-  if (defineLocal) {
+  let cmd = expand(selected.tpl, file, bin);
+  if (selected.injectLocalDefine) {
     cmd = withLocalDefineExpanded(cmd);
   }
   log.info(`compile: ${cmd}`);

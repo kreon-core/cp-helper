@@ -774,7 +774,7 @@ button.case-disclose:focus-visible {
 }
 
 /**
- * Both chips are sized for their widest value ("TLE", "150ms"/"1.20s") rather than their own
+ * Every chip is sized for its widest value ("TLE", "150ms"/"1.20s", "+150ms") rather than its own
  * text, so the run buttons after them line up down the list instead of stepping in and out.
  */
 .case-status {
@@ -809,6 +809,18 @@ button.case-disclose:focus-visible {
   color: var(--vscode-descriptionForeground, var(--vscode-foreground));
   background: rgba(128, 128, 128, 0.1);
   border-color: rgba(128, 128, 128, 0.18);
+}
+
+.case-overhead {
+  min-width: 44px;
+  font-weight: 600;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.65;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  background: transparent;
+  border-color: rgba(128, 128, 128, 0.18);
+  border-style: dashed;
 }
 
 .case--ac .case-verdict {

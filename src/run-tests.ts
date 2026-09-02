@@ -13,6 +13,7 @@ import {
 import {
   expand,
   expandChecker,
+  selectRunCompile,
   withLocalDefineExpanded,
 } from "./compile-expansion";
 import {
@@ -63,7 +64,12 @@ export function createRunSession(
   defineLocal: boolean,
 ): RunSession {
   const cfg = vscode.workspace.getConfiguration("cp-helper");
-  const compileCmd = (cfg.get<string>("compileCommand") ?? "").trim();
+  const selected = selectRunCompile(
+    (cfg.get<string>("compileCommand") ?? "").trim(),
+    (cfg.get<string>("localCompileCommand") ?? "").trim(),
+    defineLocal,
+  );
+  const compileCmd = selected.tpl;
   const runCmdTpl = cfg.get<string>("runCommand") ?? '"{{out}}"';
   const rawTimeout = cfg.get<number | string>("runTimeoutMs");
   const coerced = Number(rawTimeout);
@@ -94,6 +100,7 @@ export function createRunSession(
     cwd,
     compileCmd,
     defineLocal,
+    injectLocalDefine: selected.injectLocalDefine,
     runCmdTpl,
     trim,
     floatAbsEpsilon,
@@ -102,6 +109,18 @@ export function createRunSession(
     execLogged: false,
     exec,
   };
+}
+
+/**
+ * @param s
+ */
+function logBuildMode(s: RunSession): void {
+  if (s.compileCmd.length === 0) {
+    return;
+  }
+  const mode = s.defineLocal ? "local" : "normal";
+  const injected = s.injectLocalDefine ? " (-DLOCAL injected)" : "";
+  compileLog.info(`build: ${mode}${injected}`);
 }
 
 /**
@@ -138,7 +157,7 @@ async function compileOnce(
     /* exists */
   });
   let compile = expand(s.compileCmd, s.file, staging);
-  if (s.defineLocal) {
+  if (s.injectLocalDefine) {
     compile = withLocalDefineExpanded(compile);
   }
   compileLog.info(`exec: ${truncateForLog(compile, 400)}`);
@@ -207,6 +226,8 @@ async function runProgramForCase(
   const runStart = Date.now();
   const r = await s.exec(runCmd, tc.input);
   const elapsedMs = Date.now() - runStart;
+  const execMs = Math.min(r.execMs, elapsedMs);
+  const overheadMs = elapsedMs - execMs;
   if (r.cancelled) {
     runLog.warn(
       `${tag}: aborted - stopped by user (exit=${r.code ?? "null"} time=${elapsedMs}ms)`,
@@ -287,7 +308,8 @@ async function runProgramForCase(
 
   // One record per sample: fields on the summary line, dumps only when it fails.
   const summary =
-    `${tag}: ${verdict} exit=${r.code ?? "null"} time=${elapsedMs}ms ` +
+    `${tag}: ${verdict} exit=${r.code ?? "null"} ` +
+    `time=${elapsedMs}ms (exec=${execMs}ms overhead=${overheadMs}ms) ` +
     `in=${Buffer.byteLength(tc.input, "utf8")}B ` +
     `out=${Buffer.byteLength(r.stdout, "utf8")}B` +
     `${r.timedOut ? " killed=time-limit" : ""}`;
@@ -330,6 +352,8 @@ async function runProgramForCase(
     stderr: stderrOut,
     expected: tc.output,
     elapsedMs,
+    execMs,
+    overheadMs,
   };
 }
 
@@ -362,9 +386,7 @@ export async function runSingleTest(
   runLog.info(`run one: sample ${tc.sample}`);
   runLog.info(`source: ${s.file}`);
   runLog.info(`cwd: ${s.cwd}`);
-  if (s.defineLocal && s.compileCmd.length > 0) {
-    compileLog.info("flag: -DLOCAL enabled");
-  }
+  logBuildMode(s);
   const built = await compileOnce(s);
   if (!built.ok) {
     return compileFailureSampleResult(tc, built.verdict, built.compileStderr);
@@ -392,9 +414,7 @@ export async function runAllTestsSharedCompile(
   runLog.info(`run all: ${cases.length} test(s)`);
   runLog.info(`source: ${s.file}`);
   runLog.info(`cwd: ${s.cwd}`);
-  if (s.defineLocal && s.compileCmd.length > 0) {
-    compileLog.info("flag: -DLOCAL enabled");
-  }
+  logBuildMode(s);
 
   const built = await compileOnce(s);
   if (!built.ok) {

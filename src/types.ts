@@ -28,6 +28,8 @@ export interface ShellRunOutcome {
   code: number | null;
   timedOut: boolean;
   cancelled: boolean;
+  /** Ms between the child's `spawn` and `exit` events: the program alone, without spawn setup or pipe drain. */
+  execMs: number;
 }
 
 /** Verdict for UI: stderr alone never changes AC vs WA; RE = non-zero exit or abnormal end (not TLE). */
@@ -44,6 +46,10 @@ export interface RunSampleResult {
   error?: string;
   /** Wall-clock ms from stdin write to process close (undefined on compile failure or stop). */
   elapsedMs?: number;
+  /** Portion of `elapsedMs` the program itself was alive. */
+  execMs?: number;
+  /** `elapsedMs` minus `execMs`: process spawn setup and post-exit pipe drain. */
+  overheadMs?: number;
 }
 
 export interface RunSession {
@@ -52,8 +58,10 @@ export interface RunSession {
   outBin: string;
   cwd: string;
   compileCmd: string;
-  /** When true and compileCmd is non-empty, `-DLOCAL` is injected after the compiler token. */
+  /** -DLOCAL option state: selects the LOCAL compile command over the NORMAL one. */
   defineLocal: boolean;
+  /** Set when the LOCAL command is empty and `-DLOCAL` has to be injected into the NORMAL one. */
+  injectLocalDefine: boolean;
   runCmdTpl: string;
   trim: boolean;
   /** Max absolute error for numeric output tokens (e.g. 1e-9 vs 1e-12). */
