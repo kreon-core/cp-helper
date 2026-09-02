@@ -45,7 +45,8 @@ export function buildSamplesWebviewHtml(
         aria-live="polite"
         aria-label="Imported problem"
       >No problem imported</span>
-      <span class="active-source-wrap">
+      <span id="activeSourceWrap" class="active-source-wrap meta-chip">
+        <span class="codicon codicon-file-code meta-chip__icon" aria-hidden="true"></span>
         <span id="activeSourceLabel" class="active-source-label" title="" role="status" aria-live="polite" aria-label="Active file for Run">No file</span>
       </span>
     </div>
@@ -73,7 +74,8 @@ export function buildSamplesWebviewHtml(
         <button id="btnClear" type="button" class="btn-secondary btn-icon" title="Remove all samples from the list" aria-label="Clear"><span class="codicon codicon-clear-all" aria-hidden="true"></span></button>
         <button id="btnExport" type="button" class="btn-secondary btn-icon" title="Write all cases to testcases/sample_N.{in,out}.txt (replaces existing sample files)" aria-label="Export"><span class="codicon codicon-export" aria-hidden="true"></span></button>
       </div>
-      <div id="runnerHint" class="runner-hint" hidden role="status" aria-live="polite">
+      <div id="runnerHint" class="runner-hint meta-chip" hidden role="status" aria-live="polite">
+        <span class="codicon codicon-tools meta-chip__icon" aria-hidden="true"></span>
         <span class="runner-hint__value"></span>
       </div>
     </div>

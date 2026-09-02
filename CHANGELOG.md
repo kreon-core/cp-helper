@@ -10,6 +10,9 @@ Versioning from 1.0.0 follows SemVer: MAJOR.MINOR.PATCH.
 - OJ Sync reads the problem's time limit from Codeforces and AtCoder statements and sends it with the samples as `timeLimitMs` (per problem for a multi-problem Codeforces import). The limit shows as a chip on the group header, and a NORMAL run judges TLE against it instead of the fixed `cp-helper.runTimeoutMs`. LOCAL runs keep `runTimeoutMs`, since a sanitizer build's timings say nothing about the judge. LeetCode publishes no time limit, so imports from there are unchanged.
 - `cp-helper.useJudgeTimeLimit` (default on) and `cp-helper.timeLimitFactor` (default 2). A sample is killed at `limit * factor` so an overrun still shows how far over it went, while the verdict compares the program's own execution time against the judge limit. `runTimeoutMs` still governs compiles and any problem with no imported limit.
 
+### Changed
+- The toolbar's two readouts are legible at a glance: each carries a codicon (compiler, run target), the compiler and its standard sit either side of a divider instead of reading as one flag, the run target's parent folder is dimmed so the file name stands out, and a pill on hover marks them as the things whose tooltip spells out the commands.
+
 ## [1.0.8] - 2026-09-02
 
 ### Added
