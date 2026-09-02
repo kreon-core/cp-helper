@@ -111,6 +111,32 @@ export function killActiveShell(): boolean {
 }
 
 /**
+ * Characters that need a real shell. Backslash is a path separator on Windows, not an escape.
+ */
+const SHELL_META =
+  process.platform === "win32"
+    ? /[|&;<>()$`"'*?[\]#~%^\n\r]/u
+    : /[|&;<>()$`\\"'*?[\]#~%\n\r]/u;
+
+/**
+ * The binary to exec directly, or null when the command needs a shell. The default run command is
+ * a single quoted path, and spawning it without `sh -c` keeps a shell fork out of the timing and
+ * out of the kill tree.
+ * @param command expanded run command
+ */
+function directBinaryFor(command: string): string | null {
+  const cmd = command.trim();
+  if (cmd.length === 0) {
+    return null;
+  }
+  if (cmd.length > 2 && cmd.startsWith('"') && cmd.endsWith('"')) {
+    const inner = cmd.slice(1, -1);
+    return SHELL_META.test(inner) ? null : inner;
+  }
+  return SHELL_META.test(cmd) || /\s/u.test(cmd) ? null : cmd;
+}
+
+/**
  * Run a shell command; optional stdin.
  * @param command full shell string
  * @param cwd
@@ -126,11 +152,20 @@ export function runShell(
   return new Promise((resolve) => {
     let settled = false;
     let endReason: "normal" | "timeout" | "user" = "normal";
-    const child = spawn(command, {
-      cwd,
-      shell: true,
-      stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env },
+    const startedAt = Date.now();
+    let spawnedAt = 0;
+    let exitedAt = 0;
+    const direct = directBinaryFor(command);
+    const stdio: ["pipe", "pipe", "pipe"] = ["pipe", "pipe", "pipe"];
+    const env = { ...process.env };
+    const child = direct
+      ? spawn(direct, [], { cwd, shell: false, stdio, env })
+      : spawn(command, { cwd, shell: true, stdio, env });
+    child.on("spawn", () => {
+      spawnedAt = Date.now();
+    });
+    child.on("exit", () => {
+      exitedAt = Date.now();
     });
     const markUserKill = () => {
       if (endReason === "normal") {
@@ -170,12 +205,17 @@ export function runShell(
       settled = true;
       clearTimeout(timer);
       runState.activeShells.delete(handle);
+      const endedAt = Date.now();
       resolve({
         stdout,
         stderr,
         code,
         timedOut: endReason === "timeout",
         cancelled: endReason === "user",
+        execMs: Math.max(
+          0,
+          (exitedAt || endedAt) - (spawnedAt || startedAt),
+        ),
       });
     };
 
@@ -195,6 +235,7 @@ export function runShell(
         code: null,
         timedOut: false,
         cancelled: false,
+        execMs: 0,
       });
     });
     if (stdin !== undefined) {

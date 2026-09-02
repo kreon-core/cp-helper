@@ -14,6 +14,7 @@ import {
   WORKSPACE_KEY_DEFINE_LOCAL,
 } from "./constants";
 import { importFromClipboardAndReveal } from "./clipboard-import";
+import { withLocalDefineExpanded } from "./compile-expansion";
 import { loadCaseGroups, loadCaseGroupsFromFile } from "./case-groups";
 import { exportCasesToTestcasesDir } from "./export-cases";
 import { importSamplesFromJsonText } from "./import-samples";
@@ -180,22 +181,50 @@ export async function activate(
         { label: "g++ C++17 -O2", description: "g++ -std=c++17 -O2 -pipe -o \"{{out}}\" \"{{file}}\"" },
         { label: "clang++ C++23 -O2", description: "clang++ -std=c++23 -O2 -pipe -o \"{{out}}\" \"{{file}}\"" },
       ];
-      const picked = await vscode.window.showQuickPick(presets, {
+      const targets = [
+        {
+          label: "NORMAL build",
+          description: "compileCommand - runs while -DLOCAL is off",
+          key: "compileCommand",
+        },
+        {
+          label: "LOCAL build",
+          description: "localCompileCommand - runs while -DLOCAL is on",
+          key: "localCompileCommand",
+        },
+        {
+          label: "DEBUG build",
+          description: "debugCompileCommand - the per-sample Debug button",
+          key: "debugCompileCommand",
+        },
+      ];
+      const target = await vscode.window.showQuickPick(targets, {
         title: "CP Helper: Select Compile Preset",
+        placeHolder: "Which build does this preset configure?",
+      });
+      if (!target) {
+        return;
+      }
+      const picked = await vscode.window.showQuickPick(presets, {
+        title: `CP Helper: ${target.label}`,
         placeHolder: "Pick a compiler and standard",
       });
       if (!picked) {
         return;
       }
+      let cmd = picked.description;
+      if (target.key === "localCompileCommand" && !/(^|\s)-DLOCAL(\s|$)/u.test(cmd)) {
+        cmd = withLocalDefineExpanded(cmd);
+      }
       const cfg = vscode.workspace.getConfiguration("cp-helper");
       await cfg.update(
-        "compileCommand",
-        picked.description,
+        target.key,
+        cmd,
         vscode.workspace.workspaceFolders
           ? vscode.ConfigurationTarget.Workspace
           : vscode.ConfigurationTarget.Global,
       );
-      log.info(`compile preset selected: ${picked.label}`);
+      log.info(`compile preset selected: ${target.key} = ${picked.label}`);
     }),
   );
 
