@@ -101,7 +101,7 @@
         "cp-helper.localCompileCommand": {
           "type": "string",
           "default": "g++ -std=c++23 -O2 -o \"{{out}}\" \"{{file}}\"",
-          "description": "LOCAL build: the compile line behind the LOCAL Run buttons and each sample's Debug button. Meant for a debug build (-D_GLIBCXX_DEBUG, -fsanitize=...), whose run time is not comparable to the judge. Add -DLOCAL yourself. Empty derives it from compileCommand by injecting -DLOCAL. Placeholders: {{file}}, {{dir}}, {{out}}."
+          "description": "LOCAL build: the compile line behind the LOCAL Run buttons. Meant for a debug build (-D_GLIBCXX_DEBUG, -fsanitize=...), whose run time is not comparable to the judge. Add -DLOCAL yourself. Empty derives it from compileCommand by injecting -DLOCAL. Placeholders: {{file}}, {{dir}}, {{out}}."
         },
         "cp-helper.debugConfigName": {
           "type": "string",

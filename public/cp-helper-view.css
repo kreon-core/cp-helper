@@ -183,13 +183,6 @@ button.btn-run-local {
   font-style: italic;
 }
 
-.active-source-label--foreign {
-  color: var(--vscode-editorWarning-foreground, #cca700);
-  text-decoration: underline dotted;
-  text-underline-offset: 2px;
-  opacity: 0.95;
-}
-
 .active-source-label--running {
   opacity: 0.95;
   color: var(--vscode-progressBar-background, var(--vscode-textLink-foreground));
@@ -509,7 +502,6 @@ button.btn-add-case {
 }
 
 .case-group-wrap--panel {
-  overflow: hidden;
   border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
   border-radius: var(--cp-radius-lg);
   background: var(--vscode-sideBar-background, var(--vscode-editor-background));
@@ -520,13 +512,31 @@ button.btn-add-case {
 }
 
 .case-group-head {
+  --cp-head-tint: var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12));
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--cp-space-1) var(--cp-space-2);
   padding: var(--cp-space-1) var(--cp-gutter);
-  background: var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12));
+  background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  background-image: linear-gradient(var(--cp-head-tint), var(--cp-head-tint));
   border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
+}
+
+/**
+ * The disclosure stays reachable while its own samples scroll past: each header sticks to the top
+ * of the list until its group is gone, then the next group's header takes over. Needs no ancestor
+ * between here and `.list` to clip or scroll, hence no `overflow` on the panel wrap.
+ */
+.case-group-wrap--panel > .case-group-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border-radius: calc(var(--cp-radius-lg) - 1px) calc(var(--cp-radius-lg) - 1px) 0 0;
+}
+
+.case-group-wrap--panel.case-group-wrap--collapsed > .case-group-head {
+  border-radius: calc(var(--cp-radius-lg) - 1px);
 }
 
 button.case-group-disclose {
@@ -587,7 +597,7 @@ button.case-group-disclose:focus-visible {
 }
 
 .case-group-wrap--ac .case-group-head {
-  background: rgba(46, 160, 67, 0.12);
+  --cp-head-tint: rgba(46, 160, 67, 0.12);
   border-bottom-color: rgba(46, 160, 67, 0.35);
 }
 
@@ -605,7 +615,7 @@ button.case-group-disclose:focus-visible {
 }
 
 .case-group-wrap--wa .case-group-head {
-  background: rgba(248, 81, 73, 0.1);
+  --cp-head-tint: rgba(248, 81, 73, 0.1);
   border-bottom-color: rgba(248, 81, 73, 0.35);
 }
 
@@ -662,6 +672,7 @@ button.case-group-disclose:focus-visible {
 .case-group-wrap--panel > .case-group-cases {
   padding: var(--cp-space-2);
   background: rgba(128, 128, 128, 0.05);
+  border-radius: 0 0 calc(var(--cp-radius-lg) - 1px) calc(var(--cp-radius-lg) - 1px);
 }
 
 .case-group-cases > .case + .case {
@@ -669,12 +680,16 @@ button.case-group-disclose:focus-visible {
 }
 
 .case {
+  /**
+   * Accent cap colour: neutral grey until a verdict replaces it, and a fixed value rather than a
+   * theme color so it stays visible in themes that leave the border tokens transparent. The cap
+   * itself lives on `.case-head`, which travels with it while the header is stuck.
+   */
+  --cp-case-accent: rgba(128, 128, 128, 0.55);
   border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
-  /** Accent cap: the row's own boundary, so a long sample never blends into the one above it. */
-  border-top: 2px solid var(--vscode-focusBorder, #007fd4);
+  border-top: none;
   border-radius: var(--cp-radius-md);
   margin-bottom: var(--cp-space-1);
-  overflow: hidden;
   background: var(--vscode-sideBar-background, var(--vscode-editor-background));
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -687,16 +702,28 @@ button.case-group-disclose:focus-visible {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
-/* The verdict badge carries the status on its own: the card keeps the neutral chrome. */
-
+/**
+ * Which sample you are reading stays on screen: the row header sticks under its group header,
+ * whose measured height arrives as `--cp-sticky-top` (0 in flat mode, where there is no group bar).
+ */
 .case-head {
+  position: sticky;
+  top: var(--cp-sticky-top, 0px);
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
   padding: var(--cp-space-1) var(--cp-space-2);
-  background: var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12));
+  background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  background-image: linear-gradient(
+    var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12)),
+    var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12))
+  );
+  border-top: 2px solid var(--cp-case-accent);
   border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+  border-radius: var(--cp-radius-md) var(--cp-radius-md) 0 0;
+  transition: border-color 0.15s ease;
   --case-head-ctrl-h: 22px;
 }
 
@@ -802,19 +829,19 @@ button.case-disclose:focus-visible {
 }
 
 .case--ac {
-  border-top-color: rgba(46, 160, 67, 0.65);
+  --cp-case-accent: rgba(46, 160, 67, 0.65);
 }
 
 .case--wa {
-  border-top-color: rgba(248, 81, 73, 0.65);
+  --cp-case-accent: rgba(248, 81, 73, 0.65);
 }
 
 .case--tle {
-  border-top-color: rgba(88, 166, 255, 0.65);
+  --cp-case-accent: rgba(88, 166, 255, 0.65);
 }
 
 .case--re {
-  border-top-color: rgba(210, 153, 34, 0.65);
+  --cp-case-accent: rgba(210, 153, 34, 0.65);
 }
 
 .case--ac .case-verdict {
@@ -873,6 +900,7 @@ button.case-disclose:focus-visible {
 
 .case--collapsed .case-head {
   border-bottom: none;
+  border-radius: var(--cp-radius-md);
 }
 
 .case-body {
@@ -880,6 +908,8 @@ button.case-disclose:focus-visible {
   display: flex;
   flex-direction: column;
   gap: var(--cp-space-2);
+  /** The card no longer clips, so the body keeps wide content inside the row. */
+  overflow: hidden;
 }
 
 .field {
