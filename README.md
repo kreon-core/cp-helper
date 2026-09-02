@@ -55,7 +55,9 @@ Default keybindings:
 
 | Setting | Purpose |
 | --- | --- |
-| cp-helper.compileCommand | Compile command template |
+| cp-helper.compileCommand | NORMAL build, used while -DLOCAL is off (keep it judge-like: -O2, no sanitizers) |
+| cp-helper.localCompileCommand | LOCAL build, used while -DLOCAL is on (empty = compileCommand with -DLOCAL injected) |
+| cp-helper.debugCompileCommand | DEBUG build behind each sample's Debug button (empty = active run command plus -g -O0) |
 | cp-helper.runCommand | Execute command template |
 | cp-helper.runTimeoutMs | Compile/run timeout in ms |
 | cp-helper.maxParallelSamples | Samples Run all executes at once (0 = auto) |
@@ -69,7 +71,7 @@ Default keybindings:
 ## Build cache
 
 Compiled binaries are content-addressed: the cache key is a hash of the source bytes plus the
-compile command and the -DLOCAL flag, so a save that changed nothing reuses the existing binary
+selected compile command, so a save that changed nothing reuses the existing binary
 instead of recompiling. Binaries live under the extension's global storage and survive a window
 reload; the 64 most recently used are kept and older ones are pruned on activation.
 
@@ -97,7 +99,7 @@ Levels: DEBUG, INFO, WARN (recoverable or non-AC), ERROR (failed operation).
 | --- | --- |
 | core | Activation and palette commands |
 | webview | Samples view messages (save, export, stop, run requests) |
-| compile | Compile command, compile cache, -DLOCAL flag |
+| compile | Selected build (normal / local), compile command, compile cache |
 | runner | Run command, per-sample verdicts, checker, run-all summary |
 | stress | Stress-test iterations and failing case |
 | import | Sample import and starter-code clipboard copy |

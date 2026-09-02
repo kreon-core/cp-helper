@@ -4,7 +4,7 @@
   /** @type {{ id: string; label: string; cases: { sample: number; input: string; output: string }[] }[]} */
   let groups = [];
 
-  /** @type {Record<string, { verdict: string; badge: string; stdout: string; stderr: string; elapsedMs?: number }>} */
+  /** @type {Record<string, { verdict: string; badge: string; stdout: string; stderr: string; elapsedMs?: number; execMs?: number; overheadMs?: number }>} */
   const lastRun = {};
 
   /** Per-group Run all summary: key = group index string. */
@@ -43,7 +43,7 @@
    */
   let runAllQueue = [];
 
-  /** Workspace: add `-DLOCAL` after the compiler in `compileCommand` when true. */
+  /** Workspace: run the LOCAL build (`localCompileCommand`) instead of the NORMAL one when true. */
   let defineLocal = false;
 
   const $ = (id) => {
@@ -93,7 +93,7 @@
   if (!runnerHintValueEl) throw new Error("missing .runner-hint__value");
   const importProblemTitleEl = $("importProblemTitle");
   /** @type {{ label: string; compile: string; run: string }} */
-  let runnerInfo = { label: "", compile: "", run: "" };
+  let runnerInfo = { label: "", compile: "", localCompile: "", run: "" };
   const importActionsEl = $("importActions");
   const importSectionEl = importActionsEl.closest(".import");
   if (!(importSectionEl instanceof HTMLElement)) throw new Error("missing .import");
@@ -142,16 +142,23 @@
   }
 
   /**
-   * Verdict and elapsed time read as two separate chips: the verdict keeps the pass/fail colour,
-   * the timing stays neutral so it is not mistaken for part of the status. A case with no result
-   * still gets both chips as blank placeholders, so the action buttons sit in the same column on
-   * every row of the list.
+   * Verdict, program time and overhead read as separate chips: the verdict keeps the pass/fail
+   * colour, the timings stay neutral so they are not mistaken for part of the status. A case with
+   * no result still gets every chip as a blank placeholder, so the action buttons sit in the same
+   * column on every row of the list.
    * @param {HTMLElement} head
-   * @param {{ verdict: string; elapsedMs?: number } | null} runInfo
+   * @param {{ verdict: string; elapsedMs?: number; execMs?: number; overheadMs?: number } | null} runInfo
    * @param {Element | null} before insertion anchor, or null to append
    */
   function appendCaseStatus(head, runInfo, before) {
-    const elapsed = runInfo ? formatElapsed(runInfo.elapsedMs).trim() : "";
+    const execMs = runInfo
+      ? (runInfo.execMs != null ? runInfo.execMs : runInfo.elapsedMs)
+      : undefined;
+    const elapsed = formatElapsed(execMs).trim();
+    const overhead =
+      runInfo && runInfo.overheadMs != null
+        ? `+${formatElapsed(runInfo.overheadMs).trim()}`
+        : "";
     const mk = (kind, text, hint) => {
       const el = document.createElement("span");
       el.className = `case-status case-${kind}`;
@@ -171,7 +178,8 @@
       }
     };
     mk("verdict", runInfo ? runInfo.verdict : "");
-    mk("time", elapsed, "Run time");
+    mk("time", elapsed, "Program run time (spawn to exit)");
+    mk("overhead", overhead, "Overhead outside the program: process spawn and output drain");
   }
 
   /** @returns {number} */
@@ -770,12 +778,14 @@
   }
 
   /**
-   * @param {{ label?: string; compileCommand?: string; runCommand?: string }} m
+   * @param {{ label?: string; compileCommand?: string; localCompileCommand?: string; runCommand?: string }} m
    */
   function updateRunnerHint(m) {
     runnerInfo = {
       label: typeof m?.label === "string" ? m.label.trim() : "",
       compile: typeof m?.compileCommand === "string" ? m.compileCommand : "",
+      localCompile:
+        typeof m?.localCompileCommand === "string" ? m.localCompileCommand : "",
       run: typeof m?.runCommand === "string" ? m.runCommand : "",
     };
     renderRunnerHint();
@@ -783,10 +793,11 @@
 
   /**
    * Hover text spells out what the label stands for: the compile line actually in effect
-   * (including -DLOCAL) and the run line.
+   * (the LOCAL build while -DLOCAL is on) and the run line.
    */
   function renderRunnerHint() {
     const { label, compile, run } = runnerInfo;
+    const effective = effectiveCompile();
     if (!label) {
       runnerHintValueEl.textContent = "";
       runnerHintEl.hidden = true;
@@ -798,8 +809,8 @@
     runnerHintEl.hidden = false;
     const lines = [`Runner: ${label}`];
     lines.push(
-      compile
-        ? `Compile: ${defineLocal ? withLocalDefine(compile) : compile}`
+      effective
+        ? `Compile (${defineLocal ? "local" : "normal"}): ${effective}`
         : "Compile: skipped (compileCommand is empty)",
     );
     if (run) {
@@ -808,6 +819,22 @@
     const text = lines.join("\n");
     runnerHintEl.title = text;
     runnerHintEl.setAttribute("aria-label", text);
+  }
+
+  /**
+   * Mirrors `selectRunCompile` for display only: the LOCAL command while the option is on, with
+   * `-DLOCAL` injected into the NORMAL one when no LOCAL command is configured.
+   * @returns {string}
+   */
+  function effectiveCompile() {
+    const { compile, localCompile } = runnerInfo;
+    if (!defineLocal) {
+      return compile;
+    }
+    if (localCompile) {
+      return localCompile;
+    }
+    return compile ? withLocalDefine(compile) : compile;
   }
 
   /**
@@ -852,13 +879,13 @@
     btnToggleLocal.setAttribute("aria-pressed", String(defineLocal));
     btnToggleLocal.classList.toggle("btn-debug-local--on", defineLocal);
     btnToggleLocal.title = defineLocal
-      ? "Debug: compile with -DLOCAL (on). Click to turn off."
-      : "Debug: click to add -DLOCAL when compiling.";
+      ? "LOCAL build (on): localCompileCommand. Click for the NORMAL build."
+      : "NORMAL build: compileCommand. Click for the LOCAL build.";
     btnToggleLocal.setAttribute(
       "aria-label",
       defineLocal
-        ? "Debug mode on: -DLOCAL for compile"
-        : "Debug mode off: click for -DLOCAL on compile",
+        ? "Local build on: localCompileCommand"
+        : "Local build off: compileCommand",
     );
   }
 
@@ -2030,6 +2057,9 @@
           : "WA";
       const badgeNorm = verdictNorm.toLowerCase();
       const elapsedMs = typeof m.elapsedMs === "number" ? m.elapsedMs : undefined;
+      const execMs = typeof m.execMs === "number" ? m.execMs : undefined;
+      const overheadMs =
+        typeof m.overheadMs === "number" ? m.overheadMs : undefined;
       if (m.error) {
         lastRun[key] = {
           verdict: "WA",
@@ -2052,6 +2082,8 @@
           stdout: disp(m.stdout != null ? String(m.stdout) : ""),
           stderr: disp(stderrText),
           elapsedMs,
+          execMs,
+          overheadMs,
         };
       } else if (verdictNorm === "RE") {
         const runErr = m.stderr != null ? String(m.stderr) : "";
@@ -2065,6 +2097,8 @@
               : "Runtime error (non-zero exit or abnormal termination)",
           ),
           elapsedMs,
+          execMs,
+          overheadMs,
         };
       } else if (m.compileStderr) {
         lastRun[key] = {
@@ -2080,6 +2114,8 @@
           stdout: disp(m.stdout != null ? String(m.stdout) : ""),
           stderr: disp(m.stderr != null ? String(m.stderr) : ""),
           elapsedMs,
+          execMs,
+          overheadMs,
         };
       }
       if (incrementalDomReady() && patchCaseRowFromLastRun(gi, i)) {
