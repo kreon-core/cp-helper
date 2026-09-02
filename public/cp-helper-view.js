@@ -54,6 +54,14 @@
   /** Build the queued Run all sweep asks for: LOCAL when the sweep started from the LOCAL button. */
   let runAllLocal = false;
 
+  const NEEDS_CPP_HINT = "Open a C++ file in the editor first";
+
+  /**
+   * Whether the active editor is a C++ file the host would accept. Run and Debug compile that
+   * editor, so they stay disabled until one is open.
+   */
+  let sourceRunnable = false;
+
   const $ = (id) => {
     const el = document.getElementById(id);
     if (!el) throw new Error("missing #" + id);
@@ -187,7 +195,7 @@
       }
     };
     mk("verdict", runInfo ? runInfo.verdict : "");
-    mk("time", elapsed, "Program run time (spawn to exit)");
+    mk("time", elapsed, "Execution time");
     mk("overhead", overhead, "Overhead outside the program: process spawn and output drain");
   }
 
@@ -459,6 +467,21 @@
         fitStdoutReadonly(/** @type {HTMLElement} */ (el));
       });
     syncAllFieldScrollIndicators();
+    syncStickyOffsets();
+  }
+
+  /**
+   * Sample headers stick below their group header, whose height varies with wrapping and with the
+   * run status label, so each group publishes its own measured offset.
+   */
+  function syncStickyOffsets() {
+    listEl
+      .querySelectorAll("li.case-group-wrap[data-cp-gi]")
+      .forEach((wrap) => {
+        const head = wrap.querySelector(":scope > .case-group-head");
+        const h = head && !head.hidden ? head.offsetHeight : 0;
+        wrap.style.setProperty("--cp-sticky-top", `${h}px`);
+      });
   }
 
   window.addEventListener("resize", syncProblemTitleOverflow);
@@ -497,37 +520,30 @@
   }
 
   /**
-   * Active editor path, or snapshotted path while a run is in progress.
+   * Run target (the active C++ editor, or the last one visited), or the snapshotted path while a
+   * run is in progress.
    * @param {{ path: string | null; running?: boolean; cpp?: boolean }} m
    */
   function updateActiveSourceLabel(m) {
     const p = m.path ?? null;
     const running = !!m.running;
     const cpp = m.cpp !== false;
-    if (p && !cpp) {
-      activeSourceLabelEl.textContent = pathToParentAndName(p);
-      activeSourceLabelEl.title = `Not a C++ file - CP Helper runs C++ only:\n${p}`;
-      activeSourceLabelEl.setAttribute(
-        "aria-label",
-        `Not a C++ file: ${p}`,
-      );
-      activeSourceLabelEl.classList.remove("active-source-label--empty");
-    } else if (p) {
+    if (p) {
       activeSourceLabelEl.textContent = pathToParentAndName(p);
       activeSourceLabelEl.title = running
         ? `Run in progress (this file only; tab switches are OK):\n${p}`
-        : `Run uses active editor:\n${p}`;
+        : `Run target - active C++ editor, or the last one you opened:\n${p}`;
       activeSourceLabelEl.setAttribute(
         "aria-label",
-        running ? `Running: ${p}` : `Active file for Run: ${p}`,
+        running ? `Running: ${p}` : `Run target: ${p}`,
       );
       activeSourceLabelEl.classList.remove("active-source-label--empty");
     } else {
       activeSourceLabelEl.textContent = "No file";
-      activeSourceLabelEl.title = "Open a file in the editor to Run";
+      activeSourceLabelEl.title = "Open a C++ file in the editor to Run";
       activeSourceLabelEl.setAttribute(
         "aria-label",
-        "No active file for Run",
+        "No C++ file for Run",
       );
       activeSourceLabelEl.classList.add("active-source-label--empty");
     }
@@ -535,10 +551,38 @@
       "active-source-label--running",
       running && !!p,
     );
-    activeSourceLabelEl.classList.toggle(
-      "active-source-label--foreign",
-      !!p && !cpp,
-    );
+    sourceRunnable = !!p && cpp;
+    applyToolbarAndImportState();
+    syncRunAffordances();
+  }
+
+  /**
+   * Enables or disables every button that compiles the active editor, in place: a tab switch must
+   * not rebuild the list.
+   */
+  function syncRunAffordances() {
+    listEl.querySelectorAll(".needs-cpp").forEach((btn) => {
+      const disabled = runDisabled(btn);
+      btn.disabled = disabled;
+      if (disabled && !sourceRunnable) {
+        btn.title = NEEDS_CPP_HINT;
+      } else if (btn.dataset.cpTitle) {
+        btn.title = btn.dataset.cpTitle;
+      }
+    });
+  }
+
+  /**
+   * @param {Element} btn
+   * @returns {boolean}
+   */
+  function runDisabled(btn) {
+    if (!btn.classList.contains("case-group__run-all")) {
+      return !sourceRunnable;
+    }
+    const wrap = btn.closest("li.case-group-wrap[data-cp-gi]");
+    const gi = wrap ? Number(wrap.getAttribute("data-cp-gi")) : NaN;
+    return !sourceRunnable || (groups[gi]?.cases.length ?? 0) === 0;
   }
 
   function rk(gi, ci) {
@@ -937,13 +981,13 @@
     const tc = totalCaseCount();
     runAllPassedSummaryEl.hidden = multi || busy;
     // Run stays clickable while busy: a click restarts, replacing the run in flight.
-    btnRunAll.disabled = tc === 0;
+    btnRunAll.disabled = tc === 0 || !sourceRunnable;
     const runAllHint = multi
       ? "Run every sample in every problem, one problem at a time"
       : "Compile once (if configured), then run every sample";
     btnRunAll.title = runAllHint;
     btnRunAll.setAttribute("aria-label", multi ? "Run all problems" : "Run all");
-    btnRunAllLocal.disabled = tc === 0;
+    btnRunAllLocal.disabled = tc === 0 || !sourceRunnable;
     const runAllLocalHint = multi
       ? "Run every sample in every problem with the LOCAL build (localCompileCommand)"
       : "Run every sample with the LOCAL build (localCompileCommand)";
@@ -1118,10 +1162,9 @@
           grpStatus.hidden = true;
         }
       }
-      const runAllBtn = wrap.querySelector(".case-group__run-all");
-      if (runAllBtn) {
-        runAllBtn.disabled = group.cases.length === 0;
-      }
+      wrap.querySelectorAll(".case-group__run-all").forEach((runAllBtn) => {
+        runAllBtn.disabled = group.cases.length === 0 || !sourceRunnable;
+      });
       const clearBtn = wrap.querySelector(".case-group__clear");
       if (clearBtn) {
         clearBtn.disabled = busy;
@@ -1230,6 +1273,7 @@
     applyToolbarAndImportState();
     syncMultiGroupHeadersFromState();
     syncCaseRowSpinners();
+    syncRunAffordances();
     listEmptyEl.hidden = totalCaseCount() > 0;
     listEl
       .querySelectorAll(
@@ -1359,11 +1403,12 @@
           const btnRunG = document.createElement("button");
           btnRunG.type = "button";
           btnRunG.className = local
-            ? "case-group__run-all btn-secondary btn-icon btn-run-local"
-            : "case-group__run-all btn-icon";
+            ? "case-group__run-all needs-cpp btn-secondary btn-icon btn-run-local"
+            : "case-group__run-all needs-cpp btn-icon";
           btnRunG.title = local
             ? "Run all cases in this group with the LOCAL build (localCompileCommand)"
             : "Run all cases in this group";
+          btnRunG.dataset.cpTitle = btnRunG.title;
           btnRunG.setAttribute(
             "aria-label",
             local
@@ -1371,7 +1416,7 @@
               : `Run all cases in ${groupName}`,
           );
           btnRunG.appendChild(mkIcon(local ? "local" : "runAll"));
-          btnRunG.disabled = group.cases.length === 0;
+          btnRunG.disabled = group.cases.length === 0 || !sourceRunnable;
           btnRunG.addEventListener("click", () => {
             hideErr();
             runAllQueue = [];
@@ -1472,11 +1517,12 @@
           const runOne = document.createElement("button");
           runOne.type = "button";
           runOne.className = local
-            ? "btn-secondary btn-icon btn-run-local"
-            : "btn-icon";
+            ? "needs-cpp btn-secondary btn-icon btn-run-local"
+            : "needs-cpp btn-icon";
           runOne.title = local
             ? `Run sample ${c.sample} with the LOCAL build (localCompileCommand)`
             : `Run sample ${c.sample}`;
+          runOne.dataset.cpTitle = runOne.title;
           runOne.setAttribute(
             "aria-label",
             local
@@ -1484,7 +1530,7 @@
               : `Run sample ${c.sample}`,
           );
           runOne.appendChild(mkIcon(local ? "local" : "play"));
-          runOne.disabled = false;
+          runOne.disabled = !sourceRunnable;
           runOne.addEventListener("click", () => {
             runAllQueue = [];
             delete lastRun[rk(gi, index)];
@@ -1507,11 +1553,12 @@
 
         const debugOne = document.createElement("button");
         debugOne.type = "button";
-        debugOne.className = "btn-secondary btn-icon";
-        debugOne.title = `Debug sample ${c.sample} with the LOCAL build (input piped to stdin)`;
+        debugOne.className = "needs-cpp btn-secondary btn-icon";
+        debugOne.title = `Debug sample ${c.sample} (input piped to stdin)`;
+        debugOne.dataset.cpTitle = debugOne.title;
         debugOne.setAttribute("aria-label", `Debug sample ${c.sample}`);
         debugOne.appendChild(mkIcon("debug"));
-        debugOne.disabled = false;
+        debugOne.disabled = !sourceRunnable;
         debugOne.addEventListener("click", () => {
           hideErr();
           vscode.postMessage({
@@ -1519,7 +1566,7 @@
             groupIndex: gi,
             index,
             case: group.cases[index],
-            defineLocal: true,
+            defineLocal: false,
           });
         });
 
@@ -1655,6 +1702,8 @@
       addRow.appendChild(btnAddCase);
       listEl.appendChild(addRow);
     }
+
+    syncRunAffordances();
 
     requestAnimationFrame(() => {
       refitAll();

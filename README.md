@@ -4,7 +4,8 @@ CP Helper is a Visual Studio Code extension for competitive programming workflow
 
 It runs C++ code against imported sample cases and reports AC, WA, TLE, or RE.
 
-C++ is the only supported language. Run, Debug, and Export refuse a non-C++ active editor
+C++ is the only supported language. Run and Debug target the active C++ editor, or the last one
+you visited when the active tab is not C++, and are disabled until one has been opened
 (accepted extensions: .cpp, .cc, .cxx, .c++, .cp, .ixx, and .C on case-sensitive filesystems).
 
 ## Release scope
@@ -56,7 +57,7 @@ Default keybindings:
 | Setting | Purpose |
 | --- | --- |
 | cp-helper.compileCommand | NORMAL build, used by the plain Run buttons (keep it judge-like: -O2, no sanitizers) |
-| cp-helper.localCompileCommand | LOCAL build, used by the LOCAL Run buttons and Debug (empty = compileCommand with -DLOCAL injected) |
+| cp-helper.localCompileCommand | LOCAL build, used by the LOCAL Run buttons (empty = compileCommand with -DLOCAL injected) |
 | cp-helper.debugCompileCommand | DEBUG build behind each sample's Debug button (empty = active run command plus -g -O0) |
 | cp-helper.runCommand | Execute command template |
 | cp-helper.runTimeoutMs | Compile/run timeout in ms |
