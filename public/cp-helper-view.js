@@ -51,8 +51,8 @@
    */
   let runAllQueue = [];
 
-  /** Workspace: run the LOCAL build (`localCompileCommand`) instead of the NORMAL one when true. */
-  let defineLocal = false;
+  /** Build the queued Run all sweep asks for: LOCAL when the sweep started from the LOCAL button. */
+  let runAllLocal = false;
 
   const $ = (id) => {
     const el = document.getElementById(id);
@@ -68,6 +68,7 @@
     close: "close",
     copy: "copy",
     debug: "debug-alt",
+    local: "output",
   };
 
   /**
@@ -85,6 +86,7 @@
   const btnToggleJson = $("btnToggleJson");
   const btnLoad = $("btnLoad");
   const btnRunAll = $("btnRunAll");
+  const btnRunAllLocal = $("btnRunAllLocal");
   const runAllPassedSummaryEl = $("runAllPassedSummary");
   const btnClear = $("btnClear");
   const btnExport = $("btnExport");
@@ -95,12 +97,11 @@
   const listEl = $("list");
   const listEmptyEl = $("list-empty");
   const activeSourceLabelEl = $("activeSourceLabel");
-  const btnToggleLocal = $("btnToggleLocal");
   const runnerHintEl = $("runnerHint");
   const runnerHintValueEl = runnerHintEl.querySelector(".runner-hint__value");
   if (!runnerHintValueEl) throw new Error("missing .runner-hint__value");
   const importProblemTitleEl = $("importProblemTitle");
-  /** @type {{ label: string; compile: string; run: string }} */
+  /** @type {{ label: string; compile: string; localCompile: string; run: string }} */
   let runnerInfo = { label: "", compile: "", localCompile: "", run: "" };
   const importActionsEl = $("importActions");
   const importSectionEl = importActionsEl.closest(".import");
@@ -802,12 +803,11 @@
   }
 
   /**
-   * Hover text spells out what the label stands for: the compile line actually in effect
-   * (the LOCAL build while -DLOCAL is on) and the run line.
+   * Hover text spells out what the label stands for: both compile lines the two run buttons use,
+   * and the run line.
    */
   function renderRunnerHint() {
     const { label, compile, run } = runnerInfo;
-    const effective = effectiveCompile();
     if (!label) {
       runnerHintValueEl.textContent = "";
       runnerHintEl.hidden = true;
@@ -819,10 +819,11 @@
     runnerHintEl.hidden = false;
     const lines = [`Runner: ${label}`];
     lines.push(
-      effective
-        ? `Compile (${defineLocal ? "local" : "normal"}): ${effective}`
+      compile
+        ? `Compile (normal): ${compile}`
         : "Compile: skipped (compileCommand is empty)",
     );
+    lines.push(`Compile (LOCAL): ${localCompileForDisplay() || "skipped"}`);
     if (run) {
       lines.push(`Run: ${run}`);
     }
@@ -832,15 +833,12 @@
   }
 
   /**
-   * Mirrors `selectRunCompile` for display only: the LOCAL command while the option is on, with
-   * `-DLOCAL` injected into the NORMAL one when no LOCAL command is configured.
+   * Mirrors `selectRunCompile` for display only: the LOCAL command when configured, otherwise the
+   * NORMAL one with `-DLOCAL` injected.
    * @returns {string}
    */
-  function effectiveCompile() {
+  function localCompileForDisplay() {
     const { compile, localCompile } = runnerInfo;
-    if (!defineLocal) {
-      return compile;
-    }
     if (localCompile) {
       return localCompile;
     }
@@ -881,21 +879,6 @@
     importProblemTitleEl.classList.toggle(
       "import-problem-title--overflow",
       importProblemTitleEl.scrollWidth > importProblemTitleEl.clientWidth + 1,
-    );
-  }
-
-  function syncLocalToggleUi() {
-    renderRunnerHint();
-    btnToggleLocal.setAttribute("aria-pressed", String(defineLocal));
-    btnToggleLocal.classList.toggle("btn-debug-local--on", defineLocal);
-    btnToggleLocal.title = defineLocal
-      ? "LOCAL build (on): localCompileCommand. Click for the NORMAL build."
-      : "NORMAL build: compileCommand. Click for the LOCAL build.";
-    btnToggleLocal.setAttribute(
-      "aria-label",
-      defineLocal
-        ? "Local build on: localCompileCommand"
-        : "Local build off: compileCommand",
     );
   }
 
@@ -960,11 +943,19 @@
       : "Compile once (if configured), then run every sample";
     btnRunAll.title = runAllHint;
     btnRunAll.setAttribute("aria-label", multi ? "Run all problems" : "Run all");
+    btnRunAllLocal.disabled = tc === 0;
+    const runAllLocalHint = multi
+      ? "Run every sample in every problem with the LOCAL build (localCompileCommand)"
+      : "Run every sample with the LOCAL build (localCompileCommand)";
+    btnRunAllLocal.title = runAllLocalHint;
+    btnRunAllLocal.setAttribute(
+      "aria-label",
+      multi ? "Run all problems with LOCAL build" : "Run all with LOCAL build",
+    );
     btnToggleJson.disabled = busy;
     btnLoad.disabled = busy;
     btnClear.disabled = busy;
     btnExport.disabled = busy || totalCaseCount() === 0;
-    btnToggleLocal.disabled = busy;
     btnStopRun.hidden = !busy;
     runStatusEl.hidden = !busy || multi;
     if (!multi && !busy) {
@@ -1363,31 +1354,31 @@
         }
         ghead.appendChild(grpStatus);
 
-        const btnRunG = document.createElement("button");
-        btnRunG.type = "button";
-        btnRunG.className = "case-group__run-all btn-icon";
-        btnRunG.title = "Run all cases in this group";
-        btnRunG.setAttribute("aria-label", `Run all cases in ${(group.label ?? "").trim() || `group ${gi + 1}`}`);
-        btnRunG.appendChild(mkIcon("runAll"));
-        btnRunG.disabled = group.cases.length === 0;
-        btnRunG.addEventListener("click", () => {
-          hideErr();
-          runAllQueue = [];
-          if (group.cases.length === 0) return;
-          purgeLastRunForGroup(gi);
-          runState = { active: true, mode: "all", phase: "compile", groupIndex: gi, index: null, total: group.cases.length };
-          if (incrementalDomReady()) {
-            refreshIncrementalRunUi();
-          } else {
-            render();
-          }
-          vscode.postMessage({
-            type: "runAll",
-            groupIndex: gi,
-            cases: group.cases,
+        const groupName = (group.label ?? "").trim() || `group ${gi + 1}`;
+        [false, true].forEach((local) => {
+          const btnRunG = document.createElement("button");
+          btnRunG.type = "button";
+          btnRunG.className = local
+            ? "case-group__run-all btn-secondary btn-icon btn-run-local"
+            : "case-group__run-all btn-icon";
+          btnRunG.title = local
+            ? "Run all cases in this group with the LOCAL build (localCompileCommand)"
+            : "Run all cases in this group";
+          btnRunG.setAttribute(
+            "aria-label",
+            local
+              ? `Run all cases in ${groupName} with LOCAL build`
+              : `Run all cases in ${groupName}`,
+          );
+          btnRunG.appendChild(mkIcon(local ? "local" : "runAll"));
+          btnRunG.disabled = group.cases.length === 0;
+          btnRunG.addEventListener("click", () => {
+            hideErr();
+            runAllQueue = [];
+            startRunAllForGroup(gi, local);
           });
+          ghead.appendChild(btnRunG);
         });
-        ghead.appendChild(btnRunG);
 
         const btnAddCaseG = document.createElement("button");
         btnAddCaseG.type = "button";
@@ -1477,34 +1468,47 @@
         const actions = document.createElement("div");
         actions.className = "case-actions";
 
-        const runOne = document.createElement("button");
-        runOne.type = "button";
-        runOne.className = "btn-icon";
-        runOne.title = `Run sample ${c.sample}`;
-        runOne.setAttribute("aria-label", `Run sample ${c.sample}`);
-        runOne.appendChild(mkIcon("play"));
-        runOne.disabled = false;
-        runOne.addEventListener("click", () => {
-          runAllQueue = [];
-          delete lastRun[rk(gi, index)];
-          runState = { active: true, mode: "one", phase: "run", groupIndex: gi, index, total: 1 };
-          if (incrementalDomReady()) {
-            refreshIncrementalRunUi();
-          } else {
-            render();
-          }
-          vscode.postMessage({
-            type: "runOne",
-            groupIndex: gi,
-            index,
-            case: group.cases[index],
+        const runButtons = [false, true].map((local) => {
+          const runOne = document.createElement("button");
+          runOne.type = "button";
+          runOne.className = local
+            ? "btn-secondary btn-icon btn-run-local"
+            : "btn-icon";
+          runOne.title = local
+            ? `Run sample ${c.sample} with the LOCAL build (localCompileCommand)`
+            : `Run sample ${c.sample}`;
+          runOne.setAttribute(
+            "aria-label",
+            local
+              ? `Run sample ${c.sample} with LOCAL build`
+              : `Run sample ${c.sample}`,
+          );
+          runOne.appendChild(mkIcon(local ? "local" : "play"));
+          runOne.disabled = false;
+          runOne.addEventListener("click", () => {
+            runAllQueue = [];
+            delete lastRun[rk(gi, index)];
+            runState = { active: true, mode: "one", phase: "run", groupIndex: gi, index, total: 1 };
+            if (incrementalDomReady()) {
+              refreshIncrementalRunUi();
+            } else {
+              render();
+            }
+            vscode.postMessage({
+              type: "runOne",
+              groupIndex: gi,
+              index,
+              case: group.cases[index],
+              defineLocal: local,
+            });
           });
+          return runOne;
         });
 
         const debugOne = document.createElement("button");
         debugOne.type = "button";
         debugOne.className = "btn-secondary btn-icon";
-        debugOne.title = `Debug sample ${c.sample} (input piped to stdin)`;
+        debugOne.title = `Debug sample ${c.sample} with the LOCAL build (input piped to stdin)`;
         debugOne.setAttribute("aria-label", `Debug sample ${c.sample}`);
         debugOne.appendChild(mkIcon("debug"));
         debugOne.disabled = false;
@@ -1515,6 +1519,7 @@
             groupIndex: gi,
             index,
             case: group.cases[index],
+            defineLocal: true,
           });
         });
 
@@ -1546,7 +1551,7 @@
           render();
         });
 
-        actions.appendChild(runOne);
+        runButtons.forEach((b) => actions.appendChild(b));
         actions.appendChild(debugOne);
         actions.appendChild(remove);
 
@@ -1886,9 +1891,10 @@
    */
   /**
    * @param {number} gi
+   * @param {boolean} defineLocal compile with `localCompileCommand` instead of `compileCommand`
    * @returns {boolean} false when the group has nothing to run
    */
-  function startRunAllForGroup(gi) {
+  function startRunAllForGroup(gi, defineLocal) {
     const g = groups[gi];
     if (!g || g.cases.length === 0) {
       return false;
@@ -1904,14 +1910,19 @@
       type: "runAll",
       groupIndex: gi,
       cases: g.cases,
+      defineLocal: defineLocal === true,
     });
     return true;
   }
 
-  /** Runs every problem group that has cases, one after the other. */
-  function triggerRunAll() {
+  /**
+   * Runs every problem group that has cases, one after the other.
+   * @param {boolean} [defineLocal]
+   */
+  function triggerRunAll(defineLocal) {
     hideErr();
     ensureDefaultGroup();
+    runAllLocal = defineLocal === true;
     runAllQueue = groups
       .map((g, gi) => (g.cases.length > 0 ? gi : -1))
       .filter((gi) => gi >= 0);
@@ -1921,7 +1932,7 @@
   function startNextQueuedRunAll() {
     while (runAllQueue.length > 0) {
       const gi = runAllQueue.shift();
-      if (gi != null && startRunAllForGroup(gi)) {
+      if (gi != null && startRunAllForGroup(gi, runAllLocal)) {
         return true;
       }
     }
@@ -1949,6 +1960,7 @@
       groupIndex: 0,
       index: 0,
       case: g0.cases[0],
+      defineLocal: false,
     });
   }
 
@@ -1959,7 +1971,7 @@
       return;
     }
     if (m.type === "shortcutRunAll") {
-      triggerRunAll();
+      triggerRunAll(false);
       return;
     }
     if (m.type === "syncFocusContext") {
@@ -2048,13 +2060,6 @@
     }
     if (m.type === "importProblem") {
       updateImportProblemTitle(m.label);
-      return;
-    }
-    if (m.type === "options") {
-      if (typeof m.defineLocal === "boolean") {
-        defineLocal = m.defineLocal;
-        syncLocalToggleUi();
-      }
       return;
     }
     if (m.type === "runner") {
@@ -2227,7 +2232,11 @@
   });
 
   btnRunAll.addEventListener("click", () => {
-    triggerRunAll();
+    triggerRunAll(false);
+  });
+
+  btnRunAllLocal.addEventListener("click", () => {
+    triggerRunAll(true);
   });
 
   btnStopRun.addEventListener("click", () => {
@@ -2261,12 +2270,6 @@
     });
     render();
   });
-
-  btnToggleLocal.addEventListener("click", () => {
-    vscode.postMessage({ type: "setDefineLocal", value: !defineLocal });
-  });
-
-  syncLocalToggleUi();
 
   setJsonBoxOpen(false);
 

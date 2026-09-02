@@ -4,7 +4,6 @@ import {
   RUN_TAKEOVER_POLL_MS,
   RUN_TAKEOVER_TIMEOUT_MS,
   VIEW_TYPE_SAMPLES,
-  WORKSPACE_KEY_DEFINE_LOCAL,
   WORKSPACE_KEY_IMPORT_PROBLEM,
 } from "./constants";
 import {
@@ -28,7 +27,6 @@ import {
   ensureSourceSavedBeforeRun,
   getActiveSourceFilePath,
   postActiveSourceHint,
-  postOptions,
   postRunSourceSnapshot,
 } from "./source-hints";
 import type { CaseGroup, TestCase } from "./types";
@@ -379,20 +377,12 @@ export class CpHelperViewProvider
             importProblem,
           });
           postActiveSourceHint(webviewView.webview);
-          postOptions(webviewView.webview, this.ctx);
           this.webviewReady = true;
           const pending = this.pendingRunShortcut;
           this.pendingRunShortcut = undefined;
           if (pending) {
             webviewView.webview.postMessage({ type: pending });
           }
-          break;
-        }
-        case "setDefineLocal": {
-          const v = msg.value === true;
-          await this.ctx.workspaceState.update(WORKSPACE_KEY_DEFINE_LOCAL, v);
-          log.info(`option changed: defineLocal=${v ? "on" : "off"}`);
-          webviewView.webview.postMessage({ type: "options", defineLocal: v });
           break;
         }
         case "saveCaseGroups": {
@@ -527,12 +517,7 @@ export class CpHelperViewProvider
             index: msg.index as number,
           });
           try {
-            const r = await runSingleTest(
-              file,
-              tc,
-              this.ctx.workspaceState.get<boolean>(WORKSPACE_KEY_DEFINE_LOCAL) ===
-                true,
-            );
+            const r = await runSingleTest(file, tc, msg.defineLocal === true);
             if (isCurrentRun()) {
               webviewView.webview.postMessage({
                 type: "runResult",
@@ -587,8 +572,7 @@ export class CpHelperViewProvider
             this.ctx,
             dbgFile,
             dbgCase,
-            this.ctx.workspaceState.get<boolean>(WORKSPACE_KEY_DEFINE_LOCAL) ===
-              true,
+            msg.defineLocal === true,
           );
           if ("error" in started) {
             maybeShowOutputOnRun();
@@ -678,8 +662,7 @@ export class CpHelperViewProvider
                   total,
                 });
               },
-              this.ctx.workspaceState.get<boolean>(WORKSPACE_KEY_DEFINE_LOCAL) ===
-                true,
+              msg.defineLocal === true,
               (i) => {
                 if (!isCurrentRun()) {
                   return;

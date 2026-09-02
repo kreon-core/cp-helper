@@ -11,7 +11,6 @@ import {
   CMD_STRESS_TEST,
   CONTEXT_SAMPLES_FOCUS,
   OUTPUT_CHANNEL_NAME,
-  WORKSPACE_KEY_DEFINE_LOCAL,
 } from "./constants";
 import { importFromClipboardAndReveal } from "./clipboard-import";
 import { withLocalDefineExpanded } from "./compile-expansion";
@@ -184,12 +183,12 @@ export async function activate(
       const targets = [
         {
           label: "NORMAL build",
-          description: "compileCommand - runs while -DLOCAL is off",
+          description: "compileCommand - the plain Run buttons",
           key: "compileCommand",
         },
         {
           label: "LOCAL build",
-          description: "localCompileCommand - runs while -DLOCAL is on",
+          description: "localCompileCommand - the LOCAL Run buttons",
           key: "localCompileCommand",
         },
         {
@@ -277,9 +276,6 @@ export async function activate(
         typeof rawMax === "number" && Number.isFinite(rawMax) && rawMax >= 1
           ? Math.floor(rawMax)
           : 100;
-      const defineLocal =
-        context.workspaceState.get<boolean>(WORKSPACE_KEY_DEFINE_LOCAL) === true;
-
       const resolved = getActiveSourceFilePath();
       if ("error" in resolved) {
         stressLog.error(`rejected: ${resolved.error}`);
@@ -310,7 +306,7 @@ export async function activate(
           generatorCmd,
           referenceCmd,
           maxIterations,
-          defineLocal,
+          false,
           (i, max) => {
             if (i === 1 || i % 25 === 0) {
               stressLog.info(`iteration ${i}/${max}`);

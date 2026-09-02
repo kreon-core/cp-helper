@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { CPP_EXTENSIONS_HINT, WORKSPACE_KEY_DEFINE_LOCAL } from "./constants";
+import { CPP_EXTENSIONS_HINT } from "./constants";
 import { isCppSourcePath } from "./cpp-source";
 import { postRunnerLabel } from "./runner-label";
 
@@ -79,21 +79,6 @@ export function postActiveSourceHint(webview: vscode.Webview): void {
     cpp,
   });
   void postRunnerLabel(webview, cpp ? p : null);
-}
-
-/**
- * @param webview
- * @param ctx
- */
-export function postOptions(
-  webview: vscode.Webview,
-  ctx: vscode.ExtensionContext,
-): void {
-  webview.postMessage({
-    type: "options",
-    defineLocal:
-      ctx.workspaceState.get<boolean>(WORKSPACE_KEY_DEFINE_LOCAL) === true,
-  });
 }
 
 /**
