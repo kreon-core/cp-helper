@@ -144,12 +144,40 @@ body {
   min-width: 0;
 }
 
-.active-source-wrap {
-  margin-left: auto;
+/**
+ * Compiler and run-target readouts. Both are ambient metadata, so they stay quiet: a codicon to
+ * tell them apart at a glance, dim text, and a pill that only appears on hover - the hover is the
+ * affordance for the tooltip each one carries.
+ */
+.meta-chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--cp-space-2);
+  gap: var(--cp-space-1);
   min-width: 0;
+  padding: 1px var(--cp-space-2) 1px var(--cp-space-1);
+  border-radius: var(--cp-radius-lg);
+  background: transparent;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  transition: background-color 80ms ease-out;
+}
+
+.meta-chip:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.16));
+}
+
+.meta-chip__icon.codicon[class*="codicon-"] {
+  flex: 0 0 auto;
+  font-size: 12px;
+  opacity: 0.65;
+}
+
+.meta-chip--running .meta-chip__icon.codicon[class*="codicon-"] {
+  opacity: 1;
+  color: var(--vscode-progressBar-background, var(--vscode-textLink-foreground));
+}
+
+.active-source-wrap {
+  margin-left: auto;
   flex-shrink: 1;
   max-width: min(240px, 55vw);
 }
@@ -162,7 +190,7 @@ body {
   white-space: nowrap;
   text-align: right;
   padding: 2px 0;
-  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  color: inherit;
   font-family: var(--vscode-editor-font-family);
   font-size: 11px;
   font-weight: 500;
@@ -176,6 +204,16 @@ body {
  */
 button.btn-run-local {
   color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+.active-source-label__dir {
+  opacity: 0.55;
+}
+
+.runner-hint__std {
+  margin-left: var(--cp-space-1);
+  padding-left: var(--cp-space-1);
+  border-left: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
 }
 
 .active-source-label--empty {
@@ -226,14 +264,10 @@ button.btn-run-local {
   flex: 0 1 auto;
   margin: 0 0 0 auto;
   max-width: min(100%, 320px);
-  min-width: 0;
-  padding: 0;
   line-height: 1.3;
   font-family: var(--vscode-editor-font-family);
   font-size: 11px;
   font-weight: 500;
-  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
-  opacity: 0.88;
   overflow: hidden;
 }
 
