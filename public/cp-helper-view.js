@@ -29,6 +29,14 @@
   };
 
   /**
+   * Rows with a sample in flight, keyed by `rk(groupIndex, index)`. Run all reports progress as a
+   * completion count and runs samples concurrently, so the host says which rows actually started
+   * and each `runResult` retires one.
+   * @type {Set<string>}
+   */
+  const runningRows = new Set();
+
+  /**
    * Groups whose case indices changed while a run was in flight. The host keys results by the
    * index it captured at run start, so those are dropped until the next run for that group.
    * @type {Set<number>}
@@ -746,14 +754,16 @@
    * @param {HTMLElement} li
    * @param {HTMLElement} body
    * @param {HTMLElement} btn
+   * @param {HTMLElement} chev
    * @param {number} sample
    * @param {boolean} collapsed
    */
-  function applyCaseCollapsedUi(li, body, btn, sample, collapsed) {
+  function applyCaseCollapsedUi(li, body, btn, chev, sample, collapsed) {
     li.classList.toggle("case--collapsed", collapsed);
     body.hidden = collapsed;
     body.setAttribute("aria-hidden", collapsed ? "true" : "false");
     btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    chev.textContent = collapsed ? "▸" : "▾";
     const hint = collapsed
       ? `Expand sample ${sample}`
       : `Collapse sample ${sample}`;
@@ -1128,9 +1138,22 @@
     });
   }
 
+  /**
+   * @param {number} gi
+   * @param {number} index
+   * @returns {boolean}
+   */
+  function isRowRunning(gi, index) {
+    if (!runState.active || runState.groupIndex !== gi) {
+      return false;
+    }
+    if (runState.mode === "one") {
+      return runState.index === index;
+    }
+    return runningRows.has(rk(gi, index));
+  }
+
   function syncCaseRowSpinners() {
-    const busy = runState.active;
-    const gIdx = runState.groupIndex ?? -1;
     listEl.querySelectorAll("li.case").forEach((li) => {
       const gi = Number(li.dataset.groupIndex);
       const index = Number(li.dataset.index);
@@ -1143,13 +1166,7 @@
         return;
       }
       head.querySelectorAll(".run-row-spinner").forEach((el) => el.remove());
-      const showRowSpinner =
-        busy &&
-        gIdx === gi &&
-        ((runState.mode === "one" && runState.index === index) ||
-          (runState.mode === "all" &&
-            runState.phase === "run" &&
-            runState.index === index));
+      const showRowSpinner = isRowRunning(gi, index);
       if (showRowSpinner) {
         const spin = document.createElement("span");
         spin.className = "run-row-spinner";
@@ -1441,13 +1458,17 @@
         tEl.type = "button";
         tEl.className = "case-disclose";
         tEl.setAttribute("aria-controls", casePanelId);
+        const caseChev = document.createElement("span");
+        caseChev.className = "case-disclose__chev";
+        caseChev.setAttribute("aria-hidden", "true");
         const num = document.createElement("span");
         num.className = "case-num";
         num.textContent = String(c.sample);
+        tEl.appendChild(caseChev);
         tEl.appendChild(num);
         tEl.addEventListener("click", () => {
           const collapsed = toggleCaseCollapsed(caseKey);
-          applyCaseCollapsedUi(li, body, tEl, c.sample, collapsed);
+          applyCaseCollapsedUi(li, body, tEl, caseChev, c.sample, collapsed);
           if (!collapsed) {
             refitAll();
           }
@@ -1530,14 +1551,7 @@
         actions.appendChild(remove);
 
         head.appendChild(tEl);
-        const gIdx = runState.groupIndex ?? -1;
-        const showRowSpinner =
-          busy &&
-          gIdx === gi &&
-          ((runState.mode === "one" && runState.index === index) ||
-            (runState.mode === "all" &&
-              runState.phase === "run" &&
-              runState.index === index));
+        const showRowSpinner = isRowRunning(gi, index);
         if (showRowSpinner) {
           const spin = document.createElement("span");
           spin.className = "run-row-spinner";
@@ -1551,7 +1565,7 @@
         const body = document.createElement("div");
         body.className = "case-body";
         body.id = casePanelId;
-        applyCaseCollapsedUi(li, body, tEl, c.sample, caseIsCollapsed);
+        applyCaseCollapsedUi(li, body, tEl, caseChev, c.sample, caseIsCollapsed);
         body.appendChild(makeField("Input", gi, index, "input"));
         body.appendChild(makeField("Expected output", gi, index, "output"));
 
@@ -1955,12 +1969,35 @@
       });
       return;
     }
+    if (m.type === "sampleStart") {
+      const gi = typeof m.groupIndex === "number" ? m.groupIndex : 0;
+      if (staleResultGroups.has(gi) || typeof m.index !== "number") {
+        return;
+      }
+      runningRows.add(rk(gi, m.index));
+      // The host only reports progress on completion, so the first sample's start is what says
+      // compiling is over.
+      if (runState.active && runState.mode === "all" && runState.phase === "compile") {
+        runState.phase = "run";
+      }
+      if (incrementalDomReady()) {
+        refreshIncrementalRunUi();
+      } else {
+        render();
+      }
+      return;
+    }
     if (m.type === "runState") {
       if (m.running) {
         const giClear =
           typeof m.groupIndex === "number" ? m.groupIndex : 0;
         delete lastRunAllSummaryByGroup[giClear];
         staleResultGroups.delete(giClear);
+        if (m.phase === "compile") {
+          runningRows.clear();
+        }
+      } else {
+        runningRows.clear();
       }
       runState = {
         active: !!m.running,
@@ -2005,13 +2042,6 @@
       if (jsonBoxOpen()) {
         jsonEl.value = "";
         setJsonBoxOpen(false);
-
-  function syncStuckState() {
-    importSectionEl.classList.toggle("import--stuck", listEl.scrollTop > 0);
-  }
-
-  listEl.addEventListener("scroll", syncStuckState, { passive: true });
-  syncStuckState();
       }
       render();
       return;
@@ -2046,6 +2076,7 @@
       }
       const i = m.index;
       const key = rk(gi, i);
+      runningRows.delete(key);
       const disp = streamDisplay;
       const verdictRaw =
         typeof m.verdict === "string" ? m.verdict.toUpperCase() : "WA";
@@ -2315,6 +2346,13 @@
     },
     true,
   );
+
+  function syncStuckState() {
+    importSectionEl.classList.toggle("import--stuck", listEl.scrollTop > 0);
+  }
+
+  listEl.addEventListener("scroll", syncStuckState, { passive: true });
+  syncStuckState();
 
   vscode.postMessage({ type: "restore" });
   requestAnimationFrame(() => {
