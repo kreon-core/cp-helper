@@ -44,6 +44,9 @@ export const DEFAULT_DEBUG_CONFIG_NAME = "LLDB Debug";
 /** Fallback when `runTimeoutMs` is missing or invalid (keep in sync with package.json default). */
 export const DEFAULT_RUN_TIMEOUT_MS = 5000;
 
+/** Local runs get this much slack over the judge's limit before the process is killed. */
+export const DEFAULT_TIME_LIMIT_FACTOR = 2;
+
 /** Default for `cp-helper.floatAbsEpsilon` when missing or invalid. */
 export const DEFAULT_FLOAT_ABS_EPSILON = 1e-9;
 

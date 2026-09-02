@@ -5,6 +5,15 @@ import type { CaseGroup, TestCase } from "./types";
 /** Pure decimal id (e.g. Codeforces multi import used "0","1",... - collides with single-group "0" in webview collapse state). */
 const DIGIT_ID = /^\d+$/u;
 
+/**
+ * Judge limits outside 100ms..60s are treated as a scrape error and dropped.
+ * @param v raw `timeLimitMs` from storage or import
+ */
+export function coerceTimeLimitMs(v: unknown): number | null {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 100 && n <= 60_000 ? Math.round(n) : null;
+}
+
 function multiGroupsAllDigitIds(groups: CaseGroup[]): boolean {
   return (
     groups.length > 1 &&
@@ -30,11 +39,16 @@ export function normalizeCaseGroups(groups: CaseGroup[]): CaseGroup[] {
     } else {
       id = `g${i}`;
     }
-    return {
+    const out: CaseGroup = {
       id,
       label: typeof g.label === "string" ? g.label : "",
       cases: Array.isArray(g.cases) ? g.cases : [],
     };
+    const tl = coerceTimeLimitMs(g.timeLimitMs);
+    if (tl !== null) {
+      out.timeLimitMs = tl;
+    }
+    return out;
   });
 }
 

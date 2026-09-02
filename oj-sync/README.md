@@ -57,6 +57,8 @@ Right-click the extension -> **Options** (or open the options page from **Extens
 
 The POST body is JSON understood by CP Helper (plain array of cases, or wrapped `{ problem, samples }` / `{ problems: [...] }` for multi-problem imports). Optional wrapper field **`source`** is set to **`oj-sync`** for debugging.
 
+Codeforces and AtCoder statements also carry a time limit; when it is found it rides along as **`timeLimitMs`** next to `samples` (per entry for multi-problem imports) and CP Helper judges TLE against it. LeetCode publishes no time limit, so the field is absent there.
+
 CP Helper's **instant Run all** after import applies only when that payload resolves to **one** problem group (no extra HTTP headers required).
 
 ## Version

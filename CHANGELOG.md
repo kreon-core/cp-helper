@@ -4,6 +4,12 @@ All notable changes to CP Helper are documented in this file.
 
 Versioning from 1.0.0 follows SemVer: MAJOR.MINOR.PATCH.
 
+## [Unreleased]
+
+### Added
+- OJ Sync reads the problem's time limit from Codeforces and AtCoder statements and sends it with the samples as `timeLimitMs` (per problem for a multi-problem Codeforces import). The limit shows as a chip on the group header, and a NORMAL run judges TLE against it instead of the fixed `cp-helper.runTimeoutMs`. LOCAL runs keep `runTimeoutMs`, since a sanitizer build's timings say nothing about the judge. LeetCode publishes no time limit, so imports from there are unchanged.
+- `cp-helper.useJudgeTimeLimit` (default on) and `cp-helper.timeLimitFactor` (default 2). A sample is killed at `limit * factor` so an overrun still shows how far over it went, while the verdict compares the program's own execution time against the judge limit. `runTimeoutMs` still governs compiles and any problem with no imported limit.
+
 ## [1.0.8] - 2026-09-02
 
 ### Added

@@ -9,6 +9,15 @@
   const prePlainText = ns.prePlainText;
 
   /**
+   * @param {ParentNode} root problem holder, or the document for a single-problem page
+   * @returns {number | null}
+   */
+  function cfTimeLimitFromRoot(root) {
+    const el = root.querySelector("div.time-limit");
+    return el ? ns.parseTimeLimitMs(el.textContent ?? "") : null;
+  }
+
+  /**
    * @param {Element} root
    * @returns {{ id: string; text: string }[]}
    */
@@ -70,7 +79,7 @@
 
   /**
    * @param {string} pageUrl
-   * @returns {{ id: string; text: string }[] | { kind: string; contestId: string; problems: unknown[] }}
+   * @returns {{ kind: string; items?: unknown[]; timeLimitMs?: number | null; contestId?: string; problems?: unknown[] }}
    */
   ns.extractCodeforces = function extractCodeforces(pageUrl) {
     const contestId = cfContestIdFromUrl(
@@ -81,13 +90,14 @@
     ).filter((h) => h.querySelector("div.sample-test"));
 
     if (holders.length >= 2) {
-      /** @type { { letter: string; items: { id: string; text: string }[] }[] } */
+      /** @type { { letter: string; timeLimitMs: number | null; items: { id: string; text: string }[] }[] } */
       const problems = [];
       for (const holder of holders) {
         const items = cfCollectSamplePresFromRoot(holder);
         if (items.length === 0) continue;
         problems.push({
           letter: cfProblemLetterFromHolder(holder),
+          timeLimitMs: cfTimeLimitFromRoot(holder),
           items,
         });
       }
@@ -95,14 +105,22 @@
         return { kind: "cf-multi", contestId, problems };
       }
       if (problems.length === 1) {
-        return problems[0].items;
+        return {
+          kind: "single",
+          timeLimitMs: problems[0].timeLimitMs,
+          items: problems[0].items,
+        };
       }
     }
 
     if (holders.length === 1) {
       const one = cfCollectSamplePresFromRoot(holders[0]);
       if (one.length > 0) {
-        return one;
+        return {
+          kind: "single",
+          timeLimitMs: cfTimeLimitFromRoot(holders[0]),
+          items: one,
+        };
       }
     }
 
@@ -119,6 +137,10 @@
         n += 1;
       }
     }
-    return results;
+    return {
+      kind: "single",
+      timeLimitMs: cfTimeLimitFromRoot(document),
+      items: results,
+    };
   };
 })(globalThis);

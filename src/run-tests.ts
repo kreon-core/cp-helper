@@ -6,6 +6,7 @@ import { constants as fsConstants } from "fs";
 import { randomBytes } from "crypto";
 import {
   DEFAULT_RUN_TIMEOUT_MS,
+  DEFAULT_TIME_LIMIT_FACTOR,
   MAX_COMPILE_STDERR_WEBVIEW,
   MAX_STDERR_CHARS_WEBVIEW,
   MAX_STDOUT_CHARS_WEBVIEW,
@@ -55,13 +56,39 @@ function sampleConcurrency(caseCount: number): number {
 }
 
 /**
+ * Judge time limit and the kill timeout derived from it, or zeros when the group carries no
+ * limit or the feature is off.
+ * @param cfg cp-helper configuration
+ * @param judgeTimeLimitMs limit imported with the group (ms)
+ */
+function judgeLimits(
+  cfg: vscode.WorkspaceConfiguration,
+  judgeTimeLimitMs: number,
+): { judgeTimeLimitMs: number; judgeKillMs: number } {
+  const enabled = cfg.get<boolean>("useJudgeTimeLimit") ?? true;
+  const limit = Math.floor(judgeTimeLimitMs);
+  if (!enabled || !Number.isFinite(limit) || limit < 1) {
+    return { judgeTimeLimitMs: 0, judgeKillMs: 0 };
+  }
+  const rawFactor = Number(cfg.get<number>("timeLimitFactor"));
+  const factor =
+    Number.isFinite(rawFactor) && rawFactor >= 1
+      ? Math.min(rawFactor, 100)
+      : DEFAULT_TIME_LIMIT_FACTOR;
+  return { judgeTimeLimitMs: limit, judgeKillMs: Math.ceil(limit * factor) };
+}
+
+/**
  * Shared paths, cwd, and shell exec for one binary path (compile once, run many).
  * @param file source path
  * @param defineLocal add `-DLOCAL` to compile when enabled
+ * @param judgeTimeLimitMs judge time limit for the group (ms); 0 or omitted = none. Ignored for
+ * the LOCAL build.
  */
 export function createRunSession(
   file: string,
   defineLocal: boolean,
+  judgeTimeLimitMs = 0,
 ): RunSession {
   const cfg = vscode.workspace.getConfiguration("cp-helper");
   const selected = selectRunCompile(
@@ -92,8 +119,20 @@ export function createRunSession(
     os.tmpdir(),
     `cp-helper-${randomBytes(8).toString("hex")}${ext}`,
   );
-  const exec = (cmd: string, stdin: string | undefined) =>
-    runShell(cmd, cwd, stdin, timeoutMs);
+  const exec = (
+    cmd: string,
+    stdin: string | undefined,
+    timeoutMsOverride?: number,
+  ) =>
+    runShell(
+      cmd,
+      cwd,
+      stdin,
+      timeoutMsOverride && timeoutMsOverride > 0 ? timeoutMsOverride : timeoutMs,
+    );
+  // NORMAL build only: the LOCAL build carries sanitizers and debug output, so its timings say
+  // nothing about the judge.
+  const limits = judgeLimits(cfg, defineLocal ? 0 : judgeTimeLimitMs);
   return {
     file,
     outBin,
@@ -107,6 +146,8 @@ export function createRunSession(
     floatRelEpsilon,
     checkerCmd,
     execLogged: false,
+    judgeTimeLimitMs: limits.judgeTimeLimitMs,
+    judgeKillMs: limits.judgeKillMs,
     exec,
   };
 }
@@ -115,6 +156,11 @@ export function createRunSession(
  * @param s
  */
 function logBuildMode(s: RunSession): void {
+  if (s.judgeTimeLimitMs > 0) {
+    runLog.info(
+      `judge time limit: ${s.judgeTimeLimitMs}ms (killed at ${s.judgeKillMs}ms)`,
+    );
+  }
   if (s.compileCmd.length === 0) {
     return;
   }
@@ -224,7 +270,7 @@ async function runProgramForCase(
   const tag = `sample ${tc.sample}`;
 
   const runStart = Date.now();
-  const r = await s.exec(runCmd, tc.input);
+  const r = await s.exec(runCmd, tc.input, s.judgeKillMs);
   const elapsedMs = Date.now() - runStart;
   const execMs = Math.min(r.execMs, elapsedMs);
   const overheadMs = elapsedMs - execMs;
@@ -249,8 +295,12 @@ async function runProgramForCase(
 
   const got = normalizeOutput(r.stdout, s.trim);
   const exp = normalizeOutput(tc.output, s.trim);
+  // The kill happens at judgeKillMs (limit * factor) so the run shows how far over it went,
+  // but the verdict compares the program's own time against the judge limit itself.
+  const overJudgeLimit =
+    s.judgeTimeLimitMs > 0 && execMs > s.judgeTimeLimitMs;
   let verdict: RunVerdict;
-  if (r.timedOut) {
+  if (r.timedOut || overJudgeLimit) {
     verdict = "TLE";
   } else if (r.code !== 0 || r.code === null) {
     verdict = "RE";
@@ -312,6 +362,7 @@ async function runProgramForCase(
     `time=${elapsedMs}ms (exec=${execMs}ms overhead=${overheadMs}ms) ` +
     `in=${Buffer.byteLength(tc.input, "utf8")}B ` +
     `out=${Buffer.byteLength(r.stdout, "utf8")}B` +
+    `${s.judgeTimeLimitMs > 0 ? ` limit=${s.judgeTimeLimitMs}ms` : ""}` +
     `${r.timedOut ? " killed=time-limit" : ""}`;
   if (ok) {
     runLog.info(summary);
@@ -343,9 +394,19 @@ async function runProgramForCase(
         : codeLine,
       MAX_STDERR_CHARS_WEBVIEW,
     );
+  } else if (verdict === "TLE" && s.judgeTimeLimitMs > 0) {
+    const limitLine = r.timedOut
+      ? `Killed after ${s.judgeKillMs}ms (judge limit ${s.judgeTimeLimitMs}ms)`
+      : `Took ${execMs}ms, judge limit is ${s.judgeTimeLimitMs}ms`;
+    stderrOut = truncateForLog(
+      stderrOut.trim() !== ""
+        ? `${stderrOut.trim()}\n\n${limitLine}`
+        : limitLine,
+      MAX_STDERR_CHARS_WEBVIEW,
+    );
   }
 
-  return {
+  const result: RunSampleResult = {
     ok,
     verdict,
     stdout: stdoutOut,
@@ -355,6 +416,10 @@ async function runProgramForCase(
     execMs,
     overheadMs,
   };
+  if (s.judgeTimeLimitMs > 0) {
+    result.timeLimitMs = s.judgeTimeLimitMs;
+  }
+  return result;
 }
 
 /**
@@ -381,8 +446,9 @@ export async function runSingleTest(
   file: string,
   tc: TestCase,
   defineLocal: boolean,
+  judgeTimeLimitMs = 0,
 ): Promise<RunSampleResult> {
-  const s = createRunSession(file, defineLocal);
+  const s = createRunSession(file, defineLocal, judgeTimeLimitMs);
   runLog.info(`run one: sample ${tc.sample}`);
   runLog.info(`source: ${s.file}`);
   runLog.info(`cwd: ${s.cwd}`);
@@ -402,6 +468,8 @@ export async function runSingleTest(
  * @param onResult
  * @param onProgress
  * @param defineLocal
+ * @param onStart
+ * @param judgeTimeLimitMs judge time limit for the group (ms); 0 = none
  */
 export async function runAllTestsSharedCompile(
   file: string,
@@ -410,8 +478,9 @@ export async function runAllTestsSharedCompile(
   onProgress?: (completed: number, total: number) => void,
   defineLocal = false,
   onStart?: (index: number) => void,
+  judgeTimeLimitMs = 0,
 ): Promise<void> {
-  const s = createRunSession(file, defineLocal);
+  const s = createRunSession(file, defineLocal, judgeTimeLimitMs);
   runLog.info(`run all: ${cases.length} test(s)`);
   runLog.info(`source: ${s.file}`);
   runLog.info(`cwd: ${s.cwd}`);

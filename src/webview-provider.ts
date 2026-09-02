@@ -7,6 +7,7 @@ import {
   WORKSPACE_KEY_IMPORT_PROBLEM,
 } from "./constants";
 import {
+  coerceTimeLimitMs,
   loadCaseGroups,
   loadCaseGroupsFromFile,
   normalizeCaseGroups,
@@ -517,7 +518,12 @@ export class CpHelperViewProvider
             index: msg.index as number,
           });
           try {
-            const r = await runSingleTest(file, tc, msg.defineLocal === true);
+            const r = await runSingleTest(
+              file,
+              tc,
+              msg.defineLocal === true,
+              coerceTimeLimitMs(msg.timeLimitMs) ?? 0,
+            );
             if (isCurrentRun()) {
               webviewView.webview.postMessage({
                 type: "runResult",
@@ -673,6 +679,7 @@ export class CpHelperViewProvider
                   index: i,
                 });
               },
+              coerceTimeLimitMs(msg.timeLimitMs) ?? 0,
             );
           } catch (e) {
             const err = e instanceof Error ? e.message : String(e);

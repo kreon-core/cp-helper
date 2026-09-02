@@ -587,6 +587,16 @@ button.case-group-disclose:focus-visible {
   white-space: nowrap;
 }
 
+.case-group-limit {
+  flex: 0 0 auto;
+  margin-left: 6px;
+  padding: 0 4px;
+  border: 1px solid var(--vscode-widget-border, transparent);
+  border-radius: 3px;
+  font-size: 0.85em;
+  opacity: 0.75;
+}
+
 .case-group-wrap--collapsed .case-group-head {
   border-bottom: none;
 }
