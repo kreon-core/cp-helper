@@ -28,7 +28,7 @@ C++ is the only supported language. Run, Debug, and Export refuse a non-C++ acti
 1. Open a C++ source file.
 2. Open CP Helper in the secondary sidebar.
 3. Import sample JSON.
-4. Click Run all or Run per case.
+4. Click Run all or Run per case; the second run button beside each compiles the LOCAL build.
 
 Sample JSON:
 
@@ -55,8 +55,8 @@ Default keybindings:
 
 | Setting | Purpose |
 | --- | --- |
-| cp-helper.compileCommand | NORMAL build, used while -DLOCAL is off (keep it judge-like: -O2, no sanitizers) |
-| cp-helper.localCompileCommand | LOCAL build, used while -DLOCAL is on (empty = compileCommand with -DLOCAL injected) |
+| cp-helper.compileCommand | NORMAL build, used by the plain Run buttons (keep it judge-like: -O2, no sanitizers) |
+| cp-helper.localCompileCommand | LOCAL build, used by the LOCAL Run buttons and Debug (empty = compileCommand with -DLOCAL injected) |
 | cp-helper.debugCompileCommand | DEBUG build behind each sample's Debug button (empty = active run command plus -g -O0) |
 | cp-helper.runCommand | Execute command template |
 | cp-helper.runTimeoutMs | Compile/run timeout in ms |

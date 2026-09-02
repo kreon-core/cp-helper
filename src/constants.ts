@@ -7,7 +7,6 @@ export const WORKSPACE_KEY_CASES = "cp-helper.cases";
 export const WORKSPACE_KEY_CASE_GROUPS = "cp-helper.caseGroups";
 /** Label from OJ Sync (e.g. atcoder/abc451_a) - shown next to IMPORT. */
 export const WORKSPACE_KEY_IMPORT_PROBLEM = "cp-helper.importProblem";
-export const WORKSPACE_KEY_DEFINE_LOCAL = "cp-helper.defineLocal";
 
 /** `when` clause: Samples webview has keyboard focus (for user keybindings). */
 export const CONTEXT_SAMPLES_FOCUS = "cp-helper.samplesFocus";
