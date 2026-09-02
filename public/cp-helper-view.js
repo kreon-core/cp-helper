@@ -105,6 +105,7 @@
   const listEl = $("list");
   const listEmptyEl = $("list-empty");
   const activeSourceLabelEl = $("activeSourceLabel");
+  const activeSourceWrapEl = $("activeSourceWrap");
   const runnerHintEl = $("runnerHint");
   const runnerHintValueEl = runnerHintEl.querySelector(".runner-hint__value");
   if (!runnerHintValueEl) throw new Error("missing .runner-hint__value");
@@ -525,6 +526,25 @@
   }
 
   /**
+   * Parent folder dimmed, file name at full strength, so the name a glance is looking for wins.
+   * @param {string} fullPath
+   */
+  function paintActiveSourceLabel(fullPath) {
+    const text = pathToParentAndName(fullPath);
+    const cut = text.lastIndexOf("/");
+    activeSourceLabelEl.textContent = "";
+    if (cut > 0) {
+      const dir = document.createElement("span");
+      dir.className = "active-source-label__dir";
+      dir.textContent = text.slice(0, cut + 1);
+      activeSourceLabelEl.appendChild(dir);
+    }
+    const name = document.createElement("span");
+    name.textContent = cut > 0 ? text.slice(cut + 1) : text;
+    activeSourceLabelEl.appendChild(name);
+  }
+
+  /**
    * Run target (the active C++ editor, or the last one visited), or the snapshotted path while a
    * run is in progress.
    * @param {{ path: string | null; running?: boolean; cpp?: boolean }} m
@@ -534,7 +554,7 @@
     const running = !!m.running;
     const cpp = m.cpp !== false;
     if (p) {
-      activeSourceLabelEl.textContent = pathToParentAndName(p);
+      paintActiveSourceLabel(p);
       activeSourceLabelEl.title = running
         ? `Run in progress (this file only; tab switches are OK):\n${p}`
         : `Run target - active C++ editor, or the last one you opened:\n${p}`;
@@ -556,6 +576,7 @@
       "active-source-label--running",
       running && !!p,
     );
+    activeSourceWrapEl.classList.toggle("meta-chip--running", running && !!p);
     sourceRunnable = !!p && cpp;
     applyToolbarAndImportState();
     syncRunAffordances();
@@ -864,7 +885,7 @@
       runnerHintEl.removeAttribute("aria-label");
       return;
     }
-    runnerHintValueEl.textContent = label;
+    paintRunnerLabel(label);
     runnerHintEl.hidden = false;
     const lines = [`Runner: ${label}`];
     lines.push(
@@ -879,6 +900,27 @@
     const text = lines.join("\n");
     runnerHintEl.title = text;
     runnerHintEl.setAttribute("aria-label", text);
+  }
+
+  /**
+   * `resolveRunnerLabel` joins compiler and standard with " - ", which reads like part of a flag.
+   * Split it back apart so the two facts sit either side of a divider.
+   * @param {string} label
+   */
+  function paintRunnerLabel(label) {
+    const cut = label.indexOf(" - ");
+    runnerHintValueEl.textContent = "";
+    if (cut < 0) {
+      runnerHintValueEl.textContent = label;
+      return;
+    }
+    const name = document.createElement("span");
+    name.textContent = label.slice(0, cut);
+    const std = document.createElement("span");
+    std.className = "runner-hint__std";
+    std.textContent = label.slice(cut + 3);
+    runnerHintValueEl.appendChild(name);
+    runnerHintValueEl.appendChild(std);
   }
 
   /**
