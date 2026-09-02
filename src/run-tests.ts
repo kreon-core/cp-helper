@@ -409,6 +409,7 @@ export async function runAllTestsSharedCompile(
   onResult: (index: number, result: RunSampleResult) => void,
   onProgress?: (completed: number, total: number) => void,
   defineLocal = false,
+  onStart?: (index: number) => void,
 ): Promise<void> {
   const s = createRunSession(file, defineLocal);
   runLog.info(`run all: ${cases.length} test(s)`);
@@ -450,6 +451,7 @@ export async function runAllTestsSharedCompile(
         return;
       }
       ran++;
+      onStart?.(i);
       try {
         const r = await runProgramForCase(s, cases[i]);
         if (r.ok) passed++;

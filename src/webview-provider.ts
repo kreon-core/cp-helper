@@ -680,6 +680,16 @@ export class CpHelperViewProvider
               },
               this.ctx.workspaceState.get<boolean>(WORKSPACE_KEY_DEFINE_LOCAL) ===
                 true,
+              (i) => {
+                if (!isCurrentRun()) {
+                  return;
+                }
+                webviewView.webview.postMessage({
+                  type: "sampleStart",
+                  groupIndex,
+                  index: i,
+                });
+              },
             );
           } catch (e) {
             const err = e instanceof Error ? e.message : String(e);
