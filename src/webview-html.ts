@@ -47,9 +47,6 @@ export function buildSamplesWebviewHtml(
       >No problem imported</span>
       <span class="active-source-wrap">
         <span id="activeSourceLabel" class="active-source-label" title="" role="status" aria-live="polite" aria-label="Active file for Run">No file</span>
-        <button id="btnToggleLocal" type="button" class="btn-debug-local" title="" aria-pressed="false" aria-label="Toggle -DLOCAL for compile">
-          <span class="codicon codicon-output btn-debug-local__icon" aria-hidden="true"></span>
-        </button>
       </span>
     </div>
     <div id="importActions" class="import__actions">
@@ -58,6 +55,7 @@ export function buildSamplesWebviewHtml(
         <button id="btnLoad" type="button" class="btn-icon" title="Replace samples with the JSON above" aria-label="Load"><span class="codicon codicon-desktop-download" aria-hidden="true"></span></button>
         <span class="btn-sep" aria-hidden="true"></span>
         <button id="btnRunAll" type="button" class="btn-primary btn-icon" disabled title="Compile once (if configured), then run every sample" aria-label="Run all"><span class="codicon codicon-run-all" aria-hidden="true"></span></button>
+        <button id="btnRunAllLocal" type="button" class="btn-secondary btn-icon btn-run-local" disabled title="Run every sample with the LOCAL build (localCompileCommand)" aria-label="Run all with LOCAL build"><span class="codicon codicon-output" aria-hidden="true"></span></button>
         <button id="btnStopRun" type="button" class="btn-secondary btn-stop btn-icon" hidden title="Stop compile or run" aria-label="Stop"><span class="codicon codicon-debug-stop" aria-hidden="true"></span></button>
         <span id="run-status" class="run-status" hidden>
           <span class="run-status-spinner" aria-hidden="true"></span>
