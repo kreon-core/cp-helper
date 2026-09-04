@@ -35,6 +35,13 @@ import { buildSamplesWebviewHtml, getNonce } from "./webview-html";
 
 const log = createCpLogger("webview");
 
+/** Run shortcut message the webview understands, one per keybinding. */
+export type RunShortcut =
+  | "shortcutRunFirst"
+  | "shortcutRunFirstLocal"
+  | "shortcutRunAll"
+  | "shortcutRunAllLocal";
+
 /**
  * Open the CP Helper container wherever the user docked it. `<viewId>.focus` follows the view, so it
  * also switches the panel tab when the container was dragged out of the secondary sidebar;
@@ -68,10 +75,7 @@ export class CpHelperViewProvider
   private webviewReady = false;
 
   /** Run shortcut asked for before the webview was ready; posted with the `restore` reply. */
-  private pendingRunShortcut:
-    | "shortcutRunFirst"
-    | "shortcutRunAll"
-    | undefined;
+  private pendingRunShortcut: RunShortcut | undefined;
 
   /**
    * Bumped by every Run click. A run whose token is stale has been superseded and must stay
@@ -187,7 +191,7 @@ export class CpHelperViewProvider
    * of being posted into the gap (import into a hidden Samples view, shortcut before first open).
    * @param type webview message to deliver
    */
-  requestRunShortcut(type: "shortcutRunFirst" | "shortcutRunAll"): void {
+  requestRunShortcut(type: RunShortcut): void {
     this.pendingRunShortcut = undefined;
     if (this.webviewReady && this.webviewView) {
       void this.webviewView.webview.postMessage({ type });
