@@ -44,14 +44,18 @@ Sample JSON:
 | --- | --- |
 | cpHelper.focusSamples | Open the Samples view |
 | cpHelper.runFirstSample | Run first sample in group 0 |
+| cpHelper.runFirstSampleLocal | Run first sample in group 0 with the LOCAL build |
 | cpHelper.runAllSamples | Run all samples in group 0 |
+| cpHelper.runAllSamplesLocal | Run all samples in group 0 with the LOCAL build |
 | cpHelper.importFromClipboard | Import JSON from clipboard |
 | cpHelper.showOutput | Show CP Helper output channel |
 
 Default keybindings:
 
 - Ctrl+' / Cmd+': run first sample
+- Ctrl+Shift+' / Cmd+Shift+': run first sample with the LOCAL build
 - Ctrl+Enter / Cmd+Enter: run all samples
+- Ctrl+Shift+Enter / Cmd+Shift+Enter: run all samples with the LOCAL build
 
 ## Key settings
 

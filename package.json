@@ -46,8 +46,18 @@
         "category": "CP Helper"
       },
       {
+        "command": "cpHelper.runFirstSampleLocal",
+        "title": "Run First Sample (LOCAL build)",
+        "category": "CP Helper"
+      },
+      {
         "command": "cpHelper.runAllSamples",
         "title": "Run All Samples",
+        "category": "CP Helper"
+      },
+      {
+        "command": "cpHelper.runAllSamplesLocal",
+        "title": "Run All Samples (LOCAL build)",
         "category": "CP Helper"
       },
       {
@@ -84,9 +94,21 @@
         "when": "editorTextFocus || cp-helper.samplesFocus || (auxiliaryBarFocus && activeAuxiliary == 'workbench.view.extension.cp-helper') || (sideBarFocus && activeViewlet == 'workbench.view.extension.cp-helper')"
       },
       {
+        "command": "cpHelper.runFirstSampleLocal",
+        "key": "ctrl+shift+'",
+        "mac": "cmd+shift+'",
+        "when": "editorTextFocus || cp-helper.samplesFocus || (auxiliaryBarFocus && activeAuxiliary == 'workbench.view.extension.cp-helper') || (sideBarFocus && activeViewlet == 'workbench.view.extension.cp-helper')"
+      },
+      {
         "command": "cpHelper.runAllSamples",
         "key": "ctrl+enter",
         "mac": "cmd+enter",
+        "when": "editorTextFocus || cp-helper.samplesFocus || (auxiliaryBarFocus && activeAuxiliary == 'workbench.view.extension.cp-helper') || (sideBarFocus && activeViewlet == 'workbench.view.extension.cp-helper')"
+      },
+      {
+        "command": "cpHelper.runAllSamplesLocal",
+        "key": "ctrl+shift+enter",
+        "mac": "cmd+shift+enter",
         "when": "editorTextFocus || cp-helper.samplesFocus || (auxiliaryBarFocus && activeAuxiliary == 'workbench.view.extension.cp-helper') || (sideBarFocus && activeViewlet == 'workbench.view.extension.cp-helper')"
       }
     ],
