@@ -17,7 +17,9 @@ export const VIEW_TYPE_SAMPLES = "cp-helper.webview";
 /** Command palette ids - must match `package.json` `contributes.commands`. */
 export const CMD_FOCUS_SAMPLES = "cpHelper.focusSamples";
 export const CMD_RUN_FIRST_SAMPLE = "cpHelper.runFirstSample";
+export const CMD_RUN_FIRST_SAMPLE_LOCAL = "cpHelper.runFirstSampleLocal";
 export const CMD_RUN_ALL_SAMPLES = "cpHelper.runAllSamples";
+export const CMD_RUN_ALL_SAMPLES_LOCAL = "cpHelper.runAllSamplesLocal";
 export const CMD_SHOW_OUTPUT = "cpHelper.showOutput";
 export const CMD_IMPORT_CLIPBOARD = "cpHelper.importFromClipboard";
 export const CMD_SELECT_COMPILE_PRESET = "cpHelper.selectCompilePreset";

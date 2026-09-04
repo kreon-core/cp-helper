@@ -220,16 +220,45 @@
     return Math.min(280, Math.floor(window.innerHeight * 0.36));
   }
 
+  let listScrollHeldTop = 0;
+  let listScrollHeld = false;
+
+  /**
+   * Runs a height pass with the list's scroll offset held. Fitting sets a field to `height: auto`
+   * and reads it back, so mid-pass the list is shorter than its content was; once that drops below
+   * the current offset the browser clamps `scrollTop` and never puts it back, which reads as the
+   * list jumping to the top while typing. Nested passes are held by the outermost caller.
+   * @param {() => void} fn
+   */
+  function withListScrollHeld(fn) {
+    if (listScrollHeld) {
+      fn();
+      return;
+    }
+    listScrollHeld = true;
+    listScrollHeldTop = listEl.scrollTop;
+    try {
+      fn();
+    } finally {
+      listScrollHeld = false;
+      if (listEl.scrollTop !== listScrollHeldTop) {
+        listEl.scrollTop = listScrollHeldTop;
+      }
+    }
+  }
+
   /**
    * @param {HTMLElement} ta editable field or read-only `pre`
    * @param {number} capPx
    */
   function fitTextarea(ta, capPx) {
-    const minH = 32;
-    ta.style.height = "auto";
-    const target = Math.max(minH, Math.min(ta.scrollHeight, capPx));
-    ta.style.height = `${target}px`;
-    ta.style.overflowY = ta.scrollHeight > capPx ? "auto" : "hidden";
+    withListScrollHeld(() => {
+      const minH = 32;
+      ta.style.height = "auto";
+      const target = Math.max(minH, Math.min(ta.scrollHeight, capPx));
+      ta.style.height = `${target}px`;
+      ta.style.overflowY = ta.scrollHeight > capPx ? "auto" : "hidden";
+    });
   }
 
   /**
@@ -319,7 +348,7 @@
       equalizeQueued = false;
       equalizing = true;
       try {
-        equalizeResultColumns();
+        withListScrollHeld(() => equalizeResultColumns());
       } finally {
         equalizing = false;
       }
@@ -2047,8 +2076,9 @@
   /**
    * Run first row of first problem group (sample index 0). No-op if group 0 has no cases;
    * while a run is in flight this restarts, replacing it.
+   * @param {boolean} [defineLocal] compile with `localCompileCommand` instead of `compileCommand`
    */
-  function triggerRunFirst() {
+  function triggerRunFirst(defineLocal) {
     hideErr();
     runAllQueue = [];
     ensureDefaultGroup();
@@ -2065,18 +2095,26 @@
       groupIndex: 0,
       index: 0,
       case: g0.cases[0],
-      defineLocal: false,
+      defineLocal: defineLocal === true,
     });
   }
 
   function onMessage(e) {
     const m = e.data;
     if (m.type === "shortcutRunFirst") {
-      triggerRunFirst();
+      triggerRunFirst(false);
+      return;
+    }
+    if (m.type === "shortcutRunFirstLocal") {
+      triggerRunFirst(true);
       return;
     }
     if (m.type === "shortcutRunAll") {
       triggerRunAll(false);
+      return;
+    }
+    if (m.type === "shortcutRunAllLocal") {
+      triggerRunAll(true);
       return;
     }
     if (m.type === "syncFocusContext") {

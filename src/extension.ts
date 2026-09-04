@@ -5,7 +5,9 @@ import {
   CMD_FOCUS_SAMPLES,
   CMD_IMPORT_CLIPBOARD,
   CMD_RUN_ALL_SAMPLES,
+  CMD_RUN_ALL_SAMPLES_LOCAL,
   CMD_RUN_FIRST_SAMPLE,
+  CMD_RUN_FIRST_SAMPLE_LOCAL,
   CMD_SELECT_COMPILE_PRESET,
   CMD_SHOW_OUTPUT,
   CMD_STRESS_TEST,
@@ -35,6 +37,7 @@ import {
   CpHelperViewProvider,
   revealSamplesContainer,
 } from "./webview-provider";
+import type { RunShortcut } from "./webview-provider";
 
 const log = createCpLogger("core");
 const stressLog = createCpLogger("stress");
@@ -148,19 +151,29 @@ export async function activate(
       );
     }),
   );
-  const runFirstSample = async (): Promise<void> => {
-    provider.requestRunShortcut("shortcutRunFirst");
-    await provider.revealSamplesViewIfHidden();
-  };
-  const runAllSamples = async (): Promise<void> => {
-    provider.requestRunShortcut("shortcutRunAll");
+  const runShortcut = async (type: RunShortcut): Promise<void> => {
+    provider.requestRunShortcut(type);
     await provider.revealSamplesViewIfHidden();
   };
   context.subscriptions.push(
-    vscode.commands.registerCommand(CMD_RUN_FIRST_SAMPLE, runFirstSample),
+    vscode.commands.registerCommand(CMD_RUN_FIRST_SAMPLE, () =>
+      runShortcut("shortcutRunFirst"),
+    ),
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand(CMD_RUN_ALL_SAMPLES, runAllSamples),
+    vscode.commands.registerCommand(CMD_RUN_FIRST_SAMPLE_LOCAL, () =>
+      runShortcut("shortcutRunFirstLocal"),
+    ),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(CMD_RUN_ALL_SAMPLES, () =>
+      runShortcut("shortcutRunAll"),
+    ),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(CMD_RUN_ALL_SAMPLES_LOCAL, () =>
+      runShortcut("shortcutRunAllLocal"),
+    ),
   );
   context.subscriptions.push(
     vscode.commands.registerCommand(CMD_SHOW_OUTPUT, () => {
