@@ -25,6 +25,7 @@ export const CMD_IMPORT_CLIPBOARD = "cpHelper.importFromClipboard";
 export const CMD_SELECT_COMPILE_PRESET = "cpHelper.selectCompilePreset";
 export const CMD_EXPORT_CASES = "cpHelper.exportCases";
 export const CMD_STRESS_TEST = "cpHelper.stressTest";
+export const CMD_COPY_SUBMIT_BRIDGE_URL = "cpHelper.copySubmitBridgeUrl";
 
 /** File (relative to workspace root) where case groups are also written for git tracking. */
 export const CASES_FILE_RELATIVE_PATH = ".vscode/.cp-helper-cases.json";
@@ -86,3 +87,21 @@ export const CPP_EXTENSIONS_HINT = CPP_SOURCE_EXTENSIONS.join(", ");
 
 /** Compiled binaries kept in the on-disk cache before the oldest are pruned. */
 export const BINARY_CACHE_MAX_ENTRIES = 64;
+
+/** WebSocket path OJ Sync connects to on the local import server (submit bridge). */
+export const SUBMIT_BRIDGE_PATH = "/submit";
+
+/** Global state key holding the shared secret OJ Sync must present to open the bridge. */
+export const GLOBAL_KEY_SUBMIT_TOKEN = "cp-helper.submitToken";
+
+/** Application-level keepalive: Chrome suspends an idle MV3 service worker after ~30s. */
+export const SUBMIT_BRIDGE_PING_MS = 20_000;
+
+/** A job with no reply in this long is reported as a timeout (the browser may still have sent it). */
+export const SUBMIT_JOB_TIMEOUT_MS = 180_000;
+
+/** Fallback for `submitPollTimeoutMs` (keep in sync with package.json default). */
+export const DEFAULT_SUBMIT_POLL_TIMEOUT_MS = 90_000;
+
+/** Largest source file the bridge will hand to the browser. */
+export const SUBMIT_MAX_SOURCE_BYTES = 512 * 1024;

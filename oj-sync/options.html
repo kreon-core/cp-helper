@@ -91,6 +91,26 @@
       Manual JSON paste remains in CP Helper's Samples view.
     </p>
 
+    <h2>Submit bridge</h2>
+    <label>
+      <input type="checkbox" id="submitBridgeEnabled" />
+      Let CP Helper send submissions through this browser (default: on)
+    </label>
+    <label for="submitBridgeUrl">Bridge URL</label>
+    <input
+      type="text"
+      id="submitBridgeUrl"
+      spellcheck="false"
+      autocomplete="off"
+      placeholder="ws://127.0.0.1:17337/submit?token=..."
+    />
+    <p class="hint">
+      In VS Code run <strong>CP Helper: Copy Submit Bridge URL</strong> and paste the result here.
+      The <code>token</code> in it is what keeps other pages and local programs off the socket, so
+      treat the URL as a password and do not share it. Submissions are then sent from the judge tab
+      using <strong>your existing login</strong> - OJ Sync never sees your judge password.
+    </p>
+
     <button type="button" id="save">Save</button>
     <div id="status" role="status"></div>
     <script src="options.js"></script>

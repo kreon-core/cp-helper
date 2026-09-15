@@ -3,6 +3,7 @@
  * Logic lives under `./lib/` for readability.
  */
 import { BADGE_OK } from "./lib/constants.js";
+import { connectBridge } from "./lib/bridge.js";
 import { OJ_SYNC_INPAGE_SCRIPT_PATHS } from "./lib/inpage/inject-manifest.js";
 import { buildImportJsonFromExtractResult } from "./lib/build-import-payload.js";
 import { isSupportedContestUrl } from "./lib/contest-url.js";
@@ -27,7 +28,43 @@ function runExtractSamplesInPage(pageUrl) {
   return fn(pageUrl);
 }
 
+/** Wakes a suspended service worker often enough that the submit bridge reconnects on its own. */
+const BRIDGE_KEEPALIVE_ALARM = "oj-sync-bridge-keepalive";
+
+/**
+ * @returns {Promise<void>}
+ */
+function ensureBridge() {
+  chrome.alarms.create(BRIDGE_KEEPALIVE_ALARM, { periodInMinutes: 1 });
+  return connectBridge();
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  void ensureBridge();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  void ensureBridge();
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === BRIDGE_KEEPALIVE_ALARM) {
+    void connectBridge();
+  }
+});
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (
+    area === "sync" &&
+    (changes.submitBridgeUrl !== undefined ||
+      changes.submitBridgeEnabled !== undefined)
+  ) {
+    void ensureBridge();
+  }
+});
+
 chrome.action.onClicked.addListener(async (tab) => {
+  void ensureBridge();
   if (tab.id === undefined) return;
 
   const tabId = tab.id;
@@ -72,3 +109,5 @@ chrome.action.onClicked.addListener(async (tab) => {
     await flashBadgeError(tabId, "!");
   }
 });
+
+void ensureBridge();

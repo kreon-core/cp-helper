@@ -10,3 +10,14 @@ export const OJ_SYNC_INPAGE_SCRIPT_PATHS = [
   "lib/inpage/extract-leetcode.js",
   "lib/inpage/dispatch.js",
 ];
+
+/**
+ * Ordered classic scripts injected before calling `globalThis.__ojSyncSubmitInPage` /
+ * `__ojSyncVerdictInPage` in a judge tab.
+ */
+export const OJ_SYNC_SUBMIT_SCRIPT_PATHS = [
+  "lib/inpage/submit-shared.js",
+  "lib/inpage/submit-atcoder.js",
+  "lib/inpage/submit-codeforces.js",
+  "lib/inpage/submit-dispatch.js",
+];

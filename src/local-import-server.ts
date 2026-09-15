@@ -1,4 +1,5 @@
 import * as http from "http";
+import type { Duplex } from "stream";
 import * as vscode from "vscode";
 import { LOCAL_IMPORT_MAX_BODY } from "./constants";
 import { createCpLogger } from "./log";
@@ -8,9 +9,15 @@ const log = createCpLogger("server");
 /**
  * POST /import on 127.0.0.1 for OJ Sync (no vscode:// browser prompt).
  * @param onImport called with UTF-8 body after successful POST /import
+ * @param onUpgrade offered every HTTP upgrade; returns true once it has taken the socket over
  */
 export function startLocalImportHttpServer(
   onImport: (body: string) => Promise<void>,
+  onUpgrade?: (
+    req: http.IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+  ) => boolean,
 ): { restart: () => void; dispose: () => void } {
   let localImportHttpServer: http.Server | undefined;
 
@@ -95,6 +102,12 @@ export function startLocalImportHttpServer(
           }
         })();
       });
+    });
+
+    server.on("upgrade", (req, socket, head) => {
+      if (onUpgrade?.(req, socket, head) !== true) {
+        socket.destroy();
+      }
     });
 
     server.on("error", (err: NodeJS.ErrnoException) => {

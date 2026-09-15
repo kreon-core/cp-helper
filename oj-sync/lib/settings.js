@@ -33,3 +33,21 @@ export async function getImportSettings() {
     focusUri: focus,
   };
 }
+
+/**
+ * Submit bridge pairing. The URL carries CP Helper's per-installation token, so it is the
+ * secret that keeps other pages and local processes off the socket - treat it as one.
+ * @returns {Promise<{ submitBridgeEnabled: boolean; submitBridgeUrl: string }>}
+ */
+export async function getSubmitSettings() {
+  const raw = await chrome.storage.sync.get({
+    submitBridgeEnabled: true,
+    submitBridgeUrl: "",
+  });
+  const url =
+    typeof raw.submitBridgeUrl === "string" ? raw.submitBridgeUrl.trim() : "";
+  return {
+    submitBridgeEnabled: raw.submitBridgeEnabled !== false,
+    submitBridgeUrl: /^wss?:\/\//iu.test(url) ? url : "",
+  };
+}

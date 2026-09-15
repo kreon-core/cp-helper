@@ -62,6 +62,21 @@
    */
   let sourceRunnable = false;
 
+  /**
+   * Whether OJ Sync is attached to the submit bridge. Submitting goes through the browser session
+   * that is already logged in to the judge, so nothing can be sent while it is down.
+   */
+  let submitBridgeConnected = false;
+
+  /** Submit target title per group index from the host; `null` where the group cannot be submitted. */
+  let submitTargets = [];
+
+  /** Group index of the submit in flight, or -1 when idle. */
+  let submitBusyGroup = -1;
+
+  /** Submission page for the last submit, when the judge gave one; opens from the status chip. */
+  let submitSubmissionUrl = "";
+
   const $ = (id) => {
     const el = document.getElementById(id);
     if (!el) throw new Error("missing #" + id);
@@ -77,6 +92,7 @@
     copy: "copy",
     debug: "debug-alt",
     local: "output",
+    submit: "cloud-upload",
   };
 
   /**
@@ -98,6 +114,8 @@
   const runAllPassedSummaryEl = $("runAllPassedSummary");
   const btnClear = $("btnClear");
   const btnExport = $("btnExport");
+  const btnSubmit = $("btnSubmit");
+  const submitStatusEl = $("submitStatus");
   const btnStopRun = $("btnStopRun");
   const runStatusEl = $("run-status");
   const runStatusLabel = $("run-status-label");
@@ -1049,6 +1067,134 @@
   }
 
   /**
+   * Codeforces spells its verdicts out in full ("Memory limit exceeded on test 4"), which does not
+   * fit a toolbar. The short form matches the sample chips; the full text stays in the tooltip.
+   * @param {string} verdict
+   * @returns {string}
+   */
+  function shortVerdict(verdict) {
+    const v = verdict.trim();
+    const onTest = v.match(/\bon test (\d+)/iu);
+    const suffix = onTest ? ` #${onTest[1]}` : "";
+    const table = [
+      [/^accepted|^happy new year|^ok\b/iu, "AC"],
+      [/^wrong answer/iu, "WA"],
+      [/^time limit exceeded/iu, "TLE"],
+      [/^memory limit exceeded/iu, "MLE"],
+      [/^idleness limit exceeded/iu, "ILE"],
+      [/^runtime error/iu, "RE"],
+      [/^compilation error/iu, "CE"],
+      [/^presentation error/iu, "PE"],
+      [/^partial/iu, "PARTIAL"],
+      [/^hacked/iu, "HACKED"],
+      [/^skipped/iu, "SKIPPED"],
+    ];
+    for (const [re, short] of table) {
+      if (re.test(v)) {
+        return `${short}${suffix}`;
+      }
+    }
+    return v;
+  }
+
+  /**
+   * @param {string} text short label shown in the toolbar
+   * @param {"" | "ok" | "bad"} tone
+   * @param {string} [title] full text for the tooltip (defaults to `text`)
+   * @param {string} [url] submission page the chip opens when clicked
+   */
+  function setSubmitStatus(text, tone, title, url) {
+    submitSubmissionUrl = typeof url === "string" ? url : "";
+    const full = typeof title === "string" && title !== "" ? title : text;
+    submitStatusEl.textContent = text;
+    submitStatusEl.title = submitSubmissionUrl !== ""
+      ? `${full} - click to open the submission`
+      : full;
+    submitStatusEl.hidden = text === "";
+    submitStatusEl.disabled = submitSubmissionUrl === "";
+    submitStatusEl.setAttribute("aria-label", full);
+    submitStatusEl.classList.toggle("submit-status--ok", tone === "ok");
+    submitStatusEl.classList.toggle("submit-status--bad", tone === "bad");
+  }
+
+  /**
+   * @returns {number[]} group indexes the host resolved to a judge submit target
+   */
+  function submittableGroups() {
+    const out = [];
+    groups.forEach((_, i) => {
+      if (typeof submitTargets[i] === "string" && submitTargets[i] !== "") {
+        out.push(i);
+      }
+    });
+    return out;
+  }
+
+  /**
+   * @param {number} gi
+   * @returns {string | null} why Submit is unavailable, or null when it is ready
+   */
+  function submitBlockedReason(gi) {
+    if (typeof submitTargets[gi] !== "string" || submitTargets[gi] === "") {
+      return "Only Codeforces and AtCoder problems imported by OJ Sync can be submitted";
+    }
+    if (!submitBridgeConnected) {
+      return 'OJ Sync is not connected - run "CP Helper: Copy Submit Bridge URL" and paste it into the OJ Sync options page';
+    }
+    if (submitBusyGroup >= 0) {
+      return "A submit is already in progress";
+    }
+    if (!sourceRunnable) {
+      return NEEDS_CPP_HINT;
+    }
+    return null;
+  }
+
+  /**
+   * Toolbar Submit targets the single submittable problem; with several imported, the per-problem
+   * buttons in the group headers are the only way to pick one.
+   */
+  function applySubmitButtonsState() {
+    const submittable = submittableGroups();
+    const gi = submittable.length === 1 ? submittable[0] : -1;
+    let reason;
+    if (submittable.length === 0) {
+      reason = "Nothing to submit - import a Codeforces or AtCoder problem with OJ Sync";
+    } else if (gi < 0) {
+      reason = "Several problems imported - use the Submit button in a problem header";
+    } else {
+      reason = submitBlockedReason(gi);
+    }
+    btnSubmit.dataset.cpGi = String(gi);
+    btnSubmit.disabled = reason !== null;
+    btnSubmit.title = reason ?? `Submit the active file to ${submitTargets[gi]}`;
+    btnSubmit.setAttribute(
+      "aria-label",
+      gi >= 0 ? `Submit to ${submitTargets[gi]}` : "Submit to judge",
+    );
+    listEl.querySelectorAll("button.case-group__submit").forEach((btn) => {
+      const i = Number(btn.dataset.cpGi);
+      const r = submitBlockedReason(i);
+      btn.disabled = r !== null;
+      btn.title = r ?? `Submit the active file to ${submitTargets[i]}`;
+    });
+  }
+
+  /**
+   * @param {number} gi group whose problem the active file goes to
+   */
+  function startSubmit(gi) {
+    if (gi < 0 || submitBlockedReason(gi) !== null) {
+      return;
+    }
+    hideErr();
+    submitBusyGroup = gi;
+    setSubmitStatus("submitting", "");
+    applySubmitButtonsState();
+    vscode.postMessage({ type: "submit", groupIndex: gi });
+  }
+
+  /**
    * Import toolbar + global run status (no testcase list).
    */
   function applyToolbarAndImportState() {
@@ -1076,6 +1222,7 @@
     btnLoad.disabled = busy;
     btnClear.disabled = busy;
     btnExport.disabled = busy || totalCaseCount() === 0;
+    applySubmitButtonsState();
     btnStopRun.hidden = !busy;
     runStatusEl.hidden = !busy || multi;
     if (!multi && !busy) {
@@ -1508,6 +1655,21 @@
           ghead.appendChild(btnRunG);
         });
 
+        if (typeof submitTargets[gi] === "string" && submitTargets[gi] !== "") {
+          const btnSubmitG = document.createElement("button");
+          btnSubmitG.type = "button";
+          btnSubmitG.className =
+            "case-group__submit btn-secondary btn-icon btn-submit";
+          btnSubmitG.dataset.cpGi = String(gi);
+          btnSubmitG.setAttribute(
+            "aria-label",
+            `Submit to ${submitTargets[gi]}`,
+          );
+          btnSubmitG.appendChild(mkIcon("submit"));
+          btnSubmitG.addEventListener("click", () => startSubmit(gi));
+          ghead.appendChild(btnSubmitG);
+        }
+
         const btnAddCaseG = document.createElement("button");
         btnAddCaseG.type = "button";
         btnAddCaseG.className = "btn-secondary case-group__add-case btn-icon";
@@ -1728,6 +1890,7 @@
     });
 
     groupDisclosures.forEach((apply) => apply());
+    applySubmitButtonsState();
 
     if (showAddProblemGroupRow()) {
       const addProblemRow = document.createElement("li");
@@ -2182,6 +2345,9 @@
           if (typeof g.timeLimitMs === "number") {
             out.timeLimitMs = g.timeLimitMs;
           }
+          if (typeof g.url === "string" && g.url !== "") {
+            out.url = g.url;
+          }
           return out;
         });
       } else if (Array.isArray(m.cases)) {
@@ -2189,6 +2355,8 @@
       } else {
         groups = [];
       }
+      submitTargets = Array.isArray(m.submitTargets) ? m.submitTargets : [];
+      setSubmitStatus("", "");
       groupCollapsed = defaultCollapsedAllHeaders(groups);
       caseCollapsed = defaultCollapsedAllCases(groups);
       persistWebviewNavState();
@@ -2338,6 +2506,51 @@
       }
       return;
     }
+    if (m.type === "submitTargets") {
+      const before = submittableGroups().join(",");
+      submitTargets = Array.isArray(m.targets) ? m.targets : [];
+      if (submittableGroups().join(",") !== before) {
+        // Which groups carry a Submit button is decided while rendering the headers.
+        render();
+      } else {
+        applySubmitButtonsState();
+      }
+      return;
+    }
+    if (m.type === "submitBridge") {
+      submitBridgeConnected = m.connected === true;
+      applySubmitButtonsState();
+      return;
+    }
+    if (m.type === "submitState") {
+      if (m.phase === "start") {
+        submitBusyGroup =
+          typeof m.groupIndex === "number" ? m.groupIndex : submitBusyGroup;
+        setSubmitStatus("submitting", "");
+      } else if (m.phase === "progress") {
+        setSubmitStatus(String(m.stage ?? "working"), "");
+      } else if (m.phase === "done") {
+        submitBusyGroup = -1;
+        if (m.cancelled === true) {
+          setSubmitStatus("", "");
+        } else if (typeof m.error === "string" && m.error !== "") {
+          setSubmitStatus("failed", "bad", m.error, m.submissionUrl);
+        } else if (typeof m.verdict === "string" && m.verdict !== "") {
+          setSubmitStatus(
+            shortVerdict(m.verdict),
+            m.accepted === true ? "ok" : "bad",
+            m.verdict,
+            m.submissionUrl,
+          );
+        } else if (m.submitted === true) {
+          setSubmitStatus("submitted", "ok", "Submitted", m.submissionUrl);
+        } else {
+          setSubmitStatus("", "");
+        }
+      }
+      applySubmitButtonsState();
+      return;
+    }
     if (m.type === "exportDone") {
       const count = typeof m.count === "number" ? m.count : 0;
       const prevTitle = btnExport.title;
@@ -2394,6 +2607,16 @@
   btnStopRun.addEventListener("click", () => {
     runAllQueue = [];
     vscode.postMessage({ type: "stopRun" });
+  });
+
+  submitStatusEl.addEventListener("click", () => {
+    if (submitSubmissionUrl !== "") {
+      vscode.postMessage({ type: "openSubmission", url: submitSubmissionUrl });
+    }
+  });
+
+  btnSubmit.addEventListener("click", () => {
+    startSubmit(Number(btnSubmit.dataset.cpGi ?? "-1"));
   });
 
   btnExport.addEventListener("click", () => {

@@ -43,6 +43,15 @@ function renumberCases(cases: TestCase[]): TestCase[] {
   return cases.map((c, i) => ({ ...c, sample: i + 1 }));
 }
 
+function readProblemUrlField(o: Record<string, unknown>): string | null {
+  const u = o.url;
+  if (typeof u !== "string" || u.trim() === "") {
+    return null;
+  }
+  const trimmed = u.trim();
+  return /^https?:\/\//iu.test(trimmed) ? trimmed : null;
+}
+
 function readStarterCodeField(o: Record<string, unknown>): string | null {
   const sc = o.starterCode;
   if (typeof sc === "string" && sc.trim() !== "") {
@@ -101,6 +110,10 @@ export function parseImportPayload(text: string): {
         if (tl !== null) {
           group.timeLimitMs = tl;
         }
+        const purl = readProblemUrlField(bo);
+        if (purl !== null) {
+          group.url = purl;
+        }
         groups.push(group);
       }
       if (groups.length === 0) {
@@ -130,6 +143,10 @@ export function parseImportPayload(text: string): {
       const tl = coerceTimeLimitMs(o.timeLimitMs);
       if (tl !== null) {
         group.timeLimitMs = tl;
+      }
+      const purl = readProblemUrlField(o);
+      if (purl !== null) {
+        group.url = purl;
       }
       return {
         groups: [group],
