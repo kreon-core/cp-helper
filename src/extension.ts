@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import {
+  CMD_COPY_SUBMIT_BRIDGE_URL,
   CMD_EXPORT_CASES,
   CMD_FOCUS_SAMPLES,
   CMD_IMPORT_CLIPBOARD,
@@ -12,7 +13,9 @@ import {
   CMD_SHOW_OUTPUT,
   CMD_STRESS_TEST,
   CONTEXT_SAMPLES_FOCUS,
+  GLOBAL_KEY_SUBMIT_TOKEN,
   OUTPUT_CHANNEL_NAME,
+  SUBMIT_BRIDGE_PATH,
 } from "./constants";
 import { importFromClipboardAndReveal } from "./clipboard-import";
 import { withLocalDefineExpanded } from "./compile-expansion";
@@ -20,6 +23,10 @@ import { loadCaseGroups, loadCaseGroupsFromFile } from "./case-groups";
 import { exportCasesToTestcasesDir } from "./export-cases";
 import { importSamplesFromJsonText } from "./import-samples";
 import { startLocalImportHttpServer } from "./local-import-server";
+import {
+  getOrCreateSubmitToken,
+  SubmitBridge,
+} from "./submit-bridge";
 import {
   createCpLogger,
   getCpHelperOutputChannel,
@@ -98,8 +105,44 @@ export async function activate(
     }
   };
 
-  const localImport = startLocalImportHttpServer(importAndReveal);
+  const submitToken = await getOrCreateSubmitToken(
+    context.globalState,
+    GLOBAL_KEY_SUBMIT_TOKEN,
+  );
+  const submitBridge = new SubmitBridge(submitToken);
+  provider.setSubmitBridge(submitBridge);
+  context.subscriptions.push(
+    submitBridge.onDidChangeConnectionState(() => {
+      provider.postSubmitBridgeState();
+    }),
+  );
+  context.subscriptions.push(new vscode.Disposable(() => submitBridge.dispose()));
+
+  const localImport = startLocalImportHttpServer(
+    importAndReveal,
+    (req, socket, head) => submitBridge.handleUpgrade(req, socket, head),
+  );
   context.subscriptions.push(new vscode.Disposable(() => localImport.dispose()));
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(CMD_COPY_SUBMIT_BRIDGE_URL, async () => {
+      const cfg = vscode.workspace.getConfiguration("cp-helper");
+      const rawPort = cfg.get<number>("localImportPort");
+      const port =
+        typeof rawPort === "number" &&
+        Number.isFinite(rawPort) &&
+        rawPort >= 1 &&
+        rawPort <= 65535
+          ? Math.floor(rawPort)
+          : 17337;
+      const url = `ws://127.0.0.1:${port}${SUBMIT_BRIDGE_PATH}?token=${submitToken}`;
+      await vscode.env.clipboard.writeText(url);
+      log.info("submit bridge URL copied to the clipboard");
+      void vscode.window.showInformationMessage(
+        "CP Helper: Submit bridge URL copied. Paste it into the OJ Sync options page (Submit bridge).",
+      );
+    }),
+  );
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {

@@ -22,6 +22,8 @@ export interface CaseGroup {
   cases: TestCase[];
   /** Judge time limit scraped at import (ms). Unset when the judge publishes none (e.g. LeetCode). */
   timeLimitMs?: number;
+  /** Problem page the samples came from. Submit derives the judge's submit URL from it. */
+  url?: string;
 }
 
 export interface ShellRunOutcome {

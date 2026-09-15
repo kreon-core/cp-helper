@@ -73,6 +73,9 @@ export function buildSamplesWebviewHtml(
         <span class="btn-sep" aria-hidden="true"></span>
         <button id="btnClear" type="button" class="btn-secondary btn-icon" title="Remove all samples from the list" aria-label="Clear"><span class="codicon codicon-clear-all" aria-hidden="true"></span></button>
         <button id="btnExport" type="button" class="btn-secondary btn-icon" title="Write all cases to testcases/sample_N.{in,out}.txt (replaces existing sample files)" aria-label="Export"><span class="codicon codicon-export" aria-hidden="true"></span></button>
+        <span class="btn-sep" aria-hidden="true"></span>
+        <button id="btnSubmit" type="button" class="btn-secondary btn-icon btn-submit" disabled title="Submit the active file to the judge through OJ Sync" aria-label="Submit to judge"><span class="codicon codicon-cloud-upload" aria-hidden="true"></span></button>
+        <button id="submitStatus" type="button" class="submit-status" hidden role="status" aria-live="polite" title="" disabled></button>
       </div>
       <div id="runnerHint" class="runner-hint meta-chip" hidden role="status" aria-live="polite">
         <span class="codicon codicon-tools meta-chip__icon" aria-hidden="true"></span>

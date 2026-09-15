@@ -8,6 +8,8 @@ const useLocalEl = document.getElementById("useLocalHttp");
 const localUrlEl = document.getElementById("localImportUrl");
 const fallbackUriEl = document.getElementById("fallbackUri");
 const focusUriEl = document.getElementById("focusUri");
+const submitBridgeEnabledEl = document.getElementById("submitBridgeEnabled");
+const submitBridgeUrlEl = document.getElementById("submitBridgeUrl");
 const saveEl = document.getElementById("save");
 const statusEl = document.getElementById("status");
 
@@ -16,6 +18,8 @@ if (
   !(localUrlEl instanceof HTMLInputElement) ||
   !(fallbackUriEl instanceof HTMLInputElement) ||
   !(focusUriEl instanceof HTMLInputElement) ||
+  !(submitBridgeEnabledEl instanceof HTMLInputElement) ||
+  !(submitBridgeUrlEl instanceof HTMLInputElement) ||
   !(saveEl instanceof HTMLButtonElement) ||
   !(statusEl instanceof HTMLElement)
 ) {
@@ -27,6 +31,8 @@ const storageDefaults = {
   localImportUrl: DEFAULT_LOCAL_IMPORT_URL,
   fallbackUriIfLocalhostFails: false,
   focusUri: "",
+  submitBridgeEnabled: true,
+  submitBridgeUrl: "",
 };
 
 chrome.storage.sync.get(storageDefaults, (items) => {
@@ -42,6 +48,9 @@ chrome.storage.sync.get(storageDefaults, (items) => {
       ? items.focusUri.trim()
       : "";
   focusUriEl.value = storedFocus || DEFAULT_FOCUS_URI;
+  submitBridgeEnabledEl.checked = items.submitBridgeEnabled !== false;
+  submitBridgeUrlEl.value =
+    typeof items.submitBridgeUrl === "string" ? items.submitBridgeUrl : "";
 });
 
 saveEl.addEventListener("click", () => {
@@ -54,6 +63,8 @@ saveEl.addEventListener("click", () => {
       localImportUrl,
       fallbackUriIfLocalhostFails: fallbackUriEl.checked,
       focusUri,
+      submitBridgeEnabled: submitBridgeEnabledEl.checked,
+      submitBridgeUrl: submitBridgeUrlEl.value.trim(),
     },
     () => {
       statusEl.textContent = "Saved.";

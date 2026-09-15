@@ -24,6 +24,9 @@ import {
 import { killActiveShell, runState } from "./run-state";
 import { runAllTestsSharedCompile, runSingleTest } from "./run-tests";
 import { postRunnerLabel } from "./runner-label";
+import type { SubmitBridge } from "./submit-bridge";
+import { submitActiveSource } from "./submit-run";
+import { resolveSubmitTarget } from "./submit-target";
 import {
   ensureSourceSavedBeforeRun,
   getActiveSourceFilePath,
@@ -55,6 +58,16 @@ export async function revealSamplesContainer(): Promise<void> {
   }
 }
 
+/**
+ * Per-group submit target titles, aligned with `groups`. `null` marks a group the browser cannot
+ * submit (custom cases, LeetCode, an import older than problem URLs whose label does not parse).
+ */
+function submitTargetTitles(groups: CaseGroup[]): (string | null)[] {
+  return groups.map(
+    (g) => resolveSubmitTarget(g.label, g.url)?.title ?? null,
+  );
+}
+
 function validateTestCase(v: unknown): TestCase {
   const o = v as Record<string, unknown> | null | undefined;
   return {
@@ -84,10 +97,32 @@ export class CpHelperViewProvider
    */
   private runSeq = 0;
 
+  /** Submit bridge, once `activate` has built it. */
+  private submitBridge: SubmitBridge | undefined;
+
+  /** Guards against a second Submit click while one is still in flight. */
+  private submitInFlight = false;
+
   constructor(
     private readonly extUri: vscode.Uri,
     private readonly ctx: vscode.ExtensionContext,
   ) {}
+
+  /**
+   * Attach the submit bridge and mirror its connection state into the Samples view.
+   */
+  setSubmitBridge(bridge: SubmitBridge): void {
+    this.submitBridge = bridge;
+    this.postSubmitBridgeState();
+  }
+
+  /** Mirror the current bridge connection state into the Samples view. */
+  postSubmitBridgeState(): void {
+    this.webviewView?.webview.postMessage({
+      type: "submitBridge",
+      connected: this.submitBridge?.connected === true,
+    });
+  }
 
   /**
    * Stop the in-flight run, if any, so a new Run click can take over.
@@ -214,8 +249,9 @@ export class CpHelperViewProvider
     const msg: {
       type: "cases";
       groups: CaseGroup[];
+      submitTargets: (string | null)[];
       importProblem?: string | null;
-    } = { type: "cases", groups };
+    } = { type: "cases", groups, submitTargets: submitTargetTitles(groups) };
     if (importProblem !== undefined) {
       msg.importProblem = importProblem;
     }
@@ -379,9 +415,11 @@ export class CpHelperViewProvider
           webviewView.webview.postMessage({
             type: "cases",
             groups,
+            submitTargets: submitTargetTitles(groups),
             importProblem,
           });
           postActiveSourceHint(webviewView.webview);
+          this.postSubmitBridgeState();
           this.webviewReady = true;
           const pending = this.pendingRunShortcut;
           this.pendingRunShortcut = undefined;
@@ -407,6 +445,12 @@ export class CpHelperViewProvider
               (e) => log.warn(`cases file not written: ${e instanceof Error ? e.message : String(e)}`),
             );
           }
+          // The list can be reordered locally (group added or removed), which shifts every index
+          // the Submit buttons are keyed by. Re-send the targets for the list as just saved.
+          webviewView.webview.postMessage({
+            type: "submitTargets",
+            targets: submitTargetTitles(groupsToSave),
+          });
           if (msg.clearImportProblem === true) {
             await this.ctx.workspaceState.update(
               WORKSPACE_KEY_IMPORT_PROBLEM,
@@ -451,6 +495,100 @@ export class CpHelperViewProvider
               type: "error",
               message: `CP Helper: Export failed - ${errMsg}`,
             });
+          }
+          break;
+        }
+        case "openSubmission": {
+          const raw = typeof msg.url === "string" ? msg.url : "";
+          let target: vscode.Uri | undefined;
+          try {
+            const parsed = new URL(raw);
+            // Only ever open a judge page we produced ourselves, never an arbitrary URL.
+            const judgeHost =
+              /(?:^|\.)codeforces\.com$/u.test(parsed.hostname) ||
+              /(?:^|\.)atcoder\.jp$/u.test(parsed.hostname);
+            if (parsed.protocol === "https:" && judgeHost) {
+              target = vscode.Uri.parse(parsed.toString());
+            }
+          } catch {
+            target = undefined;
+          }
+          if (target) {
+            void vscode.env.openExternal(target);
+          } else {
+            log.warn(`submission link ignored: ${raw}`);
+          }
+          break;
+        }
+        case "submit": {
+          const groupIndex =
+            typeof msg.groupIndex === "number" ? msg.groupIndex : 0;
+          const postSubmitState = (
+            extra: Record<string, unknown>,
+          ): void => {
+            webviewView.webview.postMessage({
+              type: "submitState",
+              groupIndex,
+              ...extra,
+            });
+          };
+          if (!this.submitBridge) {
+            postSubmitState({ phase: "done", error: "Submit bridge is disabled." });
+            break;
+          }
+          if (this.submitInFlight) {
+            postSubmitState({
+              phase: "done",
+              error: "A submit is already in progress.",
+            });
+            break;
+          }
+          const wsFolderSubmit = vscode.workspace.workspaceFolders?.[0]?.uri;
+          const submitGroups = wsFolderSubmit
+            ? await loadCaseGroupsFromFile(this.ctx.workspaceState, wsFolderSubmit)
+            : loadCaseGroups(this.ctx.workspaceState);
+          this.submitInFlight = true;
+          postSubmitState({ phase: "start", stage: "preparing" });
+          try {
+            const result = await submitActiveSource(
+              this.submitBridge,
+              submitGroups[groupIndex],
+              (p) => postSubmitState({ phase: "progress", stage: p.stage, message: p.message }),
+            );
+            if (result.cancelled) {
+              postSubmitState({ phase: "done", cancelled: true });
+              break;
+            }
+            const failure = result.rejected ?? result.error;
+            if (failure) {
+              maybeShowOutputOnRun();
+              log.error(`submit rejected: ${failure}`);
+              postSubmitState({ phase: "done", error: failure });
+              void vscode.window.showErrorMessage(`CP Helper: ${failure}`);
+              break;
+            }
+            postSubmitState({
+              phase: "done",
+              submitted: result.submitted,
+              verdict: result.verdict,
+              accepted: result.accepted,
+              submissionUrl: result.submissionUrl,
+              title: result.title,
+            });
+            if (result.verdict) {
+              const line = `CP Helper: ${result.title} - ${result.verdict}`;
+              if (result.accepted) {
+                void vscode.window.showInformationMessage(line);
+              } else {
+                void vscode.window.showWarningMessage(line);
+              }
+            } else if (result.submitted) {
+              void vscode.window.showInformationMessage(
+                `CP Helper: submitted to ${result.title}.`,
+              );
+            }
+          } finally {
+            this.submitInFlight = false;
           }
           break;
         }

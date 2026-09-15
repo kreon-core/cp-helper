@@ -2,7 +2,7 @@
   "name": "cp-helper",
   "displayName": "CP Helper",
   "description": "Run online judge samples against your local C++ solution in VSCode.",
-  "version": "1.0.9",
+  "version": "1.1.0",
   "publisher": "from-cero",
   "license": "MIT",
   "engines": {
@@ -58,6 +58,11 @@
       {
         "command": "cpHelper.runAllSamplesLocal",
         "title": "Run All Samples (LOCAL build)",
+        "category": "CP Helper"
+      },
+      {
+        "command": "cpHelper.copySubmitBridgeUrl",
+        "title": "Copy Submit Bridge URL",
         "category": "CP Helper"
       },
       {
@@ -176,6 +181,26 @@
           "default": 17337,
           "description": "Port for the local import HTTP server (POST /import, body = samples JSON array). Change if the port is already in use (e.g. another VS Code window)."
         },
+        "cp-helper.submitLanguageCodeforces": {
+          "type": "string",
+          "default": "GNU G++23",
+          "description": "Language to pick on the Codeforces submit form. Matched case-insensitively against the option text, so a prefix like \"GNU G++23\" is enough."
+        },
+        "cp-helper.submitLanguageAtCoder": {
+          "type": "string",
+          "default": "C++23 (GCC",
+          "description": "Language to pick on the AtCoder submit form. Matched case-insensitively against the option text, so a prefix like \"C++ 23 (gcc\" is enough."
+        },
+        "cp-helper.submitConfirm": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask before every submit. A submit is a real, rate-limited, publicly visible submission on your judge account."
+        },
+        "cp-helper.submitPollTimeoutMs": {
+          "type": "number",
+          "default": 90000,
+          "description": "How long OJ Sync watches the judge's status page for the verdict after a submit. 0 reports the submission without waiting for a verdict."
+        },
         "cp-helper.instantRunAllOnLocalImport": {
           "type": "boolean",
           "default": true,
@@ -236,6 +261,7 @@
   "devDependencies": {
     "@types/node": "^20.19.39",
     "@types/vscode": "^1.82.0",
+    "@types/ws": "^8.18.1",
     "@vscode/codicons": "^0.0.46-24",
     "@vscode/vsce": "^3.9.2",
     "typescript": "^5.3.0"
@@ -247,5 +273,8 @@
     "codeforces",
     "atcoder",
     "leetcode"
-  ]
+  ],
+  "dependencies": {
+    "ws": "^8.21.3"
+  }
 }

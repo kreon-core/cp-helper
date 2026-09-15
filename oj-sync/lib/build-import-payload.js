@@ -2,6 +2,26 @@ import { pairSamples } from "./pair-samples.js";
 import { problemLabelFromContestUrl } from "./contest-url.js";
 
 /**
+ * Problem page URL per Codeforces problem in a contest-wide dump. CP Helper needs it to know
+ * whether a submit goes through `/contest/` or `/gym/`; the contest id alone does not say.
+ * @param {string | undefined} tabUrl the `/problems` page the dump came from
+ * @param {string} contestId
+ * @param {string} letter
+ * @returns {string}
+ */
+function codeforcesProblemUrl(tabUrl, contestId, letter) {
+  if (!contestId || letter === "?") return "";
+  let kind = "contest";
+  try {
+    const u = new URL(tabUrl || "");
+    kind = /\/gym\//u.test(u.pathname) ? "gym" : "contest";
+  } catch {
+    /* default to contest */
+  }
+  return `https://codeforces.com/${kind}/${contestId}/problem/${letter}`;
+}
+
+/**
  * @param {unknown} v
  * @returns {number | null}
  */
@@ -37,11 +57,13 @@ export function buildImportJsonFromExtractResult(tabUrl, raw) {
         multi.contestId && letter !== "?"
           ? `codeforces/${multi.contestId}${letter}`
           : "";
-      /** @type {{ problem: string; timeLimitMs?: number; samples: { sample: number; input: string; output: string }[] }} */
+      /** @type {{ problem: string; url?: string; timeLimitMs?: number; samples: { sample: number; input: string; output: string }[] }} */
       const out = {
         problem: pid || `codeforces/${letter}`,
         samples: paired,
       };
+      const purl = codeforcesProblemUrl(tabUrl, multi.contestId ?? "", letter);
+      if (purl !== "") out.url = purl;
       const tl = coerceTimeLimitMs(pr.timeLimitMs);
       if (tl !== null) out.timeLimitMs = tl;
       problemsOut.push(out);
@@ -110,6 +132,7 @@ export function buildImportJsonFromExtractResult(tabUrl, raw) {
     /** @type {Record<string, unknown>} */
     const payload = {};
     if (problem.length > 0) payload.problem = problem;
+    if (tabUrl) payload.url = tabUrl;
     payload.samples = pairs;
     const tl = coerceTimeLimitMs(one.timeLimitMs);
     if (tl !== null) payload.timeLimitMs = tl;

@@ -4,6 +4,18 @@ All notable changes to CP Helper are documented in this file.
 
 Versioning from 1.0.0 follows SemVer: MAJOR.MINOR.PATCH.
 
+## [1.1.0] - 2026-09-15
+
+### Added
+- Submit to Codeforces and AtCoder from the Samples view. A Submit button sits beside Export, and one in each problem header for a multi-problem import; it sends the active C++ file and reports the judge's verdict back into the view and as a notification.
+- Submitting runs through OJ Sync, over a token-authenticated WebSocket on the local import port (`/submit`). CP Helper never logs in to a judge: OJ Sync replays the judge's own submit form inside a tab that is already signed in, so Codeforces' captcha login never comes up and its `ftaa` / `bfaa` fields are reused exactly as the page issued them. The URL that carries the token is copied with the new **CP Helper: Copy Submit Bridge URL** command and pasted into the OJ Sync options page once per machine.
+- `cp-helper.submitLanguageCodeforces`, `cp-helper.submitLanguageAtCoder` (substring matched against the judge's own language options), `cp-helper.submitConfirm` (default on - a submit is a real, rate-limited, publicly visible submission), and `cp-helper.submitPollTimeoutMs`.
+- The verdict readout shows the judge's own wording in short form (`MLE #4`, `WA #3`), matching the sample chips, with the full text in the tooltip. It links to the submission on the judge when one is known.
+- A submit replays the judge's real form: every field it carries is kept (including ones added since, such as an anti-bot token) and the body is encoded the way the form itself declares. Hand-building the request loses unknown fields, and a multipart form fed a urlencoded body parses as empty - which both judges report only as a bare "Error.".
+- Language options are matched ignoring whitespace, so AtCoder's rename from `C++ 23 (gcc 12.2)` to `C++23 (GCC 15.2.0)` matches either spelling. The `cp-helper.submitLanguageAtCoder` default is now `C++23 (GCC`.
+- The anti-bot widget on a submit form is waited out before the form is replayed, and its token is sent with the submission. If the widget asks for the user instead of clearing itself, its tab is brought to the front and the submit says so.
+- OJ Sync sends the problem page `url` with the samples, and CP Helper stores it on the group. It is what resolves the submit target, and the only thing that tells a Codeforces `gym` contest from a regular one. Imports made before this fall back to parsing the problem label.
+
 ## [1.0.9] - 2026-09-02
 
 ### Added

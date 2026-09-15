@@ -48,6 +48,9 @@ export function normalizeCaseGroups(groups: CaseGroup[]): CaseGroup[] {
     if (tl !== null) {
       out.timeLimitMs = tl;
     }
+    if (typeof g.url === "string" && g.url.trim() !== "") {
+      out.url = g.url.trim();
+    }
     return out;
   });
 }
