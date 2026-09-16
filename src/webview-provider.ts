@@ -638,7 +638,7 @@ export class CpHelperViewProvider
           maybeShowOutputOnRun();
           runState.runLocked = true;
           runState.cancelRequested = false;
-          postRunSourceSnapshot(webviewView.webview, file);
+          postRunSourceSnapshot(webviewView.webview, file, groupIndex);
           postRunState(true, {
             mode: "one",
             groupIndex,
@@ -761,7 +761,7 @@ export class CpHelperViewProvider
           maybeShowOutputOnRun();
           runState.runLocked = true;
           runState.cancelRequested = false;
-          postRunSourceSnapshot(webviewView.webview, file);
+          postRunSourceSnapshot(webviewView.webview, file, groupIndex);
           postRunState(true, {
             mode: "all",
             groupIndex,
@@ -835,6 +835,7 @@ export class CpHelperViewProvider
               webviewView.webview.postMessage({
                 type: "runAllDone",
                 groupIndex,
+                file,
               });
               postActiveSourceHint(webviewView.webview);
             }

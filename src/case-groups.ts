@@ -51,6 +51,9 @@ export function normalizeCaseGroups(groups: CaseGroup[]): CaseGroup[] {
     if (typeof g.url === "string" && g.url.trim() !== "") {
       out.url = g.url.trim();
     }
+    if (typeof g.source === "string" && g.source.trim() !== "") {
+      out.source = g.source.trim();
+    }
     return out;
   });
 }
@@ -164,7 +167,13 @@ export function mergeCaseGroups(
     const at =
       key === "" ? -1 : out.findIndex((g) => groupMatchKey(g) === key);
     if (at >= 0) {
-      out[at] = { ...inc, id: out[at].id };
+      // A re-import refreshes the samples; which file the problem is being solved in is the
+      // user's, not the payload's, so it survives.
+      const kept = out[at];
+      out[at] = { ...inc, id: kept.id };
+      if (kept.source !== undefined) {
+        out[at].source = kept.source;
+      }
       imported.push(at);
       return;
     }

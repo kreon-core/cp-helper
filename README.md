@@ -44,23 +44,26 @@ Sample JSON:
 | Command | Purpose |
 | --- | --- |
 | cpHelper.focusSamples | Open the Samples view |
-| cpHelper.runFirstSample | Run the first sample of the first problem |
-| cpHelper.runFirstSampleLocal | Run the first sample of the first problem with the LOCAL build |
-| cpHelper.runAllSamples | Run every sample of the first problem |
-| cpHelper.runAllSamplesLocal | Run every sample of the first problem with the LOCAL build |
+| cpHelper.runFirstSample | Run the first sample of the active problem |
+| cpHelper.runFirstSampleLocal | Run the first sample of the active problem with the LOCAL build |
+| cpHelper.runAllSamples | Run every sample of the active problem |
+| cpHelper.runAllSamplesLocal | Run every sample of the active problem with the LOCAL build |
 | cpHelper.importFromClipboard | Import JSON from clipboard |
 | cpHelper.showOutput | Show CP Helper output channel |
 | cpHelper.copySubmitBridgeUrl | Copy the submit bridge URL (with its token) for the OJ Sync options page |
 
 Default keybindings:
 
-- Ctrl+' / Cmd+': run the first sample of the first problem
+- Ctrl+' / Cmd+': run the first sample of the active problem
 - Ctrl+Shift+' / Cmd+Shift+': the same with the LOCAL build
-- Ctrl+Enter / Cmd+Enter: run every sample of the first problem
+- Ctrl+Enter / Cmd+Enter: run every sample of the active problem
 - Ctrl+Shift+Enter / Cmd+Shift+Enter: the same with the LOCAL build
 
-Every shortcut means the **first problem in the list**. Problems further down run from the
-buttons in their own header.
+Every shortcut runs **the problem your source file belongs to**. A problem is bound to a file the
+first time you run it, so `a.cpp` keeps driving problem A and `b.cpp` problem B, wherever they sit
+in the list. A file bound to nothing claims the first unbound problem; if every problem is already
+taken, the shortcut falls back to the first one and rebinds it. Any problem can also be run from
+the buttons in its own header, which is how you point it at a different file.
 
 ## Key settings
 
@@ -90,11 +93,16 @@ buttons in their own header.
 - The list holds one group per imported problem, in the order they arrived. An import appends a
   new problem and refreshes one that is already there, so a contest can be synced problem by
   problem without losing what is on screen.
-- The **first** group is the active problem: the run keybindings and the title above the list both
-  follow it. Delete it and the next problem takes over.
+- The active problem - the one the run keybindings act on - is the one bound to the file in the
+  editor. Its header carries an accent rail and the title above the list names it, so switching
+  source files switches which problem the shortcuts hit.
 - Each problem group header sticks to the top of the list while its samples scroll past, and each
   sample header sticks below it, so the group's disclosure and the sample's number and buttons stay
   reachable inside a long input or output.
+- A problem header shows the source it is bound to, using the same file readout the toolbar carries
+  for the run target. It is highlighted on the problem bound to the file in the editor and muted on
+  the others, whose passed counts also drop their green/red tint, so results left over from another
+  source are not mistaken for the current ones. Any run sets the binding, not just Run all.
 - A sample's header carries a coloured cap: neutral grey until it runs, then green AC, red WA,
   blue TLE, or amber RE.
 - A verdict shows the program's own execution time and, separately, the overhead outside it
