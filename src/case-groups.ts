@@ -123,3 +123,53 @@ export async function loadCaseGroupsFromFile(
   }
   return loadCaseGroups(ws);
 }
+
+/** Import identity of a group: the problem URL when one was scraped, else the label. */
+function groupMatchKey(g: CaseGroup): string {
+  const url = (g.url ?? "").trim().toLowerCase();
+  if (url !== "") {
+    return `u:${url}`;
+  }
+  const label = (g.label ?? "").trim().toLowerCase();
+  return label !== "" ? `l:${label}` : "";
+}
+
+/** The unnamed empty bucket `ensureDefaultGroup` keeps around; an import overwrites it. */
+function isEmptyPlaceholder(g: CaseGroup): boolean {
+  return (g.label ?? "").trim() === "" && (g.cases?.length ?? 0) === 0;
+}
+
+export interface MergeCaseGroupsResult {
+  groups: CaseGroup[];
+  /** Index in `groups` of each incoming group, in payload order. */
+  imported: number[];
+}
+
+/**
+ * Fold an import into the list already on screen. A problem that is present is refreshed where it
+ * stands and everything else is appended, so the first group - the one the run shortcuts and the
+ * view title follow - only changes when the user deletes it.
+ * @param existing groups currently persisted
+ * @param incoming groups parsed out of the import payload
+ */
+export function mergeCaseGroups(
+  existing: CaseGroup[],
+  incoming: CaseGroup[],
+): MergeCaseGroupsResult {
+  const out = existing.filter((g) => !isEmptyPlaceholder(g));
+  const imported: number[] = [];
+  const stamp = Date.now().toString(36);
+  incoming.forEach((inc, i) => {
+    const key = groupMatchKey(inc);
+    const at =
+      key === "" ? -1 : out.findIndex((g) => groupMatchKey(g) === key);
+    if (at >= 0) {
+      out[at] = { ...inc, id: out[at].id };
+      imported.push(at);
+      return;
+    }
+    out.push({ ...inc, id: `imp-${stamp}-${i}` });
+    imported.push(out.length - 1);
+  });
+  return { groups: out, imported };
+}

@@ -28,9 +28,10 @@ you visited when the active tab is not C++, and are disabled until one has been 
 
 1. Open a C++ source file.
 2. Open CP Helper in the secondary sidebar.
-3. Import sample JSON.
-4. Click Run all or Run per case. Every run button has a LOCAL twin beside it that compiles
-   cp-helper.localCompileCommand instead of cp-helper.compileCommand.
+3. Import sample JSON. Each import adds a problem to the list; re-importing one you already have
+   refreshes it where it sits.
+4. Click Run in a problem header, or Run per case. Every run button has a LOCAL twin beside it
+   that compiles cp-helper.localCompileCommand instead of cp-helper.compileCommand.
 
 Sample JSON:
 
@@ -43,20 +44,23 @@ Sample JSON:
 | Command | Purpose |
 | --- | --- |
 | cpHelper.focusSamples | Open the Samples view |
-| cpHelper.runFirstSample | Run first sample in group 0 |
-| cpHelper.runFirstSampleLocal | Run first sample in group 0 with the LOCAL build |
-| cpHelper.runAllSamples | Run all samples in group 0 |
-| cpHelper.runAllSamplesLocal | Run all samples in group 0 with the LOCAL build |
+| cpHelper.runFirstSample | Run the first sample of the first problem |
+| cpHelper.runFirstSampleLocal | Run the first sample of the first problem with the LOCAL build |
+| cpHelper.runAllSamples | Run every sample of the first problem |
+| cpHelper.runAllSamplesLocal | Run every sample of the first problem with the LOCAL build |
 | cpHelper.importFromClipboard | Import JSON from clipboard |
 | cpHelper.showOutput | Show CP Helper output channel |
 | cpHelper.copySubmitBridgeUrl | Copy the submit bridge URL (with its token) for the OJ Sync options page |
 
 Default keybindings:
 
-- Ctrl+' / Cmd+': run first sample
-- Ctrl+Shift+' / Cmd+Shift+': run first sample with the LOCAL build
-- Ctrl+Enter / Cmd+Enter: run all samples
-- Ctrl+Shift+Enter / Cmd+Shift+Enter: run all samples with the LOCAL build
+- Ctrl+' / Cmd+': run the first sample of the first problem
+- Ctrl+Shift+' / Cmd+Shift+': the same with the LOCAL build
+- Ctrl+Enter / Cmd+Enter: run every sample of the first problem
+- Ctrl+Shift+Enter / Cmd+Shift+Enter: the same with the LOCAL build
+
+Every shortcut means the **first problem in the list**. Problems further down run from the
+buttons in their own header.
 
 ## Key settings
 
@@ -69,13 +73,13 @@ Default keybindings:
 | cp-helper.runTimeoutMs | Compile/run timeout in ms (used when the problem carries no judge limit) |
 | cp-helper.useJudgeTimeLimit | Judge NORMAL runs against the time limit scraped at import (LOCAL runs keep runTimeoutMs) |
 | cp-helper.timeLimitFactor | Slack over the judge limit before the process is killed |
-| cp-helper.maxParallelSamples | Samples Run all executes at once (0 = auto) |
+| cp-helper.maxParallelSamples | Samples a problem's Run all executes at once (0 = auto) |
 | cp-helper.floatAbsEpsilon | Absolute float tolerance |
 | cp-helper.floatRelEpsilon | Relative float tolerance |
 | cp-helper.trimOutput | Trim trailing whitespace before compare |
 | cp-helper.enableLocalImportServer | Enable localhost import server |
 | cp-helper.localImportPort | Local import port (default 17337) |
-| cp-helper.instantRunAllOnLocalImport | Auto-run after single-group local import |
+| cp-helper.instantRunAllOnLocalImport | Run the problem that was just synced, after a single-problem local import |
 | cp-helper.submitLanguageCodeforces | Language option to pick on the Codeforces submit form |
 | cp-helper.submitLanguageAtCoder | Language option to pick on the AtCoder submit form (whitespace ignored when matching) |
 | cp-helper.submitConfirm | Ask before every submit (default on) |
@@ -83,6 +87,11 @@ Default keybindings:
 
 ## Samples view
 
+- The list holds one group per imported problem, in the order they arrived. An import appends a
+  new problem and refreshes one that is already there, so a contest can be synced problem by
+  problem without losing what is on screen.
+- The **first** group is the active problem: the run keybindings and the title above the list both
+  follow it. Delete it and the next problem takes over.
 - Each problem group header sticks to the top of the list while its samples scroll past, and each
   sample header sticks below it, so the group's disclosure and the sample's number and buttons stay
   reachable inside a long input or output.
@@ -93,9 +102,8 @@ Default keybindings:
 
 ## Submit
 
-The Samples view has a Submit button beside Export, and one in each problem header for a
-multi-problem import. It sends the active C++ file to Codeforces or AtCoder and reports the
-verdict back into the view.
+Each problem header carries its own Submit button. It sends the active C++ file to Codeforces or
+AtCoder for that problem and reports the verdict back into the header.
 
 CP Helper never logs in to a judge and never sees a judge password. It hands the job to **OJ Sync**
 in your browser, which fills the judge's own submit form in a tab that is already signed in. That
@@ -116,9 +124,10 @@ Notes:
   dialog names the problem and language; `cp-helper.submitConfirm` turns it off.
 - The target comes from the import, so only problems imported with OJ Sync can be submitted.
   Custom groups and LeetCode have no Submit button.
+- One submit runs at a time; the other problems' Submit buttons stay disabled until it settles.
 - Codeforces rejects a resubmission of byte-identical source; that rejection is reported as-is.
 - After the submit, OJ Sync watches your submissions page until the verdict settles, and CP Helper
-  shows it in the toolbar and as a notification.
+  shows it in that problem's header and as a notification.
 
 ## Build cache
 

@@ -1,8 +1,9 @@
 import * as vscode from "vscode";
-import { WORKSPACE_KEY_IMPORT_PROBLEM } from "./constants";
 import {
   coerceTimeLimitMs,
   loadCaseGroups,
+  loadCaseGroupsFromFile,
+  mergeCaseGroups,
   persistCaseGroups,
   persistCaseGroupsToFile,
 } from "./case-groups";
@@ -20,10 +21,7 @@ export const ERR_IMPORT_EMPTY = "Import is empty";
 
 /** Minimal surface needed to push imported cases into the UI. */
 export interface SamplesWebviewSink {
-  applyGroupsToWebview(
-    groups: CaseGroup[],
-    importProblem?: string | null,
-  ): void;
+  applyGroupsToWebview(groups: CaseGroup[]): void;
 }
 
 function parseCasesArray(data: unknown[]): TestCase[] {
@@ -65,24 +63,22 @@ function readStarterCodeField(o: Record<string, unknown>): string | null {
  */
 export function parseImportPayload(text: string): {
   groups: CaseGroup[];
-  importProblem: string | null;
   starterCode: string | null;
 } {
   const data = JSON.parse(text) as unknown;
   if (Array.isArray(data)) {
     return {
       groups: [{ id: "0", label: "", cases: parseCasesArray(data) }],
-      importProblem: null,
       starterCode: null,
     };
   }
   if (data && typeof data === "object") {
     const o = data as Record<string, unknown>;
     const rawProb = o.problem ?? o.importProblem;
-    let importProblem: string | null = null;
-    if (typeof rawProb === "string" && rawProb.trim() !== "") {
-      importProblem = rawProb.trim();
-    }
+    const problemLabel =
+      typeof rawProb === "string" && rawProb.trim() !== ""
+        ? rawProb.trim()
+        : null;
     const problems = o.problems;
     if (Array.isArray(problems) && problems.length > 0) {
       /** @type {CaseGroup[]} */
@@ -121,15 +117,8 @@ export function parseImportPayload(text: string): {
           "Object `problems` must contain non-empty `samples` arrays",
         );
       }
-      const label =
-        typeof o.importProblem === "string" && o.importProblem.trim() !== ""
-          ? o.importProblem.trim()
-          : typeof o.contestId === "string" && o.contestId.trim() !== ""
-            ? `codeforces/${o.contestId.trim()}`
-            : importProblem;
       return {
         groups,
-        importProblem: label,
         starterCode: readStarterCodeField(o),
       };
     }
@@ -137,7 +126,7 @@ export function parseImportPayload(text: string): {
     if (Array.isArray(samples)) {
       const group: CaseGroup = {
         id: "0",
-        label: importProblem ?? "",
+        label: problemLabel ?? "",
         cases: parseCasesArray(samples),
       };
       const tl = coerceTimeLimitMs(o.timeLimitMs);
@@ -150,7 +139,6 @@ export function parseImportPayload(text: string): {
       }
       return {
         groups: [group],
-        importProblem,
         starterCode: readStarterCodeField(o),
       };
     }
@@ -163,28 +151,32 @@ export function parseImportPayload(text: string): {
 export type ImportLogSource = "import" | "loadJson";
 
 /**
- * Parse JSON, persist, and refresh the webview (used by URI handler, palette, local HTTP, Load button).
- * @returns `groupCount` after normalize (for local HTTP import instant-run heuristics).
+ * Parse JSON, fold it into the groups already imported, and refresh the webview (used by URI
+ * handler, palette, local HTTP, Load button).
+ * @returns `imported`, the index each payload problem ended up at (for the instant-run heuristic).
  */
 export async function importSamplesFromJsonText(
   ctx: vscode.ExtensionContext,
   provider: SamplesWebviewSink,
   text: string,
   logSource: ImportLogSource = "import",
-): Promise<{ groupCount: number }> {
+): Promise<{ groupCount: number; imported: number[] }> {
   const trimmed = text.trim();
   if (trimmed.length === 0) {
     throw new Error(ERR_IMPORT_EMPTY);
   }
-  const { groups, importProblem, starterCode } = parseImportPayload(trimmed);
+  const { groups, starterCode } = parseImportPayload(trimmed);
   const total = groups.reduce((n, g) => n + g.cases.length, 0);
-  await persistCaseGroups(ctx.workspaceState, groups);
-  await ctx.workspaceState.update(WORKSPACE_KEY_IMPORT_PROBLEM, importProblem);
+  const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri;
+  const existing = wsFolder
+    ? await loadCaseGroupsFromFile(ctx.workspaceState, wsFolder)
+    : loadCaseGroups(ctx.workspaceState);
+  const { groups: merged, imported } = mergeCaseGroups(existing, groups);
+  await persistCaseGroups(ctx.workspaceState, merged);
   const stored = loadCaseGroups(ctx.workspaceState);
   // The cases file wins over workspace state on `restore` (see loadCaseGroupsFromFile), and a
   // cold webview answers the reveal below with `restore`. Write it here - awaited, before the
   // view is revealed - or the previous problem's file replies to this import.
-  const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri;
   if (wsFolder) {
     try {
       await persistCaseGroupsToFile(stored, wsFolder);
@@ -195,9 +187,9 @@ export async function importSamplesFromJsonText(
     }
   }
   log.info(
-    `loaded ${total} sample(s) in ${stored.length} group(s) from ${logSource}`,
+    `loaded ${total} sample(s) in ${groups.length} problem(s) from ${logSource}; list now holds ${stored.length} group(s)`,
   );
-  provider.applyGroupsToWebview(stored, importProblem);
+  provider.applyGroupsToWebview(stored);
   if (starterCode !== null) {
     if (!isLikelyCppSource(starterCode)) {
       log.warn(
@@ -217,5 +209,5 @@ export async function importSamplesFromJsonText(
       }
     }
   }
-  return { groupCount: stored.length };
+  return { groupCount: stored.length, imported };
 }

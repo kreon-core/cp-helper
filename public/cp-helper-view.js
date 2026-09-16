@@ -43,17 +43,6 @@
    */
   const staleResultGroups = new Set();
 
-  /**
-   * Group indices still to run for a toolbar Run all. The host runs one group at a time, so the
-   * rest wait here and are started from `runAllDone`. Any other run trigger clears it - the user
-   * asking for something else outranks the sweep.
-   * @type {number[]}
-   */
-  let runAllQueue = [];
-
-  /** Build the queued Run all sweep asks for: LOCAL when the sweep started from the LOCAL button. */
-  let runAllLocal = false;
-
   const NEEDS_CPP_HINT = "Open a C++ file in the editor first";
 
   /**
@@ -74,8 +63,12 @@
   /** Group index of the submit in flight, or -1 when idle. */
   let submitBusyGroup = -1;
 
-  /** Submission page for the last submit, when the judge gave one; opens from the status chip. */
-  let submitSubmissionUrl = "";
+  /**
+   * Latest submit outcome per group, keyed by group id so it survives the reindexing a group
+   * removal does to positions.
+   * @type {Record<string, { text: string; tone: string; title: string; url: string }>}
+   */
+  let submitStatusByGroup = {};
 
   const $ = (id) => {
     const el = document.getElementById(id);
@@ -109,16 +102,9 @@
   const jsonEl = $("import-json");
   const btnToggleJson = $("btnToggleJson");
   const btnLoad = $("btnLoad");
-  const btnRunAll = $("btnRunAll");
-  const btnRunAllLocal = $("btnRunAllLocal");
-  const runAllPassedSummaryEl = $("runAllPassedSummary");
   const btnClear = $("btnClear");
   const btnExport = $("btnExport");
-  const btnSubmit = $("btnSubmit");
-  const submitStatusEl = $("submitStatus");
   const btnStopRun = $("btnStopRun");
-  const runStatusEl = $("run-status");
-  const runStatusLabel = $("run-status-label");
   const errEl = $("err");
   const listEl = $("list");
   const listEmptyEl = $("list-empty");
@@ -679,12 +665,14 @@
     return groups.reduce((n, g) => n + g.cases.length, 0);
   }
 
-  function showGroupHeaders() {
-    if (groups.length > 1) return true;
-    if (groups.length === 1 && (groups[0].label ?? "").trim().length > 0) {
-      return true;
-    }
-    return false;
+  /**
+   * Header text for a problem; unnamed groups (a bare testcase array, a stress case) still need
+   * something to click on.
+   * @param {number} gi
+   */
+  function groupDisplayLabel(gi) {
+    const label = (groups[gi]?.label ?? "").trim();
+    return label !== "" ? label : `Group ${gi + 1}`;
   }
 
   /** Single empty unnamed bucket (nothing imported yet) - show "add problem group" and first custom becomes `custom/1`. */
@@ -694,10 +682,6 @@
       (groups[0].label ?? "").trim() === "" &&
       (groups[0].cases?.length ?? 0) === 0
     );
-  }
-
-  function showAddProblemGroupRow() {
-    return showGroupHeaders() || isNoProblemsPlaceholder();
   }
 
   function addCustomProblemGroup() {
@@ -737,12 +721,6 @@
   function defaultCollapsedAllHeaders(gs) {
     /** @type {Record<string, boolean>} */
     const out = {};
-    const headers =
-      gs.length > 1 ||
-      (gs.length === 1 && (gs[0].label ?? "").trim().length > 0);
-    if (!headers) {
-      return out;
-    }
     for (let i = 0; i < gs.length; i++) {
       const gid = String(gs[i]?.id ?? i);
       if (gid) {
@@ -786,6 +764,11 @@
   function pruneGroupCollapseState() {
     const ids = new Set(groups.map((g) => String(g.id ?? "")));
     let changed = false;
+    for (const k of Object.keys(submitStatusByGroup)) {
+      if (!ids.has(k)) {
+        delete submitStatusByGroup[k];
+      }
+    }
     for (const k of Object.keys(groupCollapsed)) {
       if (!ids.has(k)) {
         delete groupCollapsed[k];
@@ -994,6 +977,15 @@
   }
 
   /**
+   * The list is ordered by arrival and the first problem is the one being solved: it owns the
+   * title and the run shortcuts, and the next problem inherits both when it is deleted.
+   */
+  function syncActiveProblemTitle() {
+    const hasProblem = groups.length > 0 && !isNoProblemsPlaceholder();
+    updateImportProblemTitle(hasProblem ? groupDisplayLabel(0) : "");
+  }
+
+  /**
    * Contest / problem id from OJ Sync (e.g. atcoder/abc451_a).
    * @param {string | null | undefined} label
    */
@@ -1003,11 +995,11 @@
     if (!t) {
       importProblemTitleEl.textContent = "No problem imported";
       importProblemTitleEl.removeAttribute("title");
-      importProblemTitleEl.setAttribute("aria-label", "Imported problem");
+      importProblemTitleEl.setAttribute("aria-label", "Active problem");
     } else {
       importProblemTitleEl.textContent = t;
       importProblemTitleEl.title = t;
-      importProblemTitleEl.setAttribute("aria-label", `Imported problem: ${t}`);
+      importProblemTitleEl.setAttribute("aria-label", `Active problem: ${t}`);
     }
     importProblemTitleEl.scrollLeft = 0;
     requestAnimationFrame(syncProblemTitleOverflow);
@@ -1098,23 +1090,52 @@
   }
 
   /**
-   * @param {string} text short label shown in the toolbar
-   * @param {"" | "ok" | "bad"} tone
-   * @param {string} [title] full text for the tooltip (defaults to `text`)
-   * @param {string} [url] submission page the chip opens when clicked
+   * @param {HTMLButtonElement} el status chip in a problem header
+   * @param {{ text: string; tone: string; title: string; url: string } | undefined} st
    */
-  function setSubmitStatus(text, tone, title, url) {
-    submitSubmissionUrl = typeof url === "string" ? url : "";
-    const full = typeof title === "string" && title !== "" ? title : text;
-    submitStatusEl.textContent = text;
-    submitStatusEl.title = submitSubmissionUrl !== ""
-      ? `${full} - click to open the submission`
-      : full;
-    submitStatusEl.hidden = text === "";
-    submitStatusEl.disabled = submitSubmissionUrl === "";
-    submitStatusEl.setAttribute("aria-label", full);
-    submitStatusEl.classList.toggle("submit-status--ok", tone === "ok");
-    submitStatusEl.classList.toggle("submit-status--bad", tone === "bad");
+  function paintSubmitStatusEl(el, st) {
+    const text = st?.text ?? "";
+    const url = st?.url ?? "";
+    const full = st?.title ?? text;
+    el.textContent = text;
+    el.hidden = text === "";
+    el.dataset.cpUrl = url;
+    el.title = url !== "" ? `${full} - click to open the submission` : full;
+    el.disabled = url === "";
+    el.setAttribute("aria-label", full);
+    el.classList.toggle("submit-status--ok", st?.tone === "ok");
+    el.classList.toggle("submit-status--bad", st?.tone === "bad");
+  }
+
+  /**
+   * Record and show one problem's submit stage or verdict. Empty `text` clears it.
+   * @param {number} gi
+   * @param {string} text
+   * @param {string} [tone] "ok" | "bad"
+   * @param {string} [title] long form for the tooltip
+   * @param {string} [url] submission page, when the judge gave one
+   */
+  function setSubmitStatus(gi, text, tone, title, url) {
+    const gid = String(groups[gi]?.id ?? "");
+    if (!gid) {
+      return;
+    }
+    if (text === "") {
+      delete submitStatusByGroup[gid];
+    } else {
+      submitStatusByGroup[gid] = {
+        text,
+        tone: tone ?? "",
+        title: typeof title === "string" && title !== "" ? title : text,
+        url: typeof url === "string" ? url : "",
+      };
+    }
+    const el = listEl.querySelector(
+      `button.submit-status[data-cp-gi="${gi}"]`,
+    );
+    if (el) {
+      paintSubmitStatusEl(el, submitStatusByGroup[gid]);
+    }
   }
 
   /**
@@ -1150,28 +1171,8 @@
     return null;
   }
 
-  /**
-   * Toolbar Submit targets the single submittable problem; with several imported, the per-problem
-   * buttons in the group headers are the only way to pick one.
-   */
+  /** Submitting is a per-problem action: every Submit button lives in its problem header. */
   function applySubmitButtonsState() {
-    const submittable = submittableGroups();
-    const gi = submittable.length === 1 ? submittable[0] : -1;
-    let reason;
-    if (submittable.length === 0) {
-      reason = "Nothing to submit - import a Codeforces or AtCoder problem with OJ Sync";
-    } else if (gi < 0) {
-      reason = "Several problems imported - use the Submit button in a problem header";
-    } else {
-      reason = submitBlockedReason(gi);
-    }
-    btnSubmit.dataset.cpGi = String(gi);
-    btnSubmit.disabled = reason !== null;
-    btnSubmit.title = reason ?? `Submit the active file to ${submitTargets[gi]}`;
-    btnSubmit.setAttribute(
-      "aria-label",
-      gi >= 0 ? `Submit to ${submitTargets[gi]}` : "Submit to judge",
-    );
     listEl.querySelectorAll("button.case-group__submit").forEach((btn) => {
       const i = Number(btn.dataset.cpGi);
       const r = submitBlockedReason(i);
@@ -1189,87 +1190,28 @@
     }
     hideErr();
     submitBusyGroup = gi;
-    setSubmitStatus("submitting", "");
+    setSubmitStatus(gi, "submitting", "");
     applySubmitButtonsState();
     vscode.postMessage({ type: "submit", groupIndex: gi });
   }
 
   /**
-   * Import toolbar + global run status (no testcase list).
+   * Import toolbar only; running and submitting are per-problem and live in the headers.
    */
   function applyToolbarAndImportState() {
     const busy = runState.active;
-    const multi = showGroupHeaders();
-    const tc = totalCaseCount();
-    runAllPassedSummaryEl.hidden = multi || busy;
-    // Run stays clickable while busy: a click restarts, replacing the run in flight.
-    btnRunAll.disabled = tc === 0 || !sourceRunnable;
-    const runAllHint = multi
-      ? "Run every sample in every problem, one problem at a time"
-      : "Compile once (if configured), then run every sample";
-    btnRunAll.title = runAllHint;
-    btnRunAll.setAttribute("aria-label", multi ? "Run all problems" : "Run all");
-    btnRunAllLocal.disabled = tc === 0 || !sourceRunnable;
-    const runAllLocalHint = multi
-      ? "Run every sample in every problem with the LOCAL build (localCompileCommand)"
-      : "Run every sample with the LOCAL build (localCompileCommand)";
-    btnRunAllLocal.title = runAllLocalHint;
-    btnRunAllLocal.setAttribute(
-      "aria-label",
-      multi ? "Run all problems with LOCAL build" : "Run all with LOCAL build",
-    );
     btnToggleJson.disabled = busy;
     btnLoad.disabled = busy;
     btnClear.disabled = busy;
     btnExport.disabled = busy || totalCaseCount() === 0;
     applySubmitButtonsState();
     btnStopRun.hidden = !busy;
-    runStatusEl.hidden = !busy || multi;
-    if (!multi && !busy) {
-      const s = lastRunAllSummaryByGroup[0];
-      if (s && s.total > 0) {
-        runAllPassedSummaryEl.hidden = false;
-        runAllPassedSummaryEl.textContent = `${s.passed}/${s.total}`;
-        const tip = `${s.passed} of ${s.total} test cases passed`;
-        runAllPassedSummaryEl.title = tip;
-        runAllPassedSummaryEl.setAttribute("aria-label", tip);
-      } else {
-        runAllPassedSummaryEl.hidden = true;
-        runAllPassedSummaryEl.textContent = "";
-        runAllPassedSummaryEl.removeAttribute("title");
-        runAllPassedSummaryEl.removeAttribute("aria-label");
-      }
-    }
-    if (busy && !multi) {
-      if (runState.mode === "all" && runState.phase === "compile") {
-        runStatusLabel.textContent = "";
-      } else if (
-        runState.mode === "all" &&
-        runState.phase === "run" &&
-        runState.total != null
-      ) {
-        const i = runState.index ?? 0;
-        runStatusLabel.textContent = `${i + 1}/${runState.total}`;
-      } else if (
-        runState.mode === "one" &&
-        runState.index != null &&
-        runState.groupIndex != null
-      ) {
-        const g = groups[runState.groupIndex];
-        const sn = g?.cases[runState.index]?.sample ?? runState.index + 1;
-        runStatusLabel.textContent = `#${sn}`;
-      } else {
-        runStatusLabel.textContent = "";
-      }
-    } else {
-      runStatusLabel.textContent = "";
-    }
     syncSeparators();
   }
 
   /**
-   * Hides a group separator with no visible control on one of its sides: the run cluster empties
-   * out in multi-group mode, which would otherwise leave two rules butted together.
+   * Hides a group separator with no visible control on one of its sides: Stop is hidden unless a
+   * run is in flight, which would otherwise leave two rules butted together.
    */
   function syncSeparators() {
     const kids = Array.from(actionClusterEl.children);
@@ -1294,9 +1236,6 @@
    * True when the list DOM still matches `groups` (safe to patch headers/rows without full rebuild).
    */
   function incrementalDomReady() {
-    if (!showGroupHeaders()) {
-      return false;
-    }
     const n = groups.length;
     if (n < 1) {
       return false;
@@ -1513,8 +1452,8 @@
     ensureDefaultGroup();
     pruneGroupCollapseState();
     const busy = runState.active;
-    const multi = showGroupHeaders();
     applyToolbarAndImportState();
+    syncActiveProblemTitle();
     listEmptyEl.hidden = totalCaseCount() > 0;
 
     /**
@@ -1524,200 +1463,211 @@
      */
     const groupDisclosures = [];
 
-    groups.forEach((group, gi) => {
+    // The empty bucket has no problem behind it: an empty header with a Run button on it reads as
+    // a problem that failed to import, so the empty state is the "custom group" row alone.
+    const rendered = isNoProblemsPlaceholder() ? [] : groups;
+
+    rendered.forEach((group, gi) => {
       const wrap = document.createElement("li");
       wrap.className = "case-group-wrap";
       wrap.setAttribute("data-cp-gi", String(gi));
 
-      if (multi) {
-        wrap.classList.add("case-group-wrap--panel");
-        const gid = String(group.id ?? gi);
-        const panelId = `case-group-panel-${gi}`;
-        const gs = lastRunAllSummaryByGroup[gi];
-        wrap.classList.remove("case-group-wrap--ac", "case-group-wrap--wa");
-        if (gs && gs.total > 0) {
-          wrap.classList.add(
-            gs.passed === gs.total
-              ? "case-group-wrap--ac"
-              : "case-group-wrap--wa",
-          );
-        }
-
-        const ghead = document.createElement("div");
-        ghead.className = "case-group-head";
-
-        const labelText =
-          (group.label ?? "").trim() !== ""
-            ? group.label
-            : `Group ${gi + 1}`;
-        const disclose = document.createElement("button");
-        disclose.type = "button";
-        disclose.className = "case-group-disclose";
-        disclose.setAttribute("aria-controls", panelId);
-        const chev = document.createElement("span");
-        chev.className = "case-group-disclose__chev";
-        chev.setAttribute("aria-hidden", "true");
-        const lbl = document.createElement("span");
-        lbl.className = "case-group-disclose__label";
-        lbl.textContent = labelText;
-        disclose.appendChild(chev);
-        disclose.appendChild(lbl);
-        if (typeof group.timeLimitMs === "number") {
-          const limitChip = document.createElement("span");
-          limitChip.className = "case-group-limit";
-          limitChip.textContent = formatElapsed(group.timeLimitMs).trim();
-          limitChip.title = "Judge time limit for this problem";
-          disclose.appendChild(limitChip);
-        }
-        disclose.addEventListener("click", () => {
-          const nowCollapsed = toggleGroupCollapsed(gid);
-          applyGroupCollapsedUi(
-            wrap,
-            inner,
-            disclose,
-            chev,
-            labelText,
-            nowCollapsed,
-            true,
-          );
-          if (!nowCollapsed) {
-            refitAll();
-          }
-        });
-        groupDisclosures.push(() =>
-          applyGroupCollapsedUi(
-            wrap,
-            inner,
-            disclose,
-            chev,
-            labelText,
-            !!groupCollapsed[gid],
-            false,
-          ),
+      wrap.classList.add("case-group-wrap--panel");
+      const gid = String(group.id ?? gi);
+      const panelId = `case-group-panel-${gi}`;
+      const gs = lastRunAllSummaryByGroup[gi];
+      wrap.classList.remove("case-group-wrap--ac", "case-group-wrap--wa");
+      if (gs && gs.total > 0) {
+        wrap.classList.add(
+          gs.passed === gs.total
+            ? "case-group-wrap--ac"
+            : "case-group-wrap--wa",
         );
-        ghead.appendChild(disclose);
-
-        const sumEl = document.createElement("span");
-        sumEl.className = "case-group-passed";
-        if (gs && gs.total > 0) {
-          sumEl.textContent = `${gs.passed}/${gs.total}`;
-          sumEl.title = `${gs.passed} of ${gs.total} passed in this problem`;
-        } else {
-          sumEl.textContent = "";
-        }
-        ghead.appendChild(sumEl);
-
-        const grpStatus = document.createElement("span");
-        grpStatus.className = "case-group-run-status";
-        const grpSt = textForActiveGroupRunStatus(gi);
-        if (grpSt !== null) {
-          const grpSpin = document.createElement("span");
-          grpSpin.className = "run-status-spinner";
-          grpSpin.setAttribute("aria-hidden", "true");
-          grpStatus.appendChild(grpSpin);
-          if (grpSt) {
-            const grpLbl = document.createElement("span");
-            grpLbl.className = "run-status-label";
-            grpLbl.textContent = grpSt;
-            grpLbl.setAttribute("aria-live", "polite");
-            grpStatus.appendChild(grpLbl);
-          }
-          grpStatus.hidden = false;
-        } else {
-          grpStatus.hidden = true;
-        }
-        ghead.appendChild(grpStatus);
-
-        const groupName = (group.label ?? "").trim() || `group ${gi + 1}`;
-        [false, true].forEach((local) => {
-          const btnRunG = document.createElement("button");
-          btnRunG.type = "button";
-          btnRunG.className = local
-            ? "case-group__run-all needs-cpp btn-secondary btn-icon btn-run-local"
-            : "case-group__run-all needs-cpp btn-icon";
-          btnRunG.title = local
-            ? "Run all cases in this group with the LOCAL build (localCompileCommand)"
-            : "Run all cases in this group";
-          btnRunG.dataset.cpTitle = btnRunG.title;
-          btnRunG.setAttribute(
-            "aria-label",
-            local
-              ? `Run all cases in ${groupName} with LOCAL build`
-              : `Run all cases in ${groupName}`,
-          );
-          btnRunG.appendChild(mkIcon(local ? "local" : "runAll"));
-          btnRunG.disabled = group.cases.length === 0 || !sourceRunnable;
-          btnRunG.addEventListener("click", () => {
-            hideErr();
-            runAllQueue = [];
-            startRunAllForGroup(gi, local);
-          });
-          ghead.appendChild(btnRunG);
-        });
-
-        if (typeof submitTargets[gi] === "string" && submitTargets[gi] !== "") {
-          const btnSubmitG = document.createElement("button");
-          btnSubmitG.type = "button";
-          btnSubmitG.className =
-            "case-group__submit btn-secondary btn-icon btn-submit";
-          btnSubmitG.dataset.cpGi = String(gi);
-          btnSubmitG.setAttribute(
-            "aria-label",
-            `Submit to ${submitTargets[gi]}`,
-          );
-          btnSubmitG.appendChild(mkIcon("submit"));
-          btnSubmitG.addEventListener("click", () => startSubmit(gi));
-          ghead.appendChild(btnSubmitG);
-        }
-
-        const btnAddCaseG = document.createElement("button");
-        btnAddCaseG.type = "button";
-        btnAddCaseG.className = "btn-secondary case-group__add-case btn-icon";
-        btnAddCaseG.title = "Add empty testcase to this problem";
-        btnAddCaseG.appendChild(mkIcon("add"));
-        btnAddCaseG.setAttribute(
-          "aria-label",
-          `Add testcase to ${(group.label ?? "").trim() || `group ${gi + 1}`}`,
-        );
-        btnAddCaseG.disabled = busy;
-        btnAddCaseG.addEventListener("click", () => {
-          if (busy) return;
-          groups[gi].cases.push({
-            sample: nextSampleInGroup(gi),
-            input: "",
-            output: "",
-          });
-          delete lastRunAllSummaryByGroup[gi];
-          persist();
-          render();
-        });
-        ghead.appendChild(btnAddCaseG);
-
-        const btnClrG = document.createElement("button");
-        btnClrG.type = "button";
-        btnClrG.className = "btn-secondary case-group__clear btn-icon";
-        btnClrG.disabled = busy;
-        btnClrG.title = "Remove this problem group";
-        btnClrG.setAttribute("aria-label", "Remove this problem group");
-        btnClrG.appendChild(mkIcon("trash"));
-        btnClrG.addEventListener("click", () => {
-          if (busy) return;
-          groups.splice(gi, 1);
-          reindexLastRunAfterGroupRemove(gi);
-          ensureDefaultGroup();
-          persist();
-          render();
-        });
-        ghead.appendChild(btnClrG);
-
-        wrap.appendChild(ghead);
       }
+
+      const ghead = document.createElement("div");
+      ghead.className = "case-group-head";
+
+      const labelText = groupDisplayLabel(gi);
+      const disclose = document.createElement("button");
+      disclose.type = "button";
+      disclose.className = "case-group-disclose";
+      disclose.setAttribute("aria-controls", panelId);
+      const chev = document.createElement("span");
+      chev.className = "case-group-disclose__chev";
+      chev.setAttribute("aria-hidden", "true");
+      const lbl = document.createElement("span");
+      lbl.className = "case-group-disclose__label";
+      lbl.textContent = labelText;
+      disclose.appendChild(chev);
+      disclose.appendChild(lbl);
+      if (typeof group.timeLimitMs === "number") {
+        const limitChip = document.createElement("span");
+        limitChip.className = "case-group-limit";
+        limitChip.textContent = formatElapsed(group.timeLimitMs).trim();
+        limitChip.title = "Judge time limit for this problem";
+        disclose.appendChild(limitChip);
+      }
+      disclose.addEventListener("click", () => {
+        const nowCollapsed = toggleGroupCollapsed(gid);
+        applyGroupCollapsedUi(
+          wrap,
+          inner,
+          disclose,
+          chev,
+          labelText,
+          nowCollapsed,
+          true,
+        );
+        if (!nowCollapsed) {
+          refitAll();
+        }
+      });
+      groupDisclosures.push(() =>
+        applyGroupCollapsedUi(
+          wrap,
+          inner,
+          disclose,
+          chev,
+          labelText,
+          !!groupCollapsed[gid],
+          false,
+        ),
+      );
+      ghead.appendChild(disclose);
+
+      const sumEl = document.createElement("span");
+      sumEl.className = "case-group-passed";
+      if (gs && gs.total > 0) {
+        sumEl.textContent = `${gs.passed}/${gs.total}`;
+        sumEl.title = `${gs.passed} of ${gs.total} passed in this problem`;
+      } else {
+        sumEl.textContent = "";
+      }
+      ghead.appendChild(sumEl);
+
+      const grpStatus = document.createElement("span");
+      grpStatus.className = "case-group-run-status";
+      const grpSt = textForActiveGroupRunStatus(gi);
+      if (grpSt !== null) {
+        const grpSpin = document.createElement("span");
+        grpSpin.className = "run-status-spinner";
+        grpSpin.setAttribute("aria-hidden", "true");
+        grpStatus.appendChild(grpSpin);
+        if (grpSt) {
+          const grpLbl = document.createElement("span");
+          grpLbl.className = "run-status-label";
+          grpLbl.textContent = grpSt;
+          grpLbl.setAttribute("aria-live", "polite");
+          grpStatus.appendChild(grpLbl);
+        }
+        grpStatus.hidden = false;
+      } else {
+        grpStatus.hidden = true;
+      }
+      ghead.appendChild(grpStatus);
+
+      const groupName = (group.label ?? "").trim() || `group ${gi + 1}`;
+      [false, true].forEach((local) => {
+        const btnRunG = document.createElement("button");
+        btnRunG.type = "button";
+        btnRunG.className = local
+          ? "case-group__run-all needs-cpp btn-secondary btn-icon btn-run-local"
+          : "case-group__run-all needs-cpp btn-icon";
+        btnRunG.title = local
+          ? "Run all cases in this group with the LOCAL build (localCompileCommand)"
+          : "Run all cases in this group";
+        btnRunG.dataset.cpTitle = btnRunG.title;
+        btnRunG.setAttribute(
+          "aria-label",
+          local
+            ? `Run all cases in ${groupName} with LOCAL build`
+            : `Run all cases in ${groupName}`,
+        );
+        btnRunG.appendChild(mkIcon(local ? "local" : "runAll"));
+        btnRunG.disabled = group.cases.length === 0 || !sourceRunnable;
+        btnRunG.addEventListener("click", () => {
+          hideErr();
+          startRunAllForGroup(gi, local);
+        });
+        ghead.appendChild(btnRunG);
+      });
+
+      if (typeof submitTargets[gi] === "string" && submitTargets[gi] !== "") {
+        const btnSubmitG = document.createElement("button");
+        btnSubmitG.type = "button";
+        btnSubmitG.className =
+          "case-group__submit btn-secondary btn-icon btn-submit";
+        btnSubmitG.dataset.cpGi = String(gi);
+        btnSubmitG.setAttribute(
+          "aria-label",
+          `Submit to ${submitTargets[gi]}`,
+        );
+        btnSubmitG.appendChild(mkIcon("submit"));
+        btnSubmitG.addEventListener("click", () => startSubmit(gi));
+        ghead.appendChild(btnSubmitG);
+
+        const submitStatusG = document.createElement("button");
+        submitStatusG.type = "button";
+        submitStatusG.className = "submit-status";
+        submitStatusG.dataset.cpGi = String(gi);
+        submitStatusG.setAttribute("role", "status");
+        submitStatusG.setAttribute("aria-live", "polite");
+        paintSubmitStatusEl(submitStatusG, submitStatusByGroup[gid]);
+        submitStatusG.addEventListener("click", () => {
+          const url = submitStatusG.dataset.cpUrl ?? "";
+          if (url !== "") {
+            vscode.postMessage({ type: "openSubmission", url });
+          }
+        });
+        ghead.appendChild(submitStatusG);
+      }
+
+      const btnAddCaseG = document.createElement("button");
+      btnAddCaseG.type = "button";
+      btnAddCaseG.className = "btn-secondary case-group__add-case btn-icon";
+      btnAddCaseG.title = "Add empty testcase to this problem";
+      btnAddCaseG.appendChild(mkIcon("add"));
+      btnAddCaseG.setAttribute(
+        "aria-label",
+        `Add testcase to ${(group.label ?? "").trim() || `group ${gi + 1}`}`,
+      );
+      btnAddCaseG.disabled = busy;
+      btnAddCaseG.addEventListener("click", () => {
+        if (busy) return;
+        groups[gi].cases.push({
+          sample: nextSampleInGroup(gi),
+          input: "",
+          output: "",
+        });
+        delete lastRunAllSummaryByGroup[gi];
+        persist();
+        render();
+      });
+      ghead.appendChild(btnAddCaseG);
+
+      const btnClrG = document.createElement("button");
+      btnClrG.type = "button";
+      btnClrG.className = "btn-secondary case-group__clear btn-icon";
+      btnClrG.disabled = busy;
+      btnClrG.title = "Remove this problem group";
+      btnClrG.setAttribute("aria-label", "Remove this problem group");
+      btnClrG.appendChild(mkIcon("trash"));
+      btnClrG.addEventListener("click", () => {
+        if (busy) return;
+        groups.splice(gi, 1);
+        reindexLastRunAfterGroupRemove(gi);
+        ensureDefaultGroup();
+        persist();
+        render();
+      });
+      ghead.appendChild(btnClrG);
+
+      wrap.appendChild(ghead);
 
       const inner = document.createElement("ul");
       inner.className = "case-group-cases";
-      if (multi) {
-        inner.id = `case-group-panel-${gi}`;
-      }
+      inner.id = `case-group-panel-${gi}`;
 
       group.cases.forEach((c, index) => {
         const li = document.createElement("li");
@@ -1777,7 +1727,6 @@
           runOne.appendChild(mkIcon(local ? "local" : "play"));
           runOne.disabled = !sourceRunnable;
           runOne.addEventListener("click", () => {
-            runAllQueue = [];
             delete lastRun[rk(gi, index)];
             runState = { active: true, mode: "one", phase: "run", groupIndex: gi, index, total: 1 };
             if (incrementalDomReady()) {
@@ -1824,7 +1773,6 @@
         remove.appendChild(mkIcon("close"));
         remove.disabled = false;
         remove.addEventListener("click", () => {
-          runAllQueue = [];
           if (runState.active && runState.groupIndex === gi) {
             vscode.postMessage({ type: "stopRun" });
             staleResultGroups.add(gi);
@@ -1892,63 +1840,36 @@
     groupDisclosures.forEach((apply) => apply());
     applySubmitButtonsState();
 
-    if (showAddProblemGroupRow()) {
-      const addProblemRow = document.createElement("li");
-      addProblemRow.className = "add-problem-group-row";
-      const btnAddProblem = document.createElement("button");
-      btnAddProblem.type = "button";
-      btnAddProblem.className = "btn-add-problem-group";
-      btnAddProblem.setAttribute(
-        "aria-label",
-        isNoProblemsPlaceholder()
-          ? "custom group - create custom/1 with one empty testcase"
-          : "custom group - add problem group with one empty testcase",
-      );
-      btnAddProblem.title = isNoProblemsPlaceholder()
-        ? "Create first custom problem group (one empty testcase)"
-        : "Add problem group with one empty testcase";
-      const plusMark = document.createElement("span");
-      plusMark.className = "btn-add-problem-group__plus";
-      plusMark.setAttribute("aria-hidden", "true");
-      plusMark.appendChild(mkIcon("add"));
-      const addProblemLabel = document.createElement("span");
-      addProblemLabel.className = "btn-add-problem-group__label";
-      addProblemLabel.textContent = "custom group";
-      btnAddProblem.appendChild(plusMark);
-      btnAddProblem.appendChild(addProblemLabel);
-      btnAddProblem.disabled = busy;
-      btnAddProblem.addEventListener("click", () => {
-        addCustomProblemGroup();
-      });
-      addProblemRow.appendChild(btnAddProblem);
-      listEl.appendChild(addProblemRow);
-    }
+    const addProblemRow = document.createElement("li");
+    addProblemRow.className = "add-problem-group-row";
+    const btnAddProblem = document.createElement("button");
+    btnAddProblem.type = "button";
+    btnAddProblem.className = "btn-add-problem-group";
+    btnAddProblem.setAttribute(
+      "aria-label",
+      isNoProblemsPlaceholder()
+        ? "custom group - create custom/1 with one empty testcase"
+        : "custom group - add problem group with one empty testcase",
+    );
+    btnAddProblem.title = isNoProblemsPlaceholder()
+      ? "Create first custom problem group (one empty testcase)"
+      : "Add problem group with one empty testcase";
+    const plusMark = document.createElement("span");
+    plusMark.className = "btn-add-problem-group__plus";
+    plusMark.setAttribute("aria-hidden", "true");
+    plusMark.appendChild(mkIcon("add"));
+    const addProblemLabel = document.createElement("span");
+    addProblemLabel.className = "btn-add-problem-group__label";
+    addProblemLabel.textContent = "custom group";
+    btnAddProblem.appendChild(plusMark);
+    btnAddProblem.appendChild(addProblemLabel);
+    btnAddProblem.disabled = busy;
+    btnAddProblem.addEventListener("click", () => {
+      addCustomProblemGroup();
+    });
+    addProblemRow.appendChild(btnAddProblem);
+    listEl.appendChild(addProblemRow);
 
-    // Flat-mode testcase +: hide while empty placeholder so only the problem-group + shows.
-    if (!multi && !isNoProblemsPlaceholder()) {
-      const addRow = document.createElement("li");
-      addRow.className = "add-case-row";
-      const btnAddCase = document.createElement("button");
-      btnAddCase.type = "button";
-      btnAddCase.className = "btn-add-case";
-      btnAddCase.setAttribute("aria-label", "Add testcase");
-      btnAddCase.appendChild(mkIcon("add"));
-      btnAddCase.disabled = busy;
-      btnAddCase.addEventListener("click", () => {
-        const gi = Math.max(0, groups.length - 1);
-        ensureDefaultGroup();
-        groups[gi].cases.push({
-          sample: nextSampleInGroup(gi),
-          input: "",
-          output: "",
-        });
-        delete lastRunAllSummaryByGroup[gi];
-        persist();
-        render();
-      });
-      addRow.appendChild(btnAddCase);
-      listEl.appendChild(addRow);
-    }
 
     syncRunAffordances();
 
@@ -1981,6 +1902,11 @@
       (k) => delete lastRunAllSummaryByGroup[k],
     );
     Object.assign(lastRunAllSummaryByGroup, sumNext);
+    if (submitBusyGroup === removedGi) {
+      submitBusyGroup = -1;
+    } else if (submitBusyGroup > removedGi) {
+      submitBusyGroup -= 1;
+    }
   }
 
   function reindexLastRunAfterCaseRemove(gi, removedCi) {
@@ -2182,10 +2108,6 @@
   }
 
   /**
-   * Run all samples in the first problem group (flat or multi-header). No-op if group 0 is empty;
-   * while a run is in flight this restarts, replacing it.
-   */
-  /**
    * @param {number} gi
    * @param {boolean} defineLocal compile with `localCompileCommand` instead of `compileCommand`
    * @returns {boolean} false when the group has nothing to run
@@ -2213,27 +2135,14 @@
   }
 
   /**
-   * Runs every problem group that has cases, one after the other.
-   * @param {boolean} [defineLocal]
+   * Run every sample of the first problem. The keybindings always mean that one; the problems
+   * below it run from the buttons in their own headers.
+   * @param {boolean} [defineLocal] compile with `localCompileCommand` instead of `compileCommand`
    */
   function triggerRunAll(defineLocal) {
     hideErr();
     ensureDefaultGroup();
-    runAllLocal = defineLocal === true;
-    runAllQueue = groups
-      .map((g, gi) => (g.cases.length > 0 ? gi : -1))
-      .filter((gi) => gi >= 0);
-    startNextQueuedRunAll();
-  }
-
-  function startNextQueuedRunAll() {
-    while (runAllQueue.length > 0) {
-      const gi = runAllQueue.shift();
-      if (gi != null && startRunAllForGroup(gi, runAllLocal)) {
-        return true;
-      }
-    }
-    return false;
+    startRunAllForGroup(0, defineLocal === true);
   }
 
   /**
@@ -2243,7 +2152,6 @@
    */
   function triggerRunFirst(defineLocal) {
     hideErr();
-    runAllQueue = [];
     ensureDefaultGroup();
     const g0 = groups[0];
     if (!g0 || g0.cases.length === 0) return;
@@ -2278,6 +2186,14 @@
     }
     if (m.type === "shortcutRunAllLocal") {
       triggerRunAll(true);
+      return;
+    }
+    if (m.type === "runGroupAll") {
+      hideErr();
+      startRunAllForGroup(
+        typeof m.groupIndex === "number" ? m.groupIndex : 0,
+        m.defineLocal === true,
+      );
       return;
     }
     if (m.type === "syncFocusContext") {
@@ -2356,13 +2272,10 @@
         groups = [];
       }
       submitTargets = Array.isArray(m.submitTargets) ? m.submitTargets : [];
-      setSubmitStatus("", "");
+      submitStatusByGroup = {};
       groupCollapsed = defaultCollapsedAllHeaders(groups);
       caseCollapsed = defaultCollapsedAllCases(groups);
       persistWebviewNavState();
-      if (Object.prototype.hasOwnProperty.call(m, "importProblem")) {
-        updateImportProblemTitle(m.importProblem);
-      }
       Object.keys(lastRun).forEach((k) => delete lastRun[k]);
       Object.keys(lastRunAllSummaryByGroup).forEach(
         (k) => delete lastRunAllSummaryByGroup[k],
@@ -2373,10 +2286,6 @@
         setJsonBoxOpen(false);
       }
       render();
-      return;
-    }
-    if (m.type === "importProblem") {
-      updateImportProblemTitle(m.label);
       return;
     }
     if (m.type === "runner") {
@@ -2495,10 +2404,6 @@
       }
       lastRunAllSummaryByGroup[gi] =
         n > 0 ? { passed, total: n } : undefined;
-      if (!m.error && startNextQueuedRunAll()) {
-        return;
-      }
-      runAllQueue = [];
       if (incrementalDomReady()) {
         refreshIncrementalRunUi();
       } else {
@@ -2523,29 +2428,30 @@
       return;
     }
     if (m.type === "submitState") {
+      const gi = typeof m.groupIndex === "number" ? m.groupIndex : submitBusyGroup;
       if (m.phase === "start") {
-        submitBusyGroup =
-          typeof m.groupIndex === "number" ? m.groupIndex : submitBusyGroup;
-        setSubmitStatus("submitting", "");
+        submitBusyGroup = gi;
+        setSubmitStatus(gi, "submitting", "");
       } else if (m.phase === "progress") {
-        setSubmitStatus(String(m.stage ?? "working"), "");
+        setSubmitStatus(gi, String(m.stage ?? "working"), "");
       } else if (m.phase === "done") {
         submitBusyGroup = -1;
         if (m.cancelled === true) {
-          setSubmitStatus("", "");
+          setSubmitStatus(gi, "", "");
         } else if (typeof m.error === "string" && m.error !== "") {
-          setSubmitStatus("failed", "bad", m.error, m.submissionUrl);
+          setSubmitStatus(gi, "failed", "bad", m.error, m.submissionUrl);
         } else if (typeof m.verdict === "string" && m.verdict !== "") {
           setSubmitStatus(
+            gi,
             shortVerdict(m.verdict),
             m.accepted === true ? "ok" : "bad",
             m.verdict,
             m.submissionUrl,
           );
         } else if (m.submitted === true) {
-          setSubmitStatus("submitted", "ok", "Submitted", m.submissionUrl);
+          setSubmitStatus(gi, "submitted", "ok", "Submitted", m.submissionUrl);
         } else {
-          setSubmitStatus("", "");
+          setSubmitStatus(gi, "", "");
         }
       }
       applySubmitButtonsState();
@@ -2596,27 +2502,8 @@
     vscode.postMessage({ type: "loadJson", text: jsonEl.value });
   });
 
-  btnRunAll.addEventListener("click", () => {
-    triggerRunAll(false);
-  });
-
-  btnRunAllLocal.addEventListener("click", () => {
-    triggerRunAll(true);
-  });
-
   btnStopRun.addEventListener("click", () => {
-    runAllQueue = [];
     vscode.postMessage({ type: "stopRun" });
-  });
-
-  submitStatusEl.addEventListener("click", () => {
-    if (submitSubmissionUrl !== "") {
-      vscode.postMessage({ type: "openSubmission", url: submitSubmissionUrl });
-    }
-  });
-
-  btnSubmit.addEventListener("click", () => {
-    startSubmit(Number(btnSubmit.dataset.cpGi ?? "-1"));
   });
 
   btnExport.addEventListener("click", () => {
@@ -2631,7 +2518,6 @@
 
   btnClear.addEventListener("click", () => {
     hideErr();
-    runAllQueue = [];
     groups = [];
     Object.keys(lastRun).forEach((k) => delete lastRun[k]);
     Object.keys(lastRunAllSummaryByGroup).forEach(
@@ -2641,7 +2527,6 @@
     vscode.postMessage({
       type: "saveCaseGroups",
       groups: [...groups],
-      clearImportProblem: true,
     });
     render();
   });
