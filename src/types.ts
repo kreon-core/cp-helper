@@ -24,6 +24,11 @@ export interface CaseGroup {
   timeLimitMs?: number;
   /** Problem page the samples came from. Submit derives the judge's submit URL from it. */
   url?: string;
+  /**
+   * Source file this problem is being solved in, set by the last run of the group. The run
+   * keybindings route to the group bound to the file in the editor.
+   */
+  source?: string;
 }
 
 export interface ShellRunOutcome {

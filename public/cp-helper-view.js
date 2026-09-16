@@ -7,7 +7,11 @@
   /** @type {Record<string, { verdict: string; badge: string; stdout: string; stderr: string; elapsedMs?: number; execMs?: number; overheadMs?: number; timeLimitMs?: number }>} */
   const lastRun = {};
 
-  /** Per-group Run all summary: key = group index string. */
+  /**
+   * Per-group Run all summary: key = group index string. `file` is the source that produced it,
+   * which is not necessarily the one a run would compile now.
+   * @type {Record<string, { passed: number; total: number; file: string } | undefined>}
+   */
   const lastRunAllSummaryByGroup = {};
 
   /** Collapsed problem groups: key = `CaseGroup.id`, value true = collapsed (`setState` while session lasts). */
@@ -51,6 +55,9 @@
    */
   let sourceRunnable = false;
 
+  /** Path a Run would compile right now; it decides which problem the keybindings act on. */
+  let activeSourcePath = "";
+
   /**
    * Whether OJ Sync is attached to the submit bridge. Submitting goes through the browser session
    * that is already logged in to the judge, so nothing can be sent while it is down.
@@ -86,6 +93,7 @@
     debug: "debug-alt",
     local: "output",
     submit: "cloud-upload",
+    file: "file-code",
   };
 
   /**
@@ -559,22 +567,85 @@
   }
 
   /**
+   * The run target readout from the toolbar, rebuilt inside a problem header.
+   * @param {HTMLElement} chip
+   * @param {string} fullPath
+   * @param {boolean} current whether this is also the file a run would compile now
+   */
+  function paintGroupSourceChip(chip, fullPath, current) {
+    chip.replaceChildren();
+    const icon = mkIcon("file");
+    icon.classList.add("meta-chip__icon");
+    chip.appendChild(icon);
+    const label = document.createElement("span");
+    label.className = "case-group-src__label";
+    paintSourcePathInto(label, fullPath);
+    chip.appendChild(label);
+    chip.classList.toggle("case-group-src--current", current);
+    chip.title = current
+      ? `This problem is bound to ${fullPath}, the file in the editor`
+      : `This problem is bound to ${fullPath}, not the file in the editor`;
+    chip.setAttribute(
+      "aria-label",
+      current ? `Bound to ${fullPath}, the open file` : `Bound to ${fullPath}`,
+    );
+  }
+
+  /**
+   * Paint a problem's result state onto its header: the Run all count, and the source the problem
+   * is bound to, highlighted while that is the file in the editor and muted otherwise. The source
+   * comes from the binding, not from the count, so running a single sample shows it too.
+   * @param {HTMLElement} wrap
+   * @param {HTMLElement} sumEl
+   * @param {HTMLElement} srcEl
+   * @param {number} gi
+   */
+  function paintGroupResults(wrap, sumEl, srcEl, gi) {
+    const bound = groups[gi]?.source ?? "";
+    const stale = bound !== "" && bound !== activeSourcePath;
+    wrap.classList.toggle("case-group-wrap--stale", stale);
+    srcEl.hidden = bound === "";
+    if (bound !== "") {
+      paintGroupSourceChip(srcEl, bound, !stale);
+    }
+    const gs = lastRunAllSummaryByGroup[gi];
+    sumEl.textContent = "";
+    if (!gs || gs.total <= 0) {
+      sumEl.removeAttribute("title");
+      wrap.classList.remove("case-group-wrap--ac", "case-group-wrap--wa");
+      return;
+    }
+    wrap.classList.toggle("case-group-wrap--ac", gs.passed === gs.total);
+    wrap.classList.toggle("case-group-wrap--wa", gs.passed !== gs.total);
+    sumEl.textContent = `${gs.passed}/${gs.total}`;
+    const ran =
+      gs.file !== "" ? ` running ${pathToParentAndName(gs.file)}` : "";
+    sumEl.title = stale
+      ? `${gs.passed} of ${gs.total} passed${ran} - not the file a run would compile now`
+      : `${gs.passed} of ${gs.total} passed in this problem${ran}`;
+  }
+
+  /**
    * Parent folder dimmed, file name at full strength, so the name a glance is looking for wins.
    * @param {string} fullPath
    */
-  function paintActiveSourceLabel(fullPath) {
+  function paintSourcePathInto(el, fullPath) {
     const text = pathToParentAndName(fullPath);
     const cut = text.lastIndexOf("/");
-    activeSourceLabelEl.textContent = "";
+    el.replaceChildren();
     if (cut > 0) {
       const dir = document.createElement("span");
       dir.className = "active-source-label__dir";
       dir.textContent = text.slice(0, cut + 1);
-      activeSourceLabelEl.appendChild(dir);
+      el.appendChild(dir);
     }
     const name = document.createElement("span");
     name.textContent = cut > 0 ? text.slice(cut + 1) : text;
-    activeSourceLabelEl.appendChild(name);
+    el.appendChild(name);
+  }
+
+  function paintActiveSourceLabel(fullPath) {
+    paintSourcePathInto(activeSourceLabelEl, fullPath);
   }
 
   /**
@@ -611,8 +682,19 @@
     );
     activeSourceWrapEl.classList.toggle("meta-chip--running", running && !!p);
     sourceRunnable = !!p && cpp;
+    activeSourcePath = p ?? "";
+    if (running && p && typeof m.groupIndex === "number") {
+      bindGroupSource(m.groupIndex, p);
+    }
     applyToolbarAndImportState();
     syncRunAffordances();
+    // Which problem the keybindings act on, and which results are another file's, follow the editor.
+    syncActiveProblemTitle();
+    if (incrementalDomReady()) {
+      syncMultiGroupHeadersFromState();
+    } else {
+      render();
+    }
   }
 
   /**
@@ -663,6 +745,42 @@
 
   function totalCaseCount() {
     return groups.reduce((n, g) => n + g.cases.length, 0);
+  }
+
+  /**
+   * Problem the run keybindings act on: the first one bound to the file a run would compile, then
+   * the first unbound one (which that run claims), then the first in the list. Position is only
+   * the tie-breaker - a source file drives its own problem wherever it sits.
+   */
+  function shortcutTargetGroup() {
+    if (activeSourcePath !== "") {
+      const bound = groups.findIndex(
+        (g) => (g.source ?? "") === activeSourcePath,
+      );
+      if (bound >= 0) {
+        return bound;
+      }
+      const free = groups.findIndex((g) => (g.source ?? "") === "");
+      if (free >= 0) {
+        return free;
+      }
+    }
+    return 0;
+  }
+
+  /**
+   * Remember which file a problem is being solved in. Every run does this, so pointing a problem
+   * at another file is just running that problem once from its own header.
+   * @param {number} gi
+   * @param {string} file
+   */
+  function bindGroupSource(gi, file) {
+    const g = groups[gi];
+    if (!g || file === "" || (g.source ?? "") === file) {
+      return;
+    }
+    g.source = file;
+    persist();
   }
 
   /**
@@ -977,12 +1095,13 @@
   }
 
   /**
-   * The list is ordered by arrival and the first problem is the one being solved: it owns the
-   * title and the run shortcuts, and the next problem inherits both when it is deleted.
+   * Names the problem the keybindings would run, so the title says where the next ctrl+enter goes.
    */
   function syncActiveProblemTitle() {
     const hasProblem = groups.length > 0 && !isNoProblemsPlaceholder();
-    updateImportProblemTitle(hasProblem ? groupDisplayLabel(0) : "");
+    updateImportProblemTitle(
+      hasProblem ? groupDisplayLabel(shortcutTargetGroup()) : "",
+    );
   }
 
   /**
@@ -1276,6 +1395,7 @@
 
   function syncMultiGroupHeadersFromState() {
     const busy = runState.active;
+    const activeGi = shortcutTargetGroup();
     groups.forEach((group, gi) => {
       const wrap = listEl.querySelector(
         `li.case-group-wrap[data-cp-gi="${gi}"]`,
@@ -1283,25 +1403,12 @@
       if (!wrap) {
         return;
       }
-      const gs = lastRunAllSummaryByGroup[gi];
-      wrap.classList.remove("case-group-wrap--ac", "case-group-wrap--wa");
+      wrap.classList.toggle("case-group-wrap--active", gi === activeGi);
       // Only the running group's summary is cleared in state; keep other groups' AC/WA + n/m visible.
-      if (gs && gs.total > 0) {
-        wrap.classList.add(
-          gs.passed === gs.total
-            ? "case-group-wrap--ac"
-            : "case-group-wrap--wa",
-        );
-      }
       const sumEl = wrap.querySelector(".case-group-passed");
-      if (sumEl) {
-        if (gs && gs.total > 0) {
-          sumEl.textContent = `${gs.passed}/${gs.total}`;
-          sumEl.title = `${gs.passed} of ${gs.total} passed in this problem`;
-        } else {
-          sumEl.textContent = "";
-          sumEl.removeAttribute("title");
-        }
+      const srcEl = wrap.querySelector(".case-group-src");
+      if (sumEl && srcEl) {
+        paintGroupResults(wrap, sumEl, srcEl, gi);
       }
       const grpStatus = wrap.querySelector(".case-group-run-status");
       if (grpStatus) {
@@ -1466,24 +1573,17 @@
     // The empty bucket has no problem behind it: an empty header with a Run button on it reads as
     // a problem that failed to import, so the empty state is the "custom group" row alone.
     const rendered = isNoProblemsPlaceholder() ? [] : groups;
+    const activeGi = shortcutTargetGroup();
 
     rendered.forEach((group, gi) => {
       const wrap = document.createElement("li");
       wrap.className = "case-group-wrap";
       wrap.setAttribute("data-cp-gi", String(gi));
+      wrap.classList.toggle("case-group-wrap--active", gi === activeGi);
 
       wrap.classList.add("case-group-wrap--panel");
       const gid = String(group.id ?? gi);
       const panelId = `case-group-panel-${gi}`;
-      const gs = lastRunAllSummaryByGroup[gi];
-      wrap.classList.remove("case-group-wrap--ac", "case-group-wrap--wa");
-      if (gs && gs.total > 0) {
-        wrap.classList.add(
-          gs.passed === gs.total
-            ? "case-group-wrap--ac"
-            : "case-group-wrap--wa",
-        );
-      }
 
       const ghead = document.createElement("div");
       ghead.className = "case-group-head";
@@ -1538,12 +1638,9 @@
 
       const sumEl = document.createElement("span");
       sumEl.className = "case-group-passed";
-      if (gs && gs.total > 0) {
-        sumEl.textContent = `${gs.passed}/${gs.total}`;
-        sumEl.title = `${gs.passed} of ${gs.total} passed in this problem`;
-      } else {
-        sumEl.textContent = "";
-      }
+      const srcEl = document.createElement("span");
+      srcEl.className = "case-group-src meta-chip";
+      paintGroupResults(wrap, sumEl, srcEl, gi);
       ghead.appendChild(sumEl);
 
       const grpStatus = document.createElement("span");
@@ -1566,6 +1663,7 @@
         grpStatus.hidden = true;
       }
       ghead.appendChild(grpStatus);
+      ghead.appendChild(srcEl);
 
       const groupName = (group.label ?? "").trim() || `group ${gi + 1}`;
       [false, true].forEach((local) => {
@@ -2135,27 +2233,27 @@
   }
 
   /**
-   * Run every sample of the first problem. The keybindings always mean that one; the problems
-   * below it run from the buttons in their own headers.
+   * Run every sample of the problem the editor's file belongs to (see `shortcutTargetGroup`).
    * @param {boolean} [defineLocal] compile with `localCompileCommand` instead of `compileCommand`
    */
   function triggerRunAll(defineLocal) {
     hideErr();
     ensureDefaultGroup();
-    startRunAllForGroup(0, defineLocal === true);
+    startRunAllForGroup(shortcutTargetGroup(), defineLocal === true);
   }
 
   /**
-   * Run first row of first problem group (sample index 0). No-op if group 0 has no cases;
+   * Run the first row of that same problem (sample index 0). No-op when it has no cases;
    * while a run is in flight this restarts, replacing it.
    * @param {boolean} [defineLocal] compile with `localCompileCommand` instead of `compileCommand`
    */
   function triggerRunFirst(defineLocal) {
     hideErr();
     ensureDefaultGroup();
-    const g0 = groups[0];
-    if (!g0 || g0.cases.length === 0) return;
-    runState = { active: true, mode: "one", phase: "run", groupIndex: 0, index: 0, total: 1 };
+    const gi = shortcutTargetGroup();
+    const g = groups[gi];
+    if (!g || g.cases.length === 0) return;
+    runState = { active: true, mode: "one", phase: "run", groupIndex: gi, index: 0, total: 1 };
     if (incrementalDomReady()) {
       refreshIncrementalRunUi();
     } else {
@@ -2163,9 +2261,9 @@
     }
     vscode.postMessage({
       type: "runOne",
-      groupIndex: 0,
+      groupIndex: gi,
       index: 0,
-      case: g0.cases[0],
+      case: g.cases[0],
       defineLocal: defineLocal === true,
     });
   }
@@ -2263,6 +2361,9 @@
           }
           if (typeof g.url === "string" && g.url !== "") {
             out.url = g.url;
+          }
+          if (typeof g.source === "string" && g.source !== "") {
+            out.source = g.source;
           }
           return out;
         });
@@ -2403,7 +2504,9 @@
         if (lastRun[rk(gi, i)]?.verdict === "AC") passed++;
       }
       lastRunAllSummaryByGroup[gi] =
-        n > 0 ? { passed, total: n } : undefined;
+        n > 0
+          ? { passed, total: n, file: typeof m.file === "string" ? m.file : "" }
+          : undefined;
       if (incrementalDomReady()) {
         refreshIncrementalRunUi();
       } else {
