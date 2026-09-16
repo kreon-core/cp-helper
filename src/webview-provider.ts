@@ -4,7 +4,6 @@ import {
   RUN_TAKEOVER_POLL_MS,
   RUN_TAKEOVER_TIMEOUT_MS,
   VIEW_TYPE_SAMPLES,
-  WORKSPACE_KEY_IMPORT_PROBLEM,
 } from "./constants";
 import {
   coerceTimeLimitMs,
@@ -87,8 +86,8 @@ export class CpHelperViewProvider
   /** True once the current webview document has asked for `restore`, i.e. its case list is filled. */
   private webviewReady = false;
 
-  /** Run shortcut asked for before the webview was ready; posted with the `restore` reply. */
-  private pendingRunShortcut: RunShortcut | undefined;
+  /** Run request made before the webview was ready; posted with the `restore` reply. */
+  private pendingRunMessage: Record<string, unknown> | undefined;
 
   /**
    * Bumped by every Run click. A run whose token is stale has been superseded and must stay
@@ -227,35 +226,36 @@ export class CpHelperViewProvider
    * @param type webview message to deliver
    */
   requestRunShortcut(type: RunShortcut): void {
-    this.pendingRunShortcut = undefined;
+    this.queueRunMessage({ type });
+  }
+
+  /**
+   * Run every sample of one group, whatever its position in the list. The run shortcuts always
+   * mean the first group, so an import that lands further down needs its own request.
+   * @param groupIndex index in the list as just persisted
+   */
+  requestRunGroup(groupIndex: number, defineLocal: boolean): void {
+    this.queueRunMessage({ type: "runGroupAll", groupIndex, defineLocal });
+  }
+
+  private queueRunMessage(message: Record<string, unknown>): void {
+    this.pendingRunMessage = undefined;
     if (this.webviewReady && this.webviewView) {
-      void this.webviewView.webview.postMessage({ type });
+      void this.webviewView.webview.postMessage(message);
       return;
     }
-    this.pendingRunShortcut = type;
+    this.pendingRunMessage = message;
   }
 
   /**
    * Push case groups into the Samples list (IMPORT textarea unchanged - for manual paste + Load only).
    */
-  applyGroupsToWebview(
-    groups: CaseGroup[],
-    importProblem?: string | null,
-  ): void {
-    const wv = this.webviewView?.webview;
-    if (!wv) {
-      return;
-    }
-    const msg: {
-      type: "cases";
-      groups: CaseGroup[];
-      submitTargets: (string | null)[];
-      importProblem?: string | null;
-    } = { type: "cases", groups, submitTargets: submitTargetTitles(groups) };
-    if (importProblem !== undefined) {
-      msg.importProblem = importProblem;
-    }
-    wv.postMessage(msg);
+  applyGroupsToWebview(groups: CaseGroup[]): void {
+    this.webviewView?.webview.postMessage({
+      type: "cases",
+      groups,
+      submitTargets: submitTargetTitles(groups),
+    });
   }
 
   /**
@@ -349,7 +349,7 @@ export class CpHelperViewProvider
       configListener.dispose();
       this.webviewView = undefined;
       this.webviewReady = false;
-      this.pendingRunShortcut = undefined;
+      this.pendingRunMessage = undefined;
       void vscode.commands.executeCommand(
         "setContext",
         CONTEXT_SAMPLES_FOCUS,
@@ -408,23 +408,18 @@ export class CpHelperViewProvider
           const groups = wsFolder
             ? await loadCaseGroupsFromFile(this.ctx.workspaceState, wsFolder)
             : loadCaseGroups(this.ctx.workspaceState);
-          const importProblem =
-            this.ctx.workspaceState.get<string | null | undefined>(
-              WORKSPACE_KEY_IMPORT_PROBLEM,
-            ) ?? null;
           webviewView.webview.postMessage({
             type: "cases",
             groups,
             submitTargets: submitTargetTitles(groups),
-            importProblem,
           });
           postActiveSourceHint(webviewView.webview);
           this.postSubmitBridgeState();
           this.webviewReady = true;
-          const pending = this.pendingRunShortcut;
-          this.pendingRunShortcut = undefined;
+          const pending = this.pendingRunMessage;
+          this.pendingRunMessage = undefined;
           if (pending) {
-            webviewView.webview.postMessage({ type: pending });
+            webviewView.webview.postMessage(pending);
           }
           break;
         }
@@ -451,16 +446,6 @@ export class CpHelperViewProvider
             type: "submitTargets",
             targets: submitTargetTitles(groupsToSave),
           });
-          if (msg.clearImportProblem === true) {
-            await this.ctx.workspaceState.update(
-              WORKSPACE_KEY_IMPORT_PROBLEM,
-              null,
-            );
-            webviewView.webview.postMessage({
-              type: "importProblem",
-              label: null,
-            });
-          }
           break;
         }
         case "exportCases": {

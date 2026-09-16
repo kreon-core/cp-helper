@@ -82,7 +82,7 @@ export async function activate(
   };
 
   const importAndReveal = async (body: string): Promise<void> => {
-    const { groupCount } = await importSamplesFromJsonText(
+    const { imported } = await importSamplesFromJsonText(
       context,
       provider,
       body,
@@ -91,8 +91,8 @@ export async function activate(
       vscode.workspace
         .getConfiguration("cp-helper")
         .get<boolean>("instantRunAllOnLocalImport") !== false;
-    if (instantRun && groupCount === 1) {
-      provider.requestRunShortcut("shortcutRunAll");
+    if (instantRun && imported.length === 1) {
+      provider.requestRunGroup(imported[0], false);
     }
     try {
       await revealSamplesAndFocus();

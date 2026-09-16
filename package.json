@@ -42,22 +42,22 @@
       },
       {
         "command": "cpHelper.runFirstSample",
-        "title": "Run First Sample",
+        "title": "Run First Sample of First Problem",
         "category": "CP Helper"
       },
       {
         "command": "cpHelper.runFirstSampleLocal",
-        "title": "Run First Sample (LOCAL build)",
+        "title": "Run First Sample of First Problem (LOCAL build)",
         "category": "CP Helper"
       },
       {
         "command": "cpHelper.runAllSamples",
-        "title": "Run All Samples",
+        "title": "Run All Samples of First Problem",
         "category": "CP Helper"
       },
       {
         "command": "cpHelper.runAllSamplesLocal",
-        "title": "Run All Samples (LOCAL build)",
+        "title": "Run All Samples of First Problem (LOCAL build)",
         "category": "CP Helper"
       },
       {
@@ -164,7 +164,7 @@
           "type": "number",
           "default": 0,
           "minimum": 0,
-          "description": "Samples Run all executes at once. 0 auto-sizes to the CPU count (capped at 8, one core left for the editor). Set 1 for strictly sequential runs when per-sample timings must be comparable."
+          "description": "Samples a problem's Run all executes at once. 0 auto-sizes to the CPU count (capped at 8, one core left for the editor). Set 1 for strictly sequential runs when per-sample timings must be comparable."
         },
         "cp-helper.floatAbsEpsilon": {
           "type": "number",
@@ -204,7 +204,7 @@
         "cp-helper.instantRunAllOnLocalImport": {
           "type": "boolean",
           "default": true,
-          "description": "When samples arrive via local POST /import (e.g. OJ Sync): after import, start Run all only if the payload normalizes to a single problem group (e.g. one AtCoder task or one Codeforces problem). Multi-group imports (e.g. full contest dump) do not auto-run."
+          "description": "When samples arrive via local POST /import (e.g. OJ Sync): after import, run the problem that was just synced, wherever it landed in the list. Only fires for single-problem payloads (e.g. one AtCoder task or one Codeforces problem); multi-problem imports (e.g. full contest dump) do not auto-run."
         },
         "cp-helper.trimOutput": {
           "type": "boolean",

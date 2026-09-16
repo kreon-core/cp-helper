@@ -4,6 +4,15 @@ All notable changes to CP Helper are documented in this file.
 
 Versioning from 1.0.0 follows SemVer: MAJOR.MINOR.PATCH.
 
+## [Unreleased]
+
+### Changed
+- The Samples view holds one group per problem and imports add to it. An OJ Sync import, the Load button, and the clipboard command all append the problem they carry and refresh one that is already in the list (matched on the problem URL, falling back to the label), instead of replacing everything on screen. A contest can be synced problem by problem without losing what is already imported.
+- The first group is the active problem. The run keybindings (`ctrl+'`, `ctrl+enter`, and their LOCAL twins) run that group alone rather than sweeping every imported problem, and the title above the list follows its name. Deleting it hands both to the next problem.
+- Running and submitting are per-problem actions and live in the problem headers. Run all, Run all LOCAL, and Submit are gone from the toolbar, which keeps only the import, Stop, Clear, and Export controls; the submit stage and verdict now show in the header of the problem they belong to.
+- Every problem gets a header, including a single unnamed one, so its run, submit, add-case, and delete buttons are always in the same place. An import with no problem name reads as `Group N`.
+- `cp-helper.instantRunAllOnLocalImport` runs the problem that was just synced, wherever it landed in the list, instead of only firing when the import left exactly one group.
+
 ## [1.1.0] - 2026-09-15
 
 ### Added
