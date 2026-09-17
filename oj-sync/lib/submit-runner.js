@@ -23,6 +23,22 @@ let claimChain = Promise.resolve();
 const TAB_LOAD_TIMEOUT_MS = 30000;
 
 /**
+ * Ceiling on one `executeScript` round trip. A tab that has stopped answering - wedged on an
+ * interstitial, discarded, mid-navigation - would otherwise leave the job parked on whatever
+ * stage it reached, with nothing in VS Code but a status chip that never moves.
+ */
+const IN_PAGE_TIMEOUT_MS = 20000;
+
+/** The submit call carries the driver's own anti-bot wait and the POST, so it gets longer. */
+const IN_PAGE_SUBMIT_TIMEOUT_MS = 45000;
+
+/** Claims are serialized, so one that hangs would park every later submit too. */
+const CLAIM_TIMEOUT_MS = 15000;
+
+/** Tabs that stopped answering. Never reused: whatever wedged them is still there. */
+const wedgedTabs = new Set();
+
+/**
  * How long an anti-bot widget gets to clear itself while its tab is still in the background.
  * After this the tab is brought forward, since a hidden tab may never finish the challenge.
  */
@@ -31,12 +47,56 @@ const ANTI_BOT_BACKGROUND_MS = 2500;
 /** Gap between status-page reads while the judge is still running the submission. */
 const POLL_INTERVAL_MS = 2000;
 
+/** Once a submission has been judging this long its verdict is not imminent, so reads slow down. */
+const POLL_SLOW_AFTER_MS = 20000;
+
+/** Gap between status-page reads past `POLL_SLOW_AFTER_MS`. */
+const POLL_SLOW_INTERVAL_MS = 5000;
+
+/**
+ * One polling loop per status page, keyed by its URL. Both judges list every problem of a contest
+ * on a single page, so problems submitted together are followed by one read per cycle instead of
+ * one each - which is what keeps a contest's worth of concurrent submits off the judge's rate
+ * limiter.
+ * @type {Map<string, { subs: Set<any>; running: boolean }>}
+ */
+const pollers = new Map();
+
 /**
  * @param {number} ms
  * @returns {Promise<void>}
  */
 function delay(ms) {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * @template T
+ * @param {Promise<T>} work
+ * @param {number} ms
+ * @param {string} what subject of the error message, e.g. `The judge's tab`
+ * @returns {Promise<T>}
+ */
+function withTimeout(work, ms, what) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const e = new Error(
+        `${what} stopped answering after ${Math.round(ms / 1000)}s. Check the tab it opened on the judge.`,
+      );
+      e.name = "OjSyncTimeout";
+      reject(e);
+    }, ms);
+    work.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
 }
 
 /**
@@ -109,7 +169,7 @@ async function claimTab(submitUrl) {
   );
   const alive = [];
   for (const id of pool) {
-    if (await getTab(id)) {
+    if (!wedgedTabs.has(id) && (await getTab(id))) {
       alive.push(id);
     }
   }
@@ -122,7 +182,12 @@ async function claimTab(submitUrl) {
     tabId = created.id;
     alive.push(tabId);
   } else {
-    await chrome.tabs.update(tabId, { url: submitUrl });
+    const tab = await getTab(tabId);
+    // Re-navigating a tab that is already on this exact page throws away an anti-bot token the
+    // user just cleared by hand, which is what "clear it there, then submit again" asks them to do.
+    if (!tab || (tab.url ?? "") !== submitUrl) {
+      await chrome.tabs.update(tabId, { url: submitUrl });
+    }
   }
   busyTabs.add(tabId);
   await chrome.storage.session.set({ [TAB_KEY]: alive });
@@ -134,7 +199,9 @@ async function claimTab(submitUrl) {
  * @returns {Promise<number>} id of a tab sitting on `submitUrl`
  */
 async function acquireTab(submitUrl) {
-  const claim = claimChain.then(() => claimTab(submitUrl));
+  const claim = claimChain.then(() =>
+    withTimeout(claimTab(submitUrl), CLAIM_TIMEOUT_MS, "The browser"),
+  );
   claimChain = claim.then(
     () => undefined,
     () => undefined,
@@ -184,18 +251,52 @@ function callVerdictInPage(job) {
 }
 
 /**
+ * Runs in the **tab** (serialized by `executeScript`).
+ * @param {Record<string, unknown>} opts
+ * @returns {unknown}
+ */
+function callVerdictsInPage(opts) {
+  const fn = globalThis.__ojSyncVerdictsInPage;
+  return typeof fn === "function" ? fn(opts) : {};
+}
+
+/**
+ * Every call into a tab goes through here, so a tab that stops answering is recorded once and
+ * kept out of the pool from then on.
+ * @template T
+ * @param {number} tabId
+ * @param {Promise<T>} work
+ * @param {number} timeoutMs
+ * @returns {Promise<T>}
+ */
+async function inTab(tabId, work, timeoutMs) {
+  try {
+    const out = await withTimeout(work, timeoutMs, "The judge's tab");
+    wedgedTabs.delete(tabId);
+    return out;
+  } catch (e) {
+    if (e instanceof Error && e.name === "OjSyncTimeout") {
+      wedgedTabs.add(tabId);
+    }
+    throw e;
+  }
+}
+
+/**
  * @param {number} tabId
  * @param {(job: Record<string, unknown>) => unknown} func
  * @param {Record<string, unknown>} job
+ * @param {number} [timeoutMs]
  * @returns {Promise<any>}
  */
-async function callInPage(tabId, func, job) {
-  const [{ result }] = await chrome.scripting.executeScript({
-    target: { tabId },
-    func,
-    args: [job],
-  });
-  return result;
+async function callInPage(tabId, func, job, timeoutMs = IN_PAGE_TIMEOUT_MS) {
+  const frames = await inTab(
+    tabId,
+    chrome.scripting.executeScript({ target: { tabId }, func, args: [job] }),
+    timeoutMs,
+  );
+  const first = frames ? frames[0] : undefined;
+  return first ? first.result : undefined;
 }
 
 /**
@@ -204,7 +305,11 @@ async function callInPage(tabId, func, job) {
  */
 async function focusTab(tabId) {
   try {
-    const tab = await chrome.tabs.update(tabId, { active: true });
+    const tab = await inTab(
+      tabId,
+      chrome.tabs.update(tabId, { active: true }),
+      IN_PAGE_TIMEOUT_MS,
+    );
     if (tab && tab.windowId !== undefined) {
       await chrome.windows.update(tab.windowId, { focused: true });
     }
@@ -247,16 +352,153 @@ function isAccepted(judge, verdict) {
 }
 
 /**
+ * @param {number} elapsed ms this poller has been running
+ * @returns {number}
+ */
+function pollDelay(elapsed) {
+  return elapsed >= POLL_SLOW_AFTER_MS ? POLL_SLOW_INTERVAL_MS : POLL_INTERVAL_MS;
+}
+
+/**
+ * Read the status page once per cycle and hand each waiting job its own row. The read runs in a
+ * subscriber's tab, and falls back to the others if that one cannot answer.
+ * @param {string} statusUrl
+ * @param {{ subs: Set<any>; running: boolean }} poller
+ * @returns {Promise<void>}
+ */
+async function pollLoop(statusUrl, poller) {
+  const started = Date.now();
+  try {
+    while (poller.subs.size > 0) {
+      await delay(pollDelay(Date.now() - started));
+      const subs = [...poller.subs];
+      if (subs.length === 0) {
+        break;
+      }
+      const problemIds = subs.map((s) => s.problemId);
+      let rows;
+      let failure;
+      for (const s of subs) {
+        try {
+          rows = await callInPage(s.tabId, callVerdictsInPage, {
+            judge: s.judge,
+            statusUrl,
+            problemIds,
+          });
+          failure = undefined;
+          break;
+        } catch (e) {
+          failure = e;
+        }
+      }
+      for (const s of subs) {
+        if (!poller.subs.has(s)) {
+          continue;
+        }
+        s.deliver(rows ? rows[s.problemId] : undefined, failure);
+      }
+    }
+  } finally {
+    poller.running = false;
+    if (pollers.get(statusUrl) === poller && poller.subs.size === 0) {
+      pollers.delete(statusUrl);
+    }
+  }
+}
+
+/**
+ * Follow one problem's verdict on the poller shared by everything on the same status page.
+ * @param {Record<string, any>} job
+ * @param {number} tabId this job's tab, offered to the poller to read the status page in
+ * @param {number} pollFor how long to wait for the verdict to settle
+ * @param {(stage: string, message?: string) => void} onProgress
+ * @returns {Promise<{ verdict?: string; accepted?: boolean; submissionId?: string; submissionUrl?: string; error?: string }>}
+ */
+function watchVerdict(job, tabId, pollFor, onProgress) {
+  const statusUrl = String(job.statusUrl);
+  let poller = pollers.get(statusUrl);
+  if (!poller) {
+    poller = { subs: new Set(), running: false };
+    pollers.set(statusUrl, poller);
+  }
+  const shared = poller;
+  return new Promise((resolve) => {
+    /** @type {{ verdict: string; pending: boolean; submissionId?: string; submissionUrl?: string }} */
+    let last = { verdict: "", pending: true };
+    /**
+     * @param {Record<string, any>} out
+     */
+    const finish = (out) => {
+      clearTimeout(timer);
+      shared.subs.delete(sub);
+      resolve(out);
+    };
+    const sub = {
+      judge: String(job.judge),
+      problemId: String(job.problemId),
+      tabId,
+      /**
+       * @param {{ verdict: string; pending: boolean; submissionId?: string; submissionUrl?: string } | undefined} row
+       * @param {unknown} err
+       */
+      deliver(row, err) {
+        if (err) {
+          finish({
+            error: `Submitted, but the verdict could not be read: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          });
+          return;
+        }
+        if (!row) {
+          return;
+        }
+        last = row;
+        if (row.verdict !== "") {
+          onProgress("judging", row.verdict);
+        }
+        if (!row.pending) {
+          finish({
+            verdict: row.verdict,
+            accepted: isAccepted(String(job.judge), row.verdict),
+            submissionId: row.submissionId,
+            submissionUrl: row.submissionUrl,
+          });
+        }
+      },
+    };
+    const timer = setTimeout(() => {
+      finish({
+        verdict: last.verdict !== "" ? last.verdict : undefined,
+        submissionId: last.submissionId,
+        submissionUrl: last.submissionUrl,
+        error:
+          "Submitted, but the judge was still running it when polling timed out.",
+      });
+    }, pollFor);
+    shared.subs.add(sub);
+    if (!shared.running) {
+      shared.running = true;
+      void pollLoop(statusUrl, shared);
+    }
+  });
+}
+
+/**
  * @param {number} tabId tab already sitting on the job's submit page
  * @param {Record<string, any>} job from CP Helper
  * @param {(stage: string, message?: string) => void} onProgress
  * @returns {Promise<{ submitted: boolean; verdict?: string; accepted?: boolean; submissionId?: string; submissionUrl?: string; error?: string }>}
  */
 async function submitInTab(tabId, job, onProgress) {
-  await chrome.scripting.executeScript({
-    target: { tabId },
-    files: OJ_SYNC_SUBMIT_SCRIPT_PATHS,
-  });
+  await inTab(
+    tabId,
+    chrome.scripting.executeScript({
+      target: { tabId },
+      files: OJ_SYNC_SUBMIT_SCRIPT_PATHS,
+    }),
+    IN_PAGE_TIMEOUT_MS,
+  );
 
   // Newest submission before the POST: the judge's answer is not always classifiable, and a new
   // row appearing for this problem is the only unambiguous proof that one was created.
@@ -281,7 +523,12 @@ async function submitInTab(tabId, job, onProgress) {
   }
 
   onProgress("sending");
-  const sent = await callInPage(tabId, callSubmitInPage, job);
+  const sent = await callInPage(
+    tabId,
+    callSubmitInPage,
+    job,
+    IN_PAGE_SUBMIT_TIMEOUT_MS,
+  );
   if (!sent || sent.submitted !== true) {
     const reason =
       (sent && sent.error) || "The judge did not accept the submission.";
@@ -306,46 +553,8 @@ async function submitInTab(tabId, job, onProgress) {
   }
 
   onProgress("judging");
-  const deadline = Date.now() + pollFor;
-  /** @type {{ verdict: string; pending: boolean; submissionId?: string; submissionUrl?: string }} */
-  let last = { verdict: "", pending: true };
-  while (Date.now() < deadline) {
-    await delay(POLL_INTERVAL_MS);
-    try {
-      last = await callInPage(tabId, callVerdictInPage, job);
-    } catch (e) {
-      return {
-        submitted: true,
-        error: `Submitted, but the verdict could not be read: ${
-          e instanceof Error ? e.message : String(e)
-        }`,
-      };
-    }
-    if (!last) {
-      continue;
-    }
-    if (last.verdict !== "") {
-      onProgress("judging", last.verdict);
-    }
-    if (!last.pending) {
-      return {
-        submitted: true,
-        language,
-        verdict: last.verdict,
-        accepted: isAccepted(String(job.judge), last.verdict),
-        submissionId: last.submissionId,
-        submissionUrl: last.submissionUrl,
-      };
-    }
-  }
-  return {
-    submitted: true,
-    language,
-    verdict: last && last.verdict !== "" ? last.verdict : undefined,
-    submissionId: last ? last.submissionId : undefined,
-    submissionUrl: last ? last.submissionUrl : undefined,
-    error: "Submitted, but the judge was still running it when polling timed out.",
-  };
+  const watched = await watchVerdict(job, tabId, pollFor, onProgress);
+  return { submitted: true, language, ...watched };
 }
 
 /**

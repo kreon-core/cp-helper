@@ -101,16 +101,22 @@
   };
 
   /**
-   * @param {{ problemId: string; statusUrl: string }} job
-   * @returns {Promise<{ verdict: string; pending: boolean; submissionId?: string; submissionUrl?: string }>}
+   * One read of `/submissions/me` answers every task on it, so problems submitted together are
+   * followed with a single fetch per poll rather than one each.
+   * @param {{ statusUrl: string; problemIds: string[] }} opts
+   * @returns {Promise<Record<string, { verdict: string; pending: boolean; submissionId?: string; submissionUrl?: string }>>}
    */
-  ns.verdictAtcoder = async function verdictAtcoder(job) {
-    const doc = await ns.fetchDocument(job.statusUrl);
+  ns.verdictsAtcoder = async function verdictsAtcoder(opts) {
+    const doc = await ns.fetchDocument(opts.statusUrl);
+    const want = new Set(Array.isArray(opts.problemIds) ? opts.problemIds : []);
+    /** @type {Record<string, { verdict: string; pending: boolean; submissionId?: string; submissionUrl?: string }>} */
+    const out = {};
     for (const row of doc.querySelectorAll("tbody tr")) {
       const taskLink = row.querySelector('a[href*="/tasks/"]');
       const href = taskLink ? taskLink.getAttribute("href") ?? "" : "";
       const m = href.match(/\/tasks\/([^/?#]+)/u);
-      if (!m || m[1] !== job.problemId) {
+      // The page lists newest first, so the first row for a task is the one to report.
+      if (!m || !want.has(m[1]) || out[m[1]]) {
         continue;
       }
       const label = row.querySelector("td span.label, td.text-center span");
@@ -118,13 +124,25 @@
       const subLink = row.querySelector('a[href*="/submissions/"]');
       const subHref = subLink ? subLink.getAttribute("href") ?? "" : "";
       const sid = subHref.match(/\/submissions\/(\d+)/u);
-      return {
+      out[m[1]] = {
         verdict,
         pending: verdict === "" || PENDING.test(verdict),
         submissionId: sid ? sid[1] : undefined,
         submissionUrl: subHref ? new URL(subHref, location.origin).toString() : undefined,
       };
     }
-    return { verdict: "", pending: true };
+    return out;
+  };
+
+  /**
+   * @param {{ problemId: string; statusUrl: string }} job
+   * @returns {Promise<{ verdict: string; pending: boolean; submissionId?: string; submissionUrl?: string }>}
+   */
+  ns.verdictAtcoder = async function verdictAtcoder(job) {
+    const rows = await ns.verdictsAtcoder({
+      statusUrl: job.statusUrl,
+      problemIds: [job.problemId],
+    });
+    return rows[job.problemId] ?? { verdict: "", pending: true };
   };
 })(globalThis);
