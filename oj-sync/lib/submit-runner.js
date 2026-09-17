@@ -7,8 +7,17 @@
  */
 import { OJ_SYNC_SUBMIT_SCRIPT_PATHS } from "./inpage/inject-manifest.js";
 
-/** Session-scoped id of the tab reused for submits, so repeat submits do not pile up tabs. */
-const TAB_KEY = "submitTabId";
+/** Session-scoped ids of the tabs reused for submits, so repeat submits do not pile up tabs. */
+const TAB_KEY = "submitTabIds";
+
+/**
+ * Tabs a job is driving right now. Jobs for different problems run at the same time, and a tab
+ * being replayed must not be navigated to another problem underneath it.
+ */
+const busyTabs = new Set();
+
+/** Claims are read-modify-write over the pool, so they are taken one at a time. */
+let claimChain = Promise.resolve();
 
 /** Give up waiting for the submit page to load. */
 const TAB_LOAD_TIMEOUT_MS = 30000;
@@ -88,27 +97,56 @@ async function waitForLoad(tabId, expectedUrl) {
 }
 
 /**
+ * Take a tab out of the pool and point it at `submitUrl`, opening one when every pooled tab is
+ * either gone or already carrying another job.
+ * @param {string} submitUrl
+ * @returns {Promise<number>} id of the claimed tab, marked busy
+ */
+async function claimTab(submitUrl) {
+  const stored = await chrome.storage.session.get({ [TAB_KEY]: [] });
+  const pool = (Array.isArray(stored[TAB_KEY]) ? stored[TAB_KEY] : []).filter(
+    (id) => typeof id === "number",
+  );
+  const alive = [];
+  for (const id of pool) {
+    if (await getTab(id)) {
+      alive.push(id);
+    }
+  }
+  let tabId = alive.find((id) => !busyTabs.has(id));
+  if (tabId === undefined) {
+    const created = await chrome.tabs.create({ url: submitUrl, active: false });
+    if (created.id === undefined) {
+      throw new Error("Could not open a tab on the judge.");
+    }
+    tabId = created.id;
+    alive.push(tabId);
+  } else {
+    await chrome.tabs.update(tabId, { url: submitUrl });
+  }
+  busyTabs.add(tabId);
+  await chrome.storage.session.set({ [TAB_KEY]: alive });
+  return tabId;
+}
+
+/**
  * @param {string} submitUrl
  * @returns {Promise<number>} id of a tab sitting on `submitUrl`
  */
 async function acquireTab(submitUrl) {
-  const stored = await chrome.storage.session.get({ [TAB_KEY]: null });
-  const prevId = stored[TAB_KEY];
-  if (typeof prevId === "number") {
-    const tab = await getTab(prevId);
-    if (tab) {
-      await chrome.tabs.update(prevId, { url: submitUrl });
-      await waitForLoad(prevId, submitUrl);
-      return prevId;
-    }
+  const claim = claimChain.then(() => claimTab(submitUrl));
+  claimChain = claim.then(
+    () => undefined,
+    () => undefined,
+  );
+  const tabId = await claim;
+  try {
+    await waitForLoad(tabId, submitUrl);
+  } catch (e) {
+    busyTabs.delete(tabId);
+    throw e;
   }
-  const created = await chrome.tabs.create({ url: submitUrl, active: false });
-  if (created.id === undefined) {
-    throw new Error("Could not open a tab on the judge.");
-  }
-  await chrome.storage.session.set({ [TAB_KEY]: created.id });
-  await waitForLoad(created.id, submitUrl);
-  return created.id;
+  return tabId;
 }
 
 /**
@@ -209,13 +247,12 @@ function isAccepted(judge, verdict) {
 }
 
 /**
+ * @param {number} tabId tab already sitting on the job's submit page
  * @param {Record<string, any>} job from CP Helper
  * @param {(stage: string, message?: string) => void} onProgress
  * @returns {Promise<{ submitted: boolean; verdict?: string; accepted?: boolean; submissionId?: string; submissionUrl?: string; error?: string }>}
  */
-export async function runSubmitJob(job, onProgress) {
-  onProgress("opening judge");
-  const tabId = await acquireTab(String(job.submitUrl));
+async function submitInTab(tabId, job, onProgress) {
   await chrome.scripting.executeScript({
     target: { tabId },
     files: OJ_SYNC_SUBMIT_SCRIPT_PATHS,
@@ -309,4 +346,19 @@ export async function runSubmitJob(job, onProgress) {
     submissionUrl: last ? last.submissionUrl : undefined,
     error: "Submitted, but the judge was still running it when polling timed out.",
   };
+}
+
+/**
+ * @param {Record<string, any>} job from CP Helper
+ * @param {(stage: string, message?: string) => void} onProgress
+ * @returns {Promise<{ submitted: boolean; verdict?: string; accepted?: boolean; submissionId?: string; submissionUrl?: string; error?: string }>}
+ */
+export async function runSubmitJob(job, onProgress) {
+  onProgress("opening judge");
+  const tabId = await acquireTab(String(job.submitUrl));
+  try {
+    return await submitInTab(tabId, job, onProgress);
+  } finally {
+    busyTabs.delete(tabId);
+  }
 }

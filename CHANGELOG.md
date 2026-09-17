@@ -14,6 +14,7 @@ Versioning from 1.0.0 follows SemVer: MAJOR.MINOR.PATCH.
 - Every problem gets a header, including a single unnamed one, so its run, submit, add-case, and delete buttons are always in the same place. An import with no problem name reads as `Group N`.
 - A problem header names the source it is bound to, using the same readout the toolbar carries for the run target - file icon, dimmed parent folder, file name. It is highlighted on the problem whose source is the file in the editor and muted on the rest, so the whole file-to-problem map is readable at a glance. It follows the binding rather than the last Run all, so running a single sample sets it too, and a muted header also drops its `n/m` green/red tint: a leftover `3/3` can no longer be read as the verdict for the file now open.
 - `cp-helper.instantRunAllOnLocalImport` runs the problem that was just synced, wherever it landed in the list, instead of only firing when the import left exactly one group.
+- Submits run per problem rather than one at a time. Sending A no longer greys out B's Submit button: only the problem already in flight refuses a second click, so a whole contest can be sent while the first verdicts are still being judged. OJ Sync backs this with a pool of submit tabs - a tab is reserved for the job replaying the form in it and handed back when the verdict settles, so a second job opens its own tab instead of navigating the first one away mid-submit. The tabs are still reused, so repeat submits do not pile them up.
 
 ## [1.1.0] - 2026-09-15
 
