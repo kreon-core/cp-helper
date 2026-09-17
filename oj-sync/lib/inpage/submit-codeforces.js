@@ -23,35 +23,49 @@
   }
 
   /**
-   * @param {Document} doc
-   * @param {string} index problem letter
-   * @returns {{ id: string; url: string; verdict: string; pending: boolean } | null}
+   * @param {Element} row
+   * @returns {{ id: string; url: string; verdict: string; pending: boolean }}
    */
-  function newestRow(doc, index) {
-    const rows = doc.querySelectorAll("tr[data-submission-id]");
-    for (const row of rows) {
+  function readRow(row) {
+    const id = row.getAttribute("data-submission-id") ?? "";
+    const cell = row.querySelector(".status-cell");
+    const verdict = (cell ? cell.textContent ?? "" : "").trim();
+    const waiting =
+      (cell && cell.getAttribute("waiting") === "true") ||
+      verdict === "" ||
+      PENDING.test(verdict);
+    const base = location.pathname.split("/").slice(0, 3).join("/");
+    return {
+      id,
+      url: `${location.origin}${base}/submission/${id}`,
+      verdict,
+      pending: waiting,
+    };
+  }
+
+  /**
+   * Newest row per problem, from one read of the status page.
+   * @param {Document} doc
+   * @param {string[]} indexes problem letters
+   * @returns {Record<string, { id: string; url: string; verdict: string; pending: boolean }>}
+   */
+  function newestRows(doc, indexes) {
+    /** @type {Record<string, { id: string; url: string; verdict: string; pending: boolean }>} */
+    const out = {};
+    for (const row of doc.querySelectorAll("tr[data-submission-id]")) {
       const link = row.querySelector('a[href*="/problem/"]');
       const href = link ? link.getAttribute("href") ?? "" : "";
       const m = href.match(/\/problem\/([^/?#]+)/u);
-      if (m && decodeURIComponent(m[1]).toUpperCase() !== index.toUpperCase()) {
-        continue;
+      const at = m ? decodeURIComponent(m[1]).toUpperCase() : "";
+      for (const index of indexes) {
+        // A row with no problem link stands for whichever problem is still unanswered: the
+        // single-problem read accepted it the same way.
+        if (!out[index] && (at === "" || at === index.toUpperCase())) {
+          out[index] = readRow(row);
+        }
       }
-      const id = row.getAttribute("data-submission-id") ?? "";
-      const cell = row.querySelector(".status-cell");
-      const verdict = (cell ? cell.textContent ?? "" : "").trim();
-      const waiting =
-        (cell && cell.getAttribute("waiting") === "true") ||
-        verdict === "" ||
-        PENDING.test(verdict);
-      const base = location.pathname.split("/").slice(0, 3).join("/");
-      return {
-        id,
-        url: `${location.origin}${base}/submission/${id}`,
-        verdict,
-        pending: waiting,
-      };
     }
-    return null;
+    return out;
   }
 
   /**
@@ -146,16 +160,35 @@
    * @returns {Promise<{ verdict: string; pending: boolean; submissionId?: string; submissionUrl?: string }>}
    */
   ns.verdictCodeforces = async function verdictCodeforces(job) {
-    const doc = await ns.fetchDocument(job.statusUrl);
-    const row = newestRow(doc, job.problemId);
-    if (!row) {
-      return { verdict: "", pending: true };
+    const rows = await ns.verdictsCodeforces({
+      statusUrl: job.statusUrl,
+      problemIds: [job.problemId],
+    });
+    return rows[job.problemId] ?? { verdict: "", pending: true };
+  };
+
+  /**
+   * One read of the contest's `/my` page answers every problem on it, so problems submitted
+   * together are followed with a single fetch per poll rather than one each.
+   * @param {{ statusUrl: string; problemIds: string[] }} opts
+   * @returns {Promise<Record<string, { verdict: string; pending: boolean; submissionId?: string; submissionUrl?: string }>>}
+   */
+  ns.verdictsCodeforces = async function verdictsCodeforces(opts) {
+    const doc = await ns.fetchDocument(opts.statusUrl);
+    const rows = newestRows(
+      doc,
+      Array.isArray(opts.problemIds) ? opts.problemIds : [],
+    );
+    /** @type {Record<string, { verdict: string; pending: boolean; submissionId?: string; submissionUrl?: string }>} */
+    const out = {};
+    for (const index of Object.keys(rows)) {
+      out[index] = {
+        verdict: rows[index].verdict,
+        pending: rows[index].pending,
+        submissionId: rows[index].id,
+        submissionUrl: rows[index].url,
+      };
     }
-    return {
-      verdict: row.verdict,
-      pending: row.pending,
-      submissionId: row.id,
-      submissionUrl: row.url,
-    };
+    return out;
   };
 })(globalThis);

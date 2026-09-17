@@ -1180,6 +1180,8 @@
   /**
    * Codeforces spells its verdicts out in full ("Memory limit exceeded on test 4"), which does not
    * fit a toolbar. The short form matches the sample chips; the full text stays in the tooltip.
+   * Anything unrecognised passes through, which is what keeps AtCoder's own `WJ` and `19/33`
+   * readouts intact while a submission is still being judged.
    * @param {string} verdict
    * @returns {string}
    */
@@ -1199,6 +1201,8 @@
       [/^partial/iu, "PARTIAL"],
       [/^hacked/iu, "HACKED"],
       [/^skipped/iu, "SKIPPED"],
+      [/^in queue/iu, "queued"],
+      [/^running/iu, "running"],
     ];
     for (const [re, short] of table) {
       if (re.test(v)) {
@@ -2540,7 +2544,12 @@
         submitBusyGroups.add(gi);
         setSubmitStatus(gi, "submitting", "");
       } else if (m.phase === "progress") {
-        setSubmitStatus(gi, String(m.stage ?? "working"), "");
+        const live = typeof m.message === "string" ? m.message.trim() : "";
+        if (live !== "") {
+          setSubmitStatus(gi, shortVerdict(live), "", live);
+        } else {
+          setSubmitStatus(gi, String(m.stage ?? "working"), "");
+        }
       } else if (m.phase === "done") {
         submitBusyGroups.delete(gi);
         if (m.cancelled === true) {

@@ -44,6 +44,22 @@
   };
 
   /**
+   * Reads several problems off one status page, for jobs sharing a poller.
+   * @param {{ judge: string; statusUrl: string; problemIds: string[] }} opts
+   * @returns {Promise<Record<string, { verdict: string; pending: boolean; submissionId?: string; submissionUrl?: string }>>}
+   */
+  g.__ojSyncVerdictsInPage = async function __ojSyncVerdictsInPage(opts) {
+    const judge = judgeOf(opts);
+    if (judge === "atcoder") {
+      return ns.verdictsAtcoder(opts);
+    }
+    if (judge === "codeforces") {
+      return ns.verdictsCodeforces(opts);
+    }
+    return {};
+  };
+
+  /**
    * @param {Record<string, any>} job
    * @returns {Promise<{ verdict: string; pending: boolean; submissionId?: string; submissionUrl?: string }>}
    */
