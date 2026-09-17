@@ -99,8 +99,11 @@ export class CpHelperViewProvider
   /** Submit bridge, once `activate` has built it. */
   private submitBridge: SubmitBridge | undefined;
 
-  /** Guards against a second Submit click while one is still in flight. */
-  private submitInFlight = false;
+  /**
+   * Ids of the problems with a submit in flight. Problems submit independently of each other;
+   * only a second Submit on the same one is turned away.
+   */
+  private readonly submitInFlight = new Set<string>();
 
   constructor(
     private readonly extUri: vscode.Uri,
@@ -521,18 +524,19 @@ export class CpHelperViewProvider
             postSubmitState({ phase: "done", error: "Submit bridge is disabled." });
             break;
           }
-          if (this.submitInFlight) {
-            postSubmitState({
-              phase: "done",
-              error: "A submit is already in progress.",
-            });
-            break;
-          }
           const wsFolderSubmit = vscode.workspace.workspaceFolders?.[0]?.uri;
           const submitGroups = wsFolderSubmit
             ? await loadCaseGroupsFromFile(this.ctx.workspaceState, wsFolderSubmit)
             : loadCaseGroups(this.ctx.workspaceState);
-          this.submitInFlight = true;
+          const submitKey = String(submitGroups[groupIndex]?.id ?? `#${groupIndex}`);
+          if (this.submitInFlight.has(submitKey)) {
+            postSubmitState({
+              phase: "done",
+              error: "This problem already has a submit in progress.",
+            });
+            break;
+          }
+          this.submitInFlight.add(submitKey);
           postSubmitState({ phase: "start", stage: "preparing" });
           try {
             const result = await submitActiveSource(
@@ -573,7 +577,7 @@ export class CpHelperViewProvider
               );
             }
           } finally {
-            this.submitInFlight = false;
+            this.submitInFlight.delete(submitKey);
           }
           break;
         }

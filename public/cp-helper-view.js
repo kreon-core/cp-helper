@@ -67,8 +67,8 @@
   /** Submit target title per group index from the host; `null` where the group cannot be submitted. */
   let submitTargets = [];
 
-  /** Group index of the submit in flight, or -1 when idle. */
-  let submitBusyGroup = -1;
+  /** Group indexes with a submit in flight; problems submit independently of each other. */
+  let submitBusyGroups = new Set();
 
   /**
    * Latest submit outcome per group, keyed by group id so it survives the reindexing a group
@@ -1281,8 +1281,8 @@
     if (!submitBridgeConnected) {
       return 'OJ Sync is not connected - run "CP Helper: Copy Submit Bridge URL" and paste it into the OJ Sync options page';
     }
-    if (submitBusyGroup >= 0) {
-      return "A submit is already in progress";
+    if (submitBusyGroups.has(gi)) {
+      return "A submit for this problem is already in progress";
     }
     if (!sourceRunnable) {
       return NEEDS_CPP_HINT;
@@ -1308,7 +1308,7 @@
       return;
     }
     hideErr();
-    submitBusyGroup = gi;
+    submitBusyGroups.add(gi);
     setSubmitStatus(gi, "submitting", "");
     applySubmitButtonsState();
     vscode.postMessage({ type: "submit", groupIndex: gi });
@@ -2000,11 +2000,12 @@
       (k) => delete lastRunAllSummaryByGroup[k],
     );
     Object.assign(lastRunAllSummaryByGroup, sumNext);
-    if (submitBusyGroup === removedGi) {
-      submitBusyGroup = -1;
-    } else if (submitBusyGroup > removedGi) {
-      submitBusyGroup -= 1;
-    }
+    const busyNext = new Set();
+    submitBusyGroups.forEach((g) => {
+      if (g === removedGi) return;
+      busyNext.add(g > removedGi ? g - 1 : g);
+    });
+    submitBusyGroups = busyNext;
   }
 
   function reindexLastRunAfterCaseRemove(gi, removedCi) {
@@ -2531,14 +2532,17 @@
       return;
     }
     if (m.type === "submitState") {
-      const gi = typeof m.groupIndex === "number" ? m.groupIndex : submitBusyGroup;
+      const gi = typeof m.groupIndex === "number" ? m.groupIndex : -1;
+      if (gi < 0) {
+        return;
+      }
       if (m.phase === "start") {
-        submitBusyGroup = gi;
+        submitBusyGroups.add(gi);
         setSubmitStatus(gi, "submitting", "");
       } else if (m.phase === "progress") {
         setSubmitStatus(gi, String(m.stage ?? "working"), "");
       } else if (m.phase === "done") {
-        submitBusyGroup = -1;
+        submitBusyGroups.delete(gi);
         if (m.cancelled === true) {
           setSubmitStatus(gi, "", "");
         } else if (typeof m.error === "string" && m.error !== "") {
