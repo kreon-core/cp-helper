@@ -1186,9 +1186,7 @@
    * @returns {string}
    */
   function shortVerdict(verdict) {
-    const v = verdict.trim();
-    const onTest = v.match(/\bon test (\d+)/iu);
-    const suffix = onTest ? ` #${onTest[1]}` : "";
+    const v = verdict.trim().replace(/^\d+\s*\/\s*\d+\s+/u, "");
     const table = [
       [/^accepted|^happy new year|^ok\b/iu, "AC"],
       [/^wrong answer/iu, "WA"],
@@ -1206,7 +1204,7 @@
     ];
     for (const [re, short] of table) {
       if (re.test(v)) {
-        return `${short}${suffix}`;
+        return short;
       }
     }
     return v;

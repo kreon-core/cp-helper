@@ -9,8 +9,8 @@
   /** How long the anti-bot widget gets to clear the visitor by itself before we ask the user. */
   const ANTI_BOT_WAIT_MS = 10000;
 
-  /** Status labels AtCoder shows while a submission is still being judged (incl. "3/10"). */
-  const PENDING = /^(?:wj|wr|waiting|judging|\d+\s*\/\s*\d+)$/iu;
+  /** Status labels AtCoder shows while a submission is still being judged (incl. "3/10 WA"). */
+  const PENDING = /^(?:wj|wr|waiting|judging|\d+\s*\/\s*\d+(?:\s+\S+)?)$/iu;
 
   /**
    * AtCoder renders one language `<select>` per task, all named `data.LanguageId`, and hides the
