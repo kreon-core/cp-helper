@@ -70,7 +70,7 @@ reconnect after a suspend.
 | `lib/constants.js`                 | Default URIs and badge glyph.                                                                          |
 | `lib/badge.js`                     | Toolbar badge flash success / error.                                                                   |
 | `options.js` / `options.html`      | Options page (separate from the service worker).                                                       |
-| `icons/icon.svg`                   | Toolbar / extensions-page icon: faceted white arrow on an orange disc. `icons/icon-*.png` are what the manifest loads. |
+| `icons/icon-256.png`              | Master artwork: white outlined documents with a check badge inside a dashed sync ring, on a transparent background. `icons/icon-*.png` are downscaled from it and are what the manifest loads; 16 is the check badge alone, cropped out of the master, since the full drawing turns to mush at that size. |
 
 The manifest uses **`"type": "module"`** so the service worker can `import` ES modules under **`lib/`**. **Site scrapers** under **`lib/inpage/`** are plain classic scripts (no `import`); Chrome loads them in order via **`scripting.executeScript({ files })`** so each OJ stays in its own file.
 
