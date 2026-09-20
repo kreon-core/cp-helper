@@ -32,11 +32,13 @@ function runExtractSamplesInPage(pageUrl) {
 const BRIDGE_KEEPALIVE_ALARM = "oj-sync-bridge-keepalive";
 
 /**
+ * Called for user-driven moments, so it forces a reconnect even after the client gave up on a
+ * CP Helper that was not listening.
  * @returns {Promise<void>}
  */
 function ensureBridge() {
   chrome.alarms.create(BRIDGE_KEEPALIVE_ALARM, { periodInMinutes: 1 });
-  return connectBridge();
+  return connectBridge({ force: true });
 }
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -110,4 +112,5 @@ chrome.action.onClicked.addListener(async (tab) => {
   }
 });
 
-void ensureBridge();
+chrome.alarms.create(BRIDGE_KEEPALIVE_ALARM, { periodInMinutes: 1 });
+void connectBridge();

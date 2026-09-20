@@ -15,6 +15,37 @@ let socket;
 let retryMs = 1000;
 const RETRY_MAX_MS = 30000;
 
+/**
+ * Chrome logs `ERR_CONNECTION_REFUSED` from the network stack, below anything JS can catch, so an
+ * endless retry loop floods the worker console whenever CP Helper is not running. After this many
+ * failures in a row the client goes dormant and waits for a forced reconnect.
+ */
+const MAX_CONSECUTIVE_FAILURES = 5;
+
+/** Dormancy outlives the service worker, so it lives in session storage rather than a module var. */
+const DORMANT_KEY = "submitBridgeDormant";
+
+let consecutiveFailures = 0;
+
+/**
+ * @returns {Promise<boolean>}
+ */
+async function isDormant() {
+  try {
+    const got = await chrome.storage.session.get(DORMANT_KEY);
+    return got[DORMANT_KEY] === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * @param {boolean} value
+ */
+function setDormant(value) {
+  void chrome.storage.session.set({ [DORMANT_KEY]: value });
+}
+
 /** @type {ReturnType<typeof setTimeout> | undefined} */
 let retryTimer;
 
@@ -60,6 +91,11 @@ async function onJob(raw) {
 
 function scheduleRetry() {
   clearTimeout(retryTimer);
+  consecutiveFailures += 1;
+  if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+    setDormant(true);
+    return;
+  }
   retryTimer = setTimeout(() => {
     void connectBridge();
   }, retryMs);
@@ -68,14 +104,25 @@ function scheduleRetry() {
 
 /**
  * Open the socket if it is not already open. Safe to call repeatedly - the keepalive alarm does.
+ * @param {{ force?: boolean }} [opts] `force` wakes a dormant client; pass it for user-driven
+ * actions (toolbar click, settings change, startup), not for the keepalive alarm.
  * @returns {Promise<void>}
  */
-export async function connectBridge() {
+export async function connectBridge(opts) {
   if (
     socket &&
     (socket.readyState === WebSocket.OPEN ||
       socket.readyState === WebSocket.CONNECTING)
   ) {
+    return;
+  }
+  if (opts?.force) {
+    clearTimeout(retryTimer);
+    retryTimer = undefined;
+    consecutiveFailures = 0;
+    retryMs = 1000;
+    setDormant(false);
+  } else if (await isDormant()) {
     return;
   }
   const s = await getSubmitSettings();
@@ -93,6 +140,8 @@ export async function connectBridge() {
 
   ws.addEventListener("open", () => {
     retryMs = 1000;
+    consecutiveFailures = 0;
+    setDormant(false);
     send({ t: "hello", version: chrome.runtime.getManifest().version });
   });
 
