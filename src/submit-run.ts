@@ -1,3 +1,4 @@
+import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import {
@@ -5,10 +6,7 @@ import {
   SUBMIT_MAX_SOURCE_BYTES,
 } from "./constants";
 import { createCpLogger } from "./log";
-import {
-  ensureSourceSavedBeforeRun,
-  getActiveSourceFilePath,
-} from "./source-hints";
+import { ensureSourceSavedBeforeRun } from "./source-hints";
 import { resolveSubmitTarget, type SubmitJudge } from "./submit-target";
 import type { SubmitBridge, SubmitOutcome, SubmitProgress } from "./submit-bridge";
 import type { CaseGroup } from "./types";
@@ -50,11 +48,13 @@ export interface SubmitRequestResult extends SubmitOutcome {
 }
 
 /**
- * Resolve the problem, confirm with the user, and hand the active C++ file to OJ Sync.
+ * Resolve the problem, confirm with the user, and hand the file linked to that problem to OJ Sync.
+ * The editor in front does not decide what is sent: a problem submits the file its last Run bound
+ * to it, so submitting from a header never uploads another problem's source.
  * @param group the case group whose Submit button was pressed
  * @param onProgress stage updates from the browser, for the Samples view
  */
-export async function submitActiveSource(
+export async function submitGroupSource(
   bridge: SubmitBridge,
   group: CaseGroup | undefined,
   onProgress: (p: SubmitProgress) => void,
@@ -78,11 +78,21 @@ export async function submitActiveSource(
     };
   }
 
-  const resolved = getActiveSourceFilePath();
-  if ("error" in resolved) {
-    return { submitted: false, title: target.title, rejected: resolved.error };
+  const file = (group?.source ?? "").trim();
+  if (file === "") {
+    return {
+      submitted: false,
+      title: target.title,
+      rejected: `${target.title} is not linked to a file - press Run in its header to link the file in the editor.`,
+    };
   }
-  const file = resolved.file;
+  if (!fs.existsSync(file)) {
+    return {
+      submitted: false,
+      title: target.title,
+      rejected: `${path.basename(file)} is linked to ${target.title} but no longer exists - press Run in its header to link the file in the editor.`,
+    };
+  }
   const saved = await ensureSourceSavedBeforeRun(file);
   if ("error" in saved) {
     return { submitted: false, title: target.title, rejected: saved.error };

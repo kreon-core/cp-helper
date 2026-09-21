@@ -24,7 +24,7 @@ import { killActiveShell, runState } from "./run-state";
 import { runAllTestsSharedCompile, runSingleTest } from "./run-tests";
 import { postRunnerLabel } from "./runner-label";
 import type { SubmitBridge } from "./submit-bridge";
-import { submitActiveSource } from "./submit-run";
+import { submitGroupSource } from "./submit-run";
 import { resolveSubmitTarget } from "./submit-target";
 import {
   ensureSourceSavedBeforeRun,
@@ -486,6 +486,32 @@ export class CpHelperViewProvider
           }
           break;
         }
+        case "openSource": {
+          const wanted = typeof msg.path === "string" ? msg.path : "";
+          const wsFolderOpen = vscode.workspace.workspaceFolders?.[0]?.uri;
+          const knownGroups = wsFolderOpen
+            ? await loadCaseGroupsFromFile(this.ctx.workspaceState, wsFolderOpen)
+            : loadCaseGroups(this.ctx.workspaceState);
+          // Only ever open a path a problem is actually bound to, never an arbitrary one.
+          const bound = knownGroups.some((g) => (g.source ?? "") === wanted);
+          if (wanted === "" || !bound) {
+            log.warn(`open source ignored: ${wanted}`);
+            break;
+          }
+          try {
+            const doc = await vscode.workspace.openTextDocument(
+              vscode.Uri.file(wanted),
+            );
+            await vscode.window.showTextDocument(doc, { preview: false });
+          } catch (e) {
+            const errMsg = e instanceof Error ? e.message : String(e);
+            log.error(`open source failed: ${errMsg}`);
+            void vscode.window.showErrorMessage(
+              `CP Helper: Could not open ${wanted} - ${errMsg}`,
+            );
+          }
+          break;
+        }
         case "openSubmission": {
           const raw = typeof msg.url === "string" ? msg.url : "";
           let target: vscode.Uri | undefined;
@@ -539,7 +565,7 @@ export class CpHelperViewProvider
           this.submitInFlight.add(submitKey);
           postSubmitState({ phase: "start", stage: "preparing" });
           try {
-            const result = await submitActiveSource(
+            const result = await submitGroupSource(
               this.submitBridge,
               submitGroups[groupIndex],
               (p) => postSubmitState({ phase: "progress", stage: p.stage, message: p.message }),

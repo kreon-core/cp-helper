@@ -54,6 +54,14 @@
    * editor, so they stay disabled until one is open.
    */
   let sourceRunnable = false;
+  /**
+   * Problem whose run may bind the file it compiles, awaiting that run's source snapshot. A Run
+   * button in a problem header sets it unconditionally - clicking Run is how a file is moved off
+   * the problem that held it. A keybinding sets it only for a problem no file has claimed, so the
+   * keys can adopt a free problem but never take one away from another file.
+   * @type {number | null}
+   */
+  let explicitRunGroup = null;
 
   /** Path a Run would compile right now; it decides which problem the keybindings act on. */
   let activeSourcePath = "";
@@ -583,11 +591,13 @@
     chip.appendChild(label);
     chip.classList.toggle("case-group-src--current", current);
     chip.title = current
-      ? `This problem is bound to ${fullPath}, the file in the editor`
-      : `This problem is bound to ${fullPath}, not the file in the editor`;
+      ? `This problem is bound to ${fullPath}, the file in the editor - click to open it, right-click to unlink it`
+      : `This problem is bound to ${fullPath}, not the file in the editor - click to open it, right-click to unlink it`;
     chip.setAttribute(
       "aria-label",
-      current ? `Bound to ${fullPath}, the open file` : `Bound to ${fullPath}`,
+      current
+        ? `Open ${fullPath}, the open file this problem is bound to`
+        : `Open ${fullPath}, the file this problem is bound to`,
     );
   }
 
@@ -683,7 +693,13 @@
     activeSourceWrapEl.classList.toggle("meta-chip--running", running && !!p);
     sourceRunnable = !!p && cpp;
     activeSourcePath = p ?? "";
-    if (running && p && typeof m.groupIndex === "number") {
+    if (
+      running &&
+      p &&
+      typeof m.groupIndex === "number" &&
+      explicitRunGroup === m.groupIndex
+    ) {
+      explicitRunGroup = null;
       bindGroupSource(m.groupIndex, p);
     }
     applyToolbarAndImportState();
@@ -748,9 +764,12 @@
   }
 
   /**
-   * Problem the run keybindings act on: the first one bound to the file a run would compile, then
-   * the first unbound one (which that run claims), then the first in the list. Position is only
-   * the tie-breaker - a source file drives its own problem wherever it sits.
+   * Problem the run keybindings act on: the one bound to the file a run would compile, else the
+   * first problem no file has claimed. Position is only the tie-breaker - a source file drives its
+   * own problem wherever it sits. Every problem already taken by another file means the keybindings
+   * have no target, since running one of them would compile a file that is not the one it belongs
+   * to; -1 says so, and a Run button in a problem header is what moves a binding.
+   * @returns {number} group index, or -1 when no problem belongs to the file in the editor
    */
   function shortcutTargetGroup() {
     if (activeSourcePath !== "") {
@@ -761,26 +780,63 @@
         return bound;
       }
       const free = groups.findIndex((g) => (g.source ?? "") === "");
-      if (free >= 0) {
-        return free;
-      }
+      return free;
     }
     return 0;
   }
 
+  /** Why a keybinding had nowhere to go: every problem is being solved in some other file. */
+  function unboundSourceHint() {
+    const name = pathToParentAndName(activeSourcePath);
+    return `${name || "This file"} is not linked to a problem, and every problem is linked to another file - press Run in a problem header to move it here`;
+  }
+
   /**
-   * Remember which file a problem is being solved in. Every run does this, so pointing a problem
-   * at another file is just running that problem once from its own header.
+   * Remember which file a problem is being solved in. Only a Run button inside a problem does this,
+   * so a keybinding never moves a binding the user set by hand. A file solves one problem at a
+   * time: binding it here drops it from whichever problem held it before.
    * @param {number} gi
    * @param {string} file
    */
   function bindGroupSource(gi, file) {
     const g = groups[gi];
-    if (!g || file === "" || (g.source ?? "") === file) {
+    if (!g || file === "") {
       return;
     }
-    g.source = file;
+    let changed = false;
+    groups.forEach((other, i) => {
+      if (i !== gi && (other.source ?? "") === file) {
+        delete other.source;
+        changed = true;
+      }
+    });
+    if ((g.source ?? "") !== file) {
+      g.source = file;
+      changed = true;
+    }
+    if (changed) {
+      persist();
+    }
+  }
+
+  /**
+   * Drop a problem's file binding. The chip in the header is the only place a binding is visible,
+   * so right-clicking it is what takes back a binding a stray Run left behind.
+   * @param {number} gi
+   */
+  function unbindGroupSource(gi) {
+    const g = groups[gi];
+    if (!g || (g.source ?? "") === "") {
+      return;
+    }
+    delete g.source;
     persist();
+    if (incrementalDomReady()) {
+      syncMultiGroupHeadersFromState();
+    } else {
+      render();
+    }
+    applySubmitButtonsState();
   }
 
   /**
@@ -1099,20 +1155,23 @@
    */
   function syncActiveProblemTitle() {
     const hasProblem = groups.length > 0 && !isNoProblemsPlaceholder();
+    const gi = hasProblem ? shortcutTargetGroup() : 0;
     updateImportProblemTitle(
-      hasProblem ? groupDisplayLabel(shortcutTargetGroup()) : "",
+      hasProblem && gi >= 0 ? groupDisplayLabel(gi) : "",
+      hasProblem ? "No problem for this file" : "No problem imported",
     );
   }
 
   /**
    * Contest / problem id from OJ Sync (e.g. atcoder/abc451_a).
    * @param {string | null | undefined} label
+   * @param {string} [emptyText] what the title reads when no problem is the keybinding target
    */
-  function updateImportProblemTitle(label) {
+  function updateImportProblemTitle(label, emptyText) {
     const t = typeof label === "string" ? label.trim() : "";
     importProblemTitleEl.classList.toggle("import-problem-title--empty", !t);
     if (!t) {
-      importProblemTitleEl.textContent = "No problem imported";
+      importProblemTitleEl.textContent = emptyText || "No problem imported";
       importProblemTitleEl.removeAttribute("title");
       importProblemTitleEl.setAttribute("aria-label", "Active problem");
     } else {
@@ -1286,8 +1345,8 @@
     if (submitBusyGroups.has(gi)) {
       return "A submit for this problem is already in progress";
     }
-    if (!sourceRunnable) {
-      return NEEDS_CPP_HINT;
+    if ((groups[gi]?.source ?? "") === "") {
+      return "No file is linked to this problem - press Run in its header to link the file in the editor";
     }
     return null;
   }
@@ -1298,12 +1357,13 @@
       const i = Number(btn.dataset.cpGi);
       const r = submitBlockedReason(i);
       btn.disabled = r !== null;
-      btn.title = r ?? `Submit the active file to ${submitTargets[i]}`;
+      const linked = pathToParentAndName(groups[i]?.source ?? "");
+      btn.title = r ?? `Submit ${linked} to ${submitTargets[i]}`;
     });
   }
 
   /**
-   * @param {number} gi group whose problem the active file goes to
+   * @param {number} gi group whose linked file goes to the judge
    */
   function startSubmit(gi) {
     if (gi < 0 || submitBlockedReason(gi) !== null) {
@@ -1640,8 +1700,19 @@
 
       const sumEl = document.createElement("span");
       sumEl.className = "case-group-passed";
-      const srcEl = document.createElement("span");
+      const srcEl = document.createElement("button");
+      srcEl.type = "button";
       srcEl.className = "case-group-src meta-chip";
+      srcEl.addEventListener("click", () => {
+        const path = groups[gi]?.source ?? "";
+        if (path === "") return;
+        vscode.postMessage({ type: "openSource", path });
+      });
+      srcEl.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        if (runState.active) return;
+        unbindGroupSource(gi);
+      });
       paintGroupResults(wrap, sumEl, srcEl, gi);
       ghead.appendChild(sumEl);
 
@@ -1688,6 +1759,7 @@
         btnRunG.disabled = group.cases.length === 0 || !sourceRunnable;
         btnRunG.addEventListener("click", () => {
           hideErr();
+          explicitRunGroup = gi;
           startRunAllForGroup(gi, local);
         });
         ghead.appendChild(btnRunG);
@@ -1827,6 +1899,7 @@
           runOne.appendChild(mkIcon(local ? "local" : "play"));
           runOne.disabled = !sourceRunnable;
           runOne.addEventListener("click", () => {
+            explicitRunGroup = gi;
             delete lastRun[rk(gi, index)];
             runState = { active: true, mode: "one", phase: "run", groupIndex: gi, index, total: 1 };
             if (incrementalDomReady()) {
@@ -2242,7 +2315,15 @@
   function triggerRunAll(defineLocal) {
     hideErr();
     ensureDefaultGroup();
-    startRunAllForGroup(shortcutTargetGroup(), defineLocal === true);
+    const gi = shortcutTargetGroup();
+    if (gi < 0) {
+      showErr(unboundSourceHint());
+      return;
+    }
+    explicitRunGroup = (groups[gi]?.source ?? "") === "" ? gi : null;
+    if (!startRunAllForGroup(gi, defineLocal === true)) {
+      showErr(`${groupDisplayLabel(gi)} has no samples to run`);
+    }
   }
 
   /**
@@ -2254,8 +2335,16 @@
     hideErr();
     ensureDefaultGroup();
     const gi = shortcutTargetGroup();
+    if (gi < 0) {
+      showErr(unboundSourceHint());
+      return;
+    }
+    explicitRunGroup = (groups[gi]?.source ?? "") === "" ? gi : null;
     const g = groups[gi];
-    if (!g || g.cases.length === 0) return;
+    if (!g || g.cases.length === 0) {
+      showErr(`${groupDisplayLabel(gi)} has no samples to run`);
+      return;
+    }
     runState = { active: true, mode: "one", phase: "run", groupIndex: gi, index: 0, total: 1 };
     if (incrementalDomReady()) {
       refreshIncrementalRunUi();
@@ -2291,6 +2380,7 @@
     }
     if (m.type === "runGroupAll") {
       hideErr();
+      explicitRunGroup = null;
       startRunAllForGroup(
         typeof m.groupIndex === "number" ? m.groupIndex : 0,
         m.defineLocal === true,
