@@ -22,6 +22,9 @@
   /** @type {Record<string, boolean>} */
   let caseCollapsed = {};
 
+  /** Pending `persistRunResults` write, so a Run all writes once instead of once per sample. */
+  let saveRunResultsTimer = null;
+
   /** @type {{ active: boolean; mode: "one" | "all" | null; phase: "compile" | "run" | null; groupIndex: number | null; index: number | null; total: number | null }} */
   let runState = {
     active: false,
@@ -602,9 +605,10 @@
   }
 
   /**
-   * Paint a problem's result state onto its header: the Run all count, and the source the problem
-   * is bound to, highlighted while that is the file in the editor and muted otherwise. The source
-   * comes from the binding, not from the count, so running a single sample shows it too.
+   * Paint a problem's result state onto its header: the pass/fail tint, the Run all count, and the
+   * source the problem is bound to, highlighted while that is the file in the editor and muted
+   * otherwise. A single sample tints the header too, but leaves the count off: one case is not a
+   * verdict for the problem. The source comes from the binding, not from the count.
    * @param {HTMLElement} wrap
    * @param {HTMLElement} sumEl
    * @param {HTMLElement} srcEl
@@ -627,6 +631,10 @@
     }
     wrap.classList.toggle("case-group-wrap--ac", gs.passed === gs.total);
     wrap.classList.toggle("case-group-wrap--wa", gs.passed !== gs.total);
+    if (gs.partial) {
+      sumEl.removeAttribute("title");
+      return;
+    }
     sumEl.textContent = `${gs.passed}/${gs.total}`;
     const ran =
       gs.file !== "" ? ` running ${pathToParentAndName(gs.file)}` : "";
@@ -821,7 +829,8 @@
 
   /**
    * Drop a problem's file binding. The chip in the header is the only place a binding is visible,
-   * so right-clicking it is what takes back a binding a stray Run left behind.
+   * so right-clicking it is what takes back a binding a stray Run left behind. The problem's
+   * results go with it: every verdict on screen describes a run of the file just unlinked.
    * @param {number} gi
    */
   function unbindGroupSource(gi) {
@@ -830,6 +839,7 @@
       return;
     }
     delete g.source;
+    purgeLastRunForGroup(gi);
     persist();
     if (incrementalDomReady()) {
       syncMultiGroupHeadersFromState();
@@ -933,6 +943,82 @@
     base.caseCollapsed = { ...caseCollapsed };
     delete base.lastCollapseFingerprint;
     vscode.setState(base);
+  }
+
+  /**
+   * Results as the host stores them: keyed by group id and sample number, so a reload, a reorder
+   * or a re-import of the same problem still lands each result on the row it came from. Index
+   * keys (`rk()`) would not survive any of that.
+   * @returns {Record<string, { summary?: object; cases: Record<string, object> }>}
+   */
+  function snapshotRunResults() {
+    const out = {};
+    groups.forEach((g, gi) => {
+      const gid = String(g?.id ?? "");
+      if (gid === "") {
+        return;
+      }
+      const cases = {};
+      (g.cases ?? []).forEach((c, ci) => {
+        const r = lastRun[rk(gi, ci)];
+        if (r) {
+          cases[String(c?.sample ?? ci + 1)] = r;
+        }
+      });
+      const summary = lastRunAllSummaryByGroup[gi];
+      if (!summary && Object.keys(cases).length === 0) {
+        return;
+      }
+      out[gid] = summary ? { summary, cases } : { cases };
+    });
+    return out;
+  }
+
+  /**
+   * Paint back what a previous session ran. A sample the problem no longer has, or a group id that
+   * is gone, is dropped: the samples are the truth, the results only describe them.
+   * @param {unknown} stored blob from the host, shaped by `snapshotRunResults`
+   */
+  function restoreRunResults(stored) {
+    if (!stored || typeof stored !== "object" || Array.isArray(stored)) {
+      return;
+    }
+    groups.forEach((g, gi) => {
+      const entry = stored[String(g?.id ?? "")];
+      if (!entry || typeof entry !== "object") {
+        return;
+      }
+      const cases = entry.cases;
+      if (cases && typeof cases === "object") {
+        (g.cases ?? []).forEach((c, ci) => {
+          const r = cases[String(c?.sample ?? ci + 1)];
+          if (r && typeof r === "object" && typeof r.badge === "string") {
+            lastRun[rk(gi, ci)] = r;
+          }
+        });
+      }
+      const summary = entry.summary;
+      if (summary && typeof summary === "object" && typeof summary.total === "number") {
+        lastRunAllSummaryByGroup[gi] = summary;
+      }
+    });
+  }
+
+  /**
+   * Hand the results to the host, which keeps them in workspace state. Coalesced, because a Run all
+   * streams one result per sample and only the last one is worth a write.
+   */
+  function persistRunResults() {
+    if (saveRunResultsTimer !== null) {
+      clearTimeout(saveRunResultsTimer);
+    }
+    saveRunResultsTimer = setTimeout(() => {
+      saveRunResultsTimer = null;
+      vscode.postMessage({
+        type: "saveRunResults",
+        results: snapshotRunResults(),
+      });
+    }, 250);
   }
 
   function pruneGroupCollapseState() {
@@ -1190,12 +1276,26 @@
     );
   }
 
+  /**
+   * Drop every result a problem is showing: the case rows' verdicts and the header's tint and
+   * count. Every run of a problem starts with this, so what the header and the rows show belongs
+   * to that run alone - one sample leaves its own tint and no verdict from a run now history.
+   * @param {number} gi
+   */
   function purgeLastRunForGroup(gi) {
     const prefix = `${gi}-`;
     Object.keys(lastRun).forEach((k) => {
       if (k.startsWith(prefix)) delete lastRun[k];
     });
     delete lastRunAllSummaryByGroup[gi];
+    persistRunResults();
+    if (!incrementalDomReady()) {
+      return;
+    }
+    const n = groups[gi]?.cases?.length ?? 0;
+    for (let ci = 0; ci < n; ci++) {
+      patchCaseRowFromLastRun(gi, ci);
+    }
   }
 
   /**
@@ -1900,7 +2000,7 @@
           runOne.disabled = !sourceRunnable;
           runOne.addEventListener("click", () => {
             explicitRunGroup = gi;
-            delete lastRun[rk(gi, index)];
+            purgeLastRunForGroup(gi);
             runState = { active: true, mode: "one", phase: "run", groupIndex: gi, index, total: 1 };
             if (incrementalDomReady()) {
               refreshIncrementalRunUi();
@@ -2075,6 +2175,7 @@
       (k) => delete lastRunAllSummaryByGroup[k],
     );
     Object.assign(lastRunAllSummaryByGroup, sumNext);
+    persistRunResults();
     const busyNext = new Set();
     submitBusyGroups.forEach((g) => {
       if (g === removedGi) return;
@@ -2100,6 +2201,7 @@
     });
     Object.keys(lastRun).forEach((k) => delete lastRun[k]);
     Object.assign(lastRun, next);
+    persistRunResults();
   }
 
   /**
@@ -2345,6 +2447,7 @@
       showErr(`${groupDisplayLabel(gi)} has no samples to run`);
       return;
     }
+    purgeLastRunForGroup(gi);
     runState = { active: true, mode: "one", phase: "run", groupIndex: gi, index: 0, total: 1 };
     if (incrementalDomReady()) {
       refreshIncrementalRunUi();
@@ -2474,6 +2577,8 @@
       Object.keys(lastRunAllSummaryByGroup).forEach(
         (k) => delete lastRunAllSummaryByGroup[k],
       );
+      restoreRunResults(m.runResults);
+      persistRunResults();
       hideErr();
       if (jsonBoxOpen()) {
         jsonEl.value = "";
@@ -2577,6 +2682,15 @@
       if (typeof m.timeLimitMs === "number") {
         lastRun[key].timeLimitMs = m.timeLimitMs;
       }
+      if (runState.mode === "one") {
+        lastRunAllSummaryByGroup[gi] = {
+          passed: lastRun[key].verdict === "AC" ? 1 : 0,
+          total: 1,
+          file: typeof m.file === "string" ? m.file : "",
+          partial: true,
+        };
+      }
+      persistRunResults();
       if (incrementalDomReady() && patchCaseRowFromLastRun(gi, i)) {
         refreshIncrementalRunUi();
       } else {
@@ -2600,6 +2714,7 @@
         n > 0
           ? { passed, total: n, file: typeof m.file === "string" ? m.file : "" }
           : undefined;
+      persistRunResults();
       if (incrementalDomReady()) {
         refreshIncrementalRunUi();
       } else {
@@ -2727,6 +2842,7 @@
     Object.keys(lastRunAllSummaryByGroup).forEach(
       (k) => delete lastRunAllSummaryByGroup[k],
     );
+    persistRunResults();
     ensureDefaultGroup();
     vscode.postMessage({
       type: "saveCaseGroups",

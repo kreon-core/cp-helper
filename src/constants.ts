@@ -6,6 +6,15 @@ export const WORKSPACE_KEY_CASES = "cp-helper.cases";
 /** Grouped samples (multi-problem imports). When set, preferred over flat `CASES`. */
 export const WORKSPACE_KEY_CASE_GROUPS = "cp-helper.caseGroups";
 
+/**
+ * Last run's results per problem (verdicts, timings, captured output), keyed by group id so the
+ * Samples view can paint them again after a reload. Results, unlike samples, are not worth a file
+ * in the workspace, so they stay in workspace state.
+ */
+export const WORKSPACE_KEY_RUN_RESULTS = "cp-helper.runResults";
+/** Ceiling on the stored results blob; past it the save is dropped rather than bloating the state db. */
+export const RUN_RESULTS_MAX_BYTES = 4_000_000;
+
 /** `when` clause: Samples webview has keyboard focus (for user keybindings). */
 export const CONTEXT_SAMPLES_FOCUS = "cp-helper.samplesFocus";
 

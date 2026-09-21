@@ -1,9 +1,11 @@
 import * as vscode from "vscode";
 import {
   CONTEXT_SAMPLES_FOCUS,
+  RUN_RESULTS_MAX_BYTES,
   RUN_TAKEOVER_POLL_MS,
   RUN_TAKEOVER_TIMEOUT_MS,
   VIEW_TYPE_SAMPLES,
+  WORKSPACE_KEY_RUN_RESULTS,
 } from "./constants";
 import {
   coerceTimeLimitMs,
@@ -415,6 +417,7 @@ export class CpHelperViewProvider
             type: "cases",
             groups,
             submitTargets: submitTargetTitles(groups),
+            runResults: this.ctx.workspaceState.get(WORKSPACE_KEY_RUN_RESULTS),
           });
           postActiveSourceHint(webviewView.webview);
           this.postSubmitBridgeState();
@@ -449,6 +452,30 @@ export class CpHelperViewProvider
             type: "submitTargets",
             targets: submitTargetTitles(groupsToSave),
           });
+          break;
+        }
+        case "saveRunResults": {
+          const results = msg.results;
+          const empty =
+            results === null ||
+            typeof results !== "object" ||
+            Object.keys(results as object).length === 0;
+          if (empty) {
+            void this.ctx.workspaceState.update(
+              WORKSPACE_KEY_RUN_RESULTS,
+              undefined,
+            );
+            break;
+          }
+          const size = JSON.stringify(results).length;
+          if (size > RUN_RESULTS_MAX_BYTES) {
+            log.warn(`run results not stored: ${size} bytes`);
+            break;
+          }
+          void this.ctx.workspaceState.update(
+            WORKSPACE_KEY_RUN_RESULTS,
+            results,
+          );
           break;
         }
         case "exportCases": {
