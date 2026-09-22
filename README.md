@@ -109,6 +109,11 @@ the buttons in its own header, which is how you point it at a different file.
   blue TLE, or amber RE.
 - A verdict shows the program's own execution time and, separately, the overhead outside it
   (process spawn and output drain).
+- The `+` strip at the foot of the list adds a problem of your own, named `custom/N` and opened on
+  one empty testcase with the caret already in its input. Until something is imported it is the
+  only thing on the list, so it is filled rather than outlined.
+- Hovering a problem header reveals a pencil next to its name: click it to rename the problem in
+  place. Enter or clicking away keeps the new name, Escape drops it.
 
 ## Submit
 

@@ -27,6 +27,9 @@
   /** @type {Record<string, boolean>} */
   let caseCollapsed = {};
 
+  /** `CaseGroup.id` of a group just created by hand; the next `render` puts the caret in it. */
+  let pendingFocusGroupId = "";
+
   /** Pending `persistRunResults` write, so a Run all writes once instead of once per sample. */
   let saveRunResultsTimer = null;
 
@@ -110,6 +113,7 @@
     local: "output",
     submit: "cloud-upload",
     file: "file-code",
+    edit: "edit",
   };
 
   /**
@@ -890,33 +894,136 @@
     );
   }
 
+  /**
+   * First `custom/N` that no group holds. Numbering off the group count instead hands out a label
+   * already on screen as soon as one has been deleted or an import landed in between.
+   */
+  function nextCustomLabel() {
+    const taken = new Set(
+      groups.map((g) => (g.label ?? "").trim().toLowerCase()),
+    );
+    let n = 1;
+    while (taken.has(`custom/${n}`)) {
+      n += 1;
+    }
+    return `custom/${n}`;
+  }
+
   function addCustomProblemGroup() {
     if (runState.active) return;
     const newId = `manual-${Date.now()}`;
+    const group = {
+      id: newId,
+      label: nextCustomLabel(),
+      cases: [{ sample: 1, input: "", output: "" }],
+    };
     if (isNoProblemsPlaceholder()) {
       const oldId = String(groups[0].id ?? "");
       if (oldId) {
         delete groupCollapsed[oldId];
       }
-      groups[0] = {
-        id: newId,
-        label: "custom/1",
-        cases: [{ sample: 1, input: "", output: "" }],
-      };
-      groupCollapsed[newId] = true;
+      groups[0] = group;
       delete lastRunAllSummaryByGroup[0];
     } else {
-      const num = groups.length + 1;
-      groups.push({
-        id: newId,
-        label: `custom/${num}`,
-        cases: [{ sample: 1, input: "", output: "" }],
-      });
-      groupCollapsed[newId] = true;
+      groups.push(group);
     }
+    // An imported problem arrives collapsed because its samples are already filled in; one asked
+    // for by hand is empty and about to be typed into, so it opens with the caret in its input.
+    delete groupCollapsed[newId];
+    delete caseCollapsed[`${newId}::1`];
+    pendingFocusGroupId = newId;
     persistWebviewNavState();
     persist();
     render();
+  }
+
+  /**
+   * Swaps a problem header's disclosure for a text box holding its label. Enter or focus loss
+   * keeps what was typed, Escape drops it.
+   * @param {number} gi
+   */
+  function startGroupRename(gi) {
+    if (runState.active) return;
+    const wrap = listEl.querySelector(
+      `li.case-group-wrap[data-cp-gi="${gi}"]`,
+    );
+    const head = wrap?.querySelector(":scope > .case-group-head");
+    if (!head || head.querySelector(".case-group-rename")) {
+      return;
+    }
+    const disclose = head.querySelector(".case-group-disclose");
+    const renameBtn = head.querySelector(".case-group__rename");
+    if (!disclose) {
+      return;
+    }
+    const before = (groups[gi]?.label ?? "").trim();
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "case-group-rename";
+    input.spellcheck = false;
+    input.maxLength = 120;
+    input.value = before;
+    input.placeholder = `Group ${gi + 1}`;
+    input.setAttribute("aria-label", "Problem name");
+    disclose.hidden = true;
+    if (renameBtn) {
+      renameBtn.hidden = true;
+    }
+    head.insertBefore(input, disclose);
+    let settled = false;
+    /** @param {boolean} commit */
+    const finish = (commit) => {
+      if (settled) return;
+      settled = true;
+      const next = input.value.trim();
+      input.remove();
+      disclose.hidden = false;
+      if (renameBtn) {
+        renameBtn.hidden = false;
+      }
+      if (!commit || next === before || !groups[gi]) {
+        return;
+      }
+      groups[gi].label = next;
+      persist();
+      render();
+    };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        finish(true);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        finish(false);
+      }
+    });
+    input.addEventListener("blur", () => finish(true));
+    input.focus();
+    input.select();
+  }
+
+  /** Caret into the group `addCustomProblemGroup` just made, once `render` has built its rows. */
+  function focusPendingGroup() {
+    const gid = pendingFocusGroupId;
+    pendingFocusGroupId = "";
+    if (gid === "") {
+      return;
+    }
+    const gi = groups.findIndex((g) => String(g.id ?? "") === gid);
+    if (gi < 0) {
+      return;
+    }
+    const wrap = listEl.querySelector(
+      `li.case-group-wrap[data-cp-gi="${gi}"]`,
+    );
+    if (!wrap) {
+      return;
+    }
+    wrap.scrollIntoView({ block: "nearest" });
+    const ta = wrap.querySelector(".field--input .input-area");
+    if (ta) {
+      ta.focus();
+    }
   }
 
   /**
@@ -1660,6 +1767,10 @@
       if (clearBtn) {
         clearBtn.disabled = busy;
       }
+      const renameBtn = wrap.querySelector(".case-group__rename");
+      if (renameBtn) {
+        renameBtn.disabled = busy;
+      }
     });
   }
 
@@ -1854,6 +1965,18 @@
         ),
       );
       ghead.appendChild(disclose);
+
+      const btnRenameG = document.createElement("button");
+      btnRenameG.type = "button";
+      btnRenameG.className = "case-group__rename btn-icon";
+      btnRenameG.title = "Rename this problem";
+      btnRenameG.setAttribute("aria-label", `Rename ${labelText}`);
+      btnRenameG.appendChild(mkIcon("edit"));
+      btnRenameG.disabled = busy;
+      btnRenameG.addEventListener("click", () => {
+        startGroupRename(gi);
+      });
+      ghead.appendChild(btnRenameG);
 
       const sumEl = document.createElement("span");
       sumEl.className = "case-group-passed";
@@ -2162,29 +2285,32 @@
     groupDisclosures.forEach((apply) => apply());
     applySubmitButtonsState();
 
+    // With nothing imported this is the only thing to click, so it carries the accent fill and the
+    // wordier tooltip; once problems are listed it drops back to a quiet appender under the last.
+    const firstProblem = isNoProblemsPlaceholder();
     const addProblemRow = document.createElement("li");
-    addProblemRow.className = "add-problem-group-row";
+    addProblemRow.className = firstProblem
+      ? "add-problem-group-row add-problem-group-row--cta"
+      : "add-problem-group-row";
     const btnAddProblem = document.createElement("button");
     btnAddProblem.type = "button";
-    btnAddProblem.className = "btn-add-problem-group";
+    btnAddProblem.className = firstProblem
+      ? "btn-add-problem-group btn-add-problem-group--cta"
+      : "btn-add-problem-group";
     btnAddProblem.setAttribute(
       "aria-label",
-      isNoProblemsPlaceholder()
-        ? "custom group - create custom/1 with one empty testcase"
-        : "custom group - add problem group with one empty testcase",
+      firstProblem
+        ? "New custom problem, with one empty testcase"
+        : "Custom problem, adds a problem with one empty testcase",
     );
-    btnAddProblem.title = isNoProblemsPlaceholder()
-      ? "Create first custom problem group (one empty testcase)"
-      : "Add problem group with one empty testcase";
+    btnAddProblem.title = firstProblem
+      ? "Write your own problem instead of importing one (starts with one empty testcase)"
+      : "Add a custom problem (one empty testcase)";
     const plusMark = document.createElement("span");
     plusMark.className = "btn-add-problem-group__plus";
     plusMark.setAttribute("aria-hidden", "true");
     plusMark.appendChild(mkIcon("add"));
-    const addProblemLabel = document.createElement("span");
-    addProblemLabel.className = "btn-add-problem-group__label";
-    addProblemLabel.textContent = "custom group";
     btnAddProblem.appendChild(plusMark);
-    btnAddProblem.appendChild(addProblemLabel);
     btnAddProblem.disabled = busy;
     btnAddProblem.addEventListener("click", () => {
       addCustomProblemGroup();
@@ -2197,6 +2323,7 @@
 
     requestAnimationFrame(() => {
       refitAll();
+      focusPendingGroup();
     });
   }
 
