@@ -12,6 +12,9 @@
   /** Verdict cells stay in these states while the judge is still running the submission. */
   const PENDING = /in queue|running|judging|pending|waiting/iu;
 
+  /** Codeforces takes a source once per problem, so a resubmit of an unchanged file is refused. */
+  const DUPLICATE = /submitted exactly the same code before/iu;
+
   /**
    * @returns {HTMLFormElement | null}
    */
@@ -71,7 +74,7 @@
   /**
    * Replays the page's own submit form. Building the body from the live form keeps `csrf_token`,
    * `ftaa` and `bfaa` exactly as Codeforces issued them for this session.
-   * @param {{ problemId: string; language: string; source: string }} job
+   * @param {{ problemId: string; statusUrl: string; language: string; source: string }} job
    * @returns {Promise<{ submitted: boolean; posted?: boolean; error?: string; language?: string }>}
    * `posted` means the POST went out, which spends the page's anti-bot token.
    */
@@ -142,6 +145,25 @@
     const doc = ns.parseHtml(html);
     const errors = ns.collectErrors(doc);
     const detail = ns.describeResponse(res, doc);
+    if (errors.some((e) => DUPLICATE.test(e))) {
+      // The submission this is a duplicate of is already on the judge, and its verdict is what the
+      // user is really after - a bare refusal sends them to the browser to look it up.
+      const prior = await ns
+        .verdictCodeforces({
+          problemId: job.problemId,
+          statusUrl: String(job.statusUrl ?? ""),
+        })
+        .catch(() => ({ verdict: "" }));
+      const verdict = (prior.verdict ?? "").trim();
+      return {
+        submitted: false,
+        posted: true,
+        explicit: true,
+        error: `Codeforces already has this exact source for ${job.problemId}${
+          verdict === "" ? "" : ` (${verdict})`
+        } - it takes a source once per problem, so edit the file to send it again.`,
+      };
+    }
     if (ns.isGenericError(errors)) {
       const banner = errors.length > 0 ? `"${errors[0]}" ` : "";
       return {
