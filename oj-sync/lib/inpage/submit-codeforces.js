@@ -83,7 +83,7 @@
     if (!form) {
       return {
         submitted: false,
-        error: "Codeforces submit form not found - log in to Codeforces in this browser first.",
+        error: "Codeforces submit form not found - log in to Codeforces first.",
       };
     }
     const lang = ns.pickLanguage(
@@ -115,7 +115,7 @@
         explicit: true,
         needsInteraction: true,
         error:
-          "Codeforces wants its anti-bot verification completed. It has been opened in a tab - clear it there, then submit again.",
+          "Codeforces needs its anti-bot check - clear it in the open tab, then submit again.",
       };
     }
 
@@ -159,9 +159,9 @@
         submitted: false,
         posted: true,
         explicit: true,
-        error: `Codeforces already has this exact source for ${job.problemId}${
+        error: `Codeforces already has this source for ${job.problemId}${
           verdict === "" ? "" : ` (${verdict})`
-        } - it takes a source once per problem, so edit the file to send it again.`,
+        } - edit it to resubmit.`,
       };
     }
     if (ns.isGenericError(errors)) {
@@ -169,7 +169,7 @@
       return {
         submitted: false,
         posted: true,
-        error: `Codeforces did not redirect to the submissions list ${banner}(${detail}).`,
+        error: `Codeforces did not reach the submissions list ${banner}(${detail}).`,
       };
     }
     return {

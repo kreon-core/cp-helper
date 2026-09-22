@@ -141,7 +141,7 @@ export async function activate(
       log.info("submit bridge URL copied to the clipboard");
       notify(
         "info",
-        "CP Helper: Submit bridge URL copied. Paste it into the OJ Sync options page (Submit bridge).",
+        "CP Helper: Bridge URL copied - paste it into the OJ Sync options page.",
       );
     }),
   );
@@ -324,10 +324,7 @@ export async function activate(
       const generatorCmd = (cfg.get<string>("stressGeneratorCommand") ?? "").trim();
       if (!generatorCmd) {
         stressLog.error("rejected: cp-helper.stressGeneratorCommand is not set");
-        notify(
-          "error",
-          "CP Helper: Set cp-helper.stressGeneratorCommand first (shell command that writes test input to stdout).",
-        );
+        notify("error", "CP Helper: Set cp-helper.stressGeneratorCommand first.");
         return;
       }
       const referenceCmd = (cfg.get<string>("stressReferenceCommand") ?? "").trim();
@@ -376,19 +373,16 @@ export async function activate(
 
         switch (result.status) {
           case "passed":
-            notify(
-              "info",
-              `CP Helper Stress: all ${result.iterations} iterations passed ✓`,
-            );
+            notify("info", `CP Helper Stress: ${result.iterations} iterations passed ✓`);
             break;
           case "stopped":
             stressLog.warn(`stopped after ${result.iterations} iteration(s)`);
             break;
           case "compile_error":
-            notify("error", "CP Helper Stress: compile failed - check Output log.");
+            notify("error", "CP Helper Stress: compile failed - see Output.");
             break;
           case "generator_error":
-            notify("error", "CP Helper Stress: generator failed - check Output log.");
+            notify("error", "CP Helper Stress: generator failed - see Output.");
             break;
           case "bug": {
             const fc = result.failedCase;

@@ -65,8 +65,8 @@ export async function submitGroupSource(
     return {
       submitted: false,
       rejected: label
-        ? `Cannot submit "${label}": only Codeforces and AtCoder problems imported by OJ Sync carry a submit target.`
-        : "Cannot submit: this group has no imported problem. Import it with OJ Sync first.",
+        ? `Cannot submit "${label}": only Codeforces and AtCoder problems have a submit target.`
+        : "Cannot submit: import the problem with OJ Sync first.",
     };
   }
   if (!bridge.connected) {
@@ -74,7 +74,7 @@ export async function submitGroupSource(
       submitted: false,
       title: target.title,
       rejected:
-        "OJ Sync is not connected. Run \"CP Helper: Copy Submit Bridge URL\" and paste it into the OJ Sync options page.",
+        "OJ Sync is not connected - paste the bridge URL into its options page.",
     };
   }
 
@@ -83,14 +83,14 @@ export async function submitGroupSource(
     return {
       submitted: false,
       title: target.title,
-      rejected: `${target.title} is not linked to a file - press Run in its header to link the file in the editor.`,
+      rejected: `${target.title} is not linked to a file - press Run in its header first.`,
     };
   }
   if (!fs.existsSync(file)) {
     return {
       submitted: false,
       title: target.title,
-      rejected: `${path.basename(file)} is linked to ${target.title} but no longer exists - press Run in its header to link the file in the editor.`,
+      rejected: `${path.basename(file)} no longer exists - press Run in ${target.title}'s header to relink.`,
     };
   }
   const saved = await ensureSourceSavedBeforeRun(file);
@@ -105,7 +105,7 @@ export async function submitGroupSource(
       return {
         submitted: false,
         title: target.title,
-        rejected: `Source is ${bytes.byteLength} bytes, over the ${SUBMIT_MAX_SOURCE_BYTES} byte submit limit.`,
+        rejected: `Source is ${bytes.byteLength} bytes, over the ${SUBMIT_MAX_SOURCE_BYTES} byte limit.`,
       };
     }
     source = Buffer.from(bytes).toString("utf8");

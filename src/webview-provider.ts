@@ -1,3 +1,5 @@
+import * as fs from "fs";
+import * as path from "path";
 import * as vscode from "vscode";
 import {
   CONTEXT_SAMPLES_FOCUS,
@@ -437,7 +439,7 @@ export class CpHelperViewProvider
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : String(e);
             log.error(`save test cases failed: ${errMsg}`);
-            notify("error", `CP Helper: Could not save test cases - ${errMsg}`);
+            notify("error", "CP Helper: Could not save test cases.");
           }
           const wsFolderSave = vscode.workspace.workspaceFolders?.[0]?.uri;
           if (wsFolderSave) {
@@ -532,7 +534,13 @@ export class CpHelperViewProvider
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : String(e);
             log.error(`open source failed: ${errMsg}`);
-            notify("error", `CP Helper: Could not open ${wanted} - ${errMsg}`);
+            const name = path.basename(wanted);
+            notify(
+              "error",
+              fs.existsSync(wanted)
+                ? `CP Helper: Could not open ${name}.`
+                : `CP Helper: ${name} no longer exists - press Run to relink.`,
+            );
           }
           break;
         }

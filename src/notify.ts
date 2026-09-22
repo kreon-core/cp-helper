@@ -6,6 +6,12 @@
 import * as vscode from "vscode";
 import { NOTIFY_TOAST_MS } from "./constants";
 
+/**
+ * Longest a notification may be. Anything past this is a detail the judge, VS Code or the compiler
+ * appended, and the untrimmed text is in the output log a line earlier.
+ */
+const MAX_LENGTH = 110;
+
 /** Level a message would be shown at when notifications are left sticky. */
 export type NotifyLevel = "error" | "warn" | "info";
 
@@ -13,6 +19,19 @@ export type NotifyLevel = "error" | "warn" | "info";
 export type NotifyChannel = "notifications" | "submitNotifications";
 
 export type NotifyMode = "auto" | "sticky" | "off";
+
+/**
+ * @returns `text` as one line, cut on a word boundary when it runs long
+ */
+function condense(text: string): string {
+  const line = text.replace(/\s+/gu, " ").trim();
+  if (line.length <= MAX_LENGTH) {
+    return line;
+  }
+  const cut = line.slice(0, MAX_LENGTH);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > MAX_LENGTH / 2 ? cut.slice(0, space) : cut).replace(/[\s.,;:-]+$/u, "")}...`;
+}
 
 function modeOf(channel: NotifyChannel): NotifyMode {
   const raw = vscode.workspace
@@ -46,13 +65,14 @@ function timedToast(text: string, ms: number): void {
  */
 export function notify(
   level: NotifyLevel,
-  text: string,
+  message: string,
   channel: NotifyChannel = "notifications",
 ): void {
   const mode = modeOf(channel);
   if (mode === "off") {
     return;
   }
+  const text = condense(message);
   if (mode === "auto") {
     if (level === "info") {
       timedToast(text, NOTIFY_TOAST_MS);

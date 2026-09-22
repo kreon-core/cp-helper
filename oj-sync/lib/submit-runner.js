@@ -208,7 +208,7 @@ async function waitForLoad(tabId, expectedUrl) {
     }
     if (tab.status === "complete" && /\/(?:login|enter)\b/u.test(at)) {
       throw new Error(
-        "The judge sent us to its login page - sign in to it in this browser, then submit again.",
+        "The judge sent us to its login page - sign in there, then submit again.",
       );
     }
     if (Date.now() > deadline) {

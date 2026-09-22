@@ -46,7 +46,7 @@
     if (!form) {
       return {
         submitted: false,
-        error: "AtCoder submit form not found - log in to AtCoder in this browser first.",
+        error: "AtCoder submit form not found - log in to AtCoder first.",
       };
     }
     const lang = ns.pickLanguage(languageSelect(job.problemId), job.language);
@@ -60,7 +60,7 @@
         explicit: true,
         needsInteraction: true,
         error:
-          "AtCoder wants its anti-bot verification completed. It has been opened in a tab - clear it there, then submit again.",
+          "AtCoder needs its anti-bot check - clear it in the open tab, then submit again.",
       };
     }
 
@@ -92,7 +92,7 @@
       return {
         submitted: false,
         posted: true,
-        error: `AtCoder refused the submission without saying why ${banner}(${detail}, language "${lang.text}", task ${job.problemId}).`,
+        error: `AtCoder refused the submission without saying why ${banner}(${detail}, ${lang.text}).`,
       };
     }
     return {
