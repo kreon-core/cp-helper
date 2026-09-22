@@ -196,6 +196,36 @@
           "default": true,
           "description": "Ask before every submit. A submit is a real, rate-limited, publicly visible submission on your judge account."
         },
+        "cp-helper.notifications": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "sticky",
+            "off"
+          ],
+          "enumDescriptions": [
+            "Information toast, which VS Code dismisses on its own.",
+            "Error or warning notification, which stays until it is clicked away.",
+            "No notification at all."
+          ],
+          "default": "auto",
+          "description": "Notification CP Helper pops for an import, an export, a stress run or a failed action. VS Code only auto-dismisses information toasts, so a failure is kept on screen only by \"sticky\". The CP Helper output log carries the same text in every mode. Prompts that ask a question are not affected. Submits follow cp-helper.submitNotifications."
+        },
+        "cp-helper.submitNotifications": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "sticky",
+            "off"
+          ],
+          "enumDescriptions": [
+            "Information toast, which VS Code dismisses on its own.",
+            "Error or warning notification, which stays until it is clicked away.",
+            "No notification at all."
+          ],
+          "default": "auto",
+          "description": "Notification a submit pops when it settles or fails. VS Code only auto-dismisses information toasts, so a failure is kept on screen only by \"sticky\". The problem header and the CP Helper output log carry the same text in every mode. Everything else follows cp-helper.notifications."
+        },
         "cp-helper.submitPollTimeoutMs": {
           "type": "number",
           "default": 90000,

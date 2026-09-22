@@ -22,6 +22,7 @@ import {
   importSamplesFromJsonText,
   type SamplesWebviewSink,
 } from "./import-samples";
+import { notify } from "./notify";
 import { killActiveShell, runState } from "./run-state";
 import { runAllTestsSharedCompile, runSingleTest } from "./run-tests";
 import { postRunnerLabel } from "./runner-label";
@@ -436,9 +437,7 @@ export class CpHelperViewProvider
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : String(e);
             log.error(`save test cases failed: ${errMsg}`);
-            void vscode.window.showErrorMessage(
-              `CP Helper: Could not save test cases - ${errMsg}`,
-            );
+            notify("error", `CP Helper: Could not save test cases - ${errMsg}`);
           }
           const wsFolderSave = vscode.workspace.workspaceFolders?.[0]?.uri;
           if (wsFolderSave) {
@@ -533,9 +532,7 @@ export class CpHelperViewProvider
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : String(e);
             log.error(`open source failed: ${errMsg}`);
-            void vscode.window.showErrorMessage(
-              `CP Helper: Could not open ${wanted} - ${errMsg}`,
-            );
+            notify("error", `CP Helper: Could not open ${wanted} - ${errMsg}`);
           }
           break;
         }
@@ -606,7 +603,7 @@ export class CpHelperViewProvider
               maybeShowOutputOnRun();
               log.error(`submit rejected: ${failure}`);
               postSubmitState({ phase: "done", error: failure });
-              void vscode.window.showErrorMessage(`CP Helper: ${failure}`);
+              notify("error", `CP Helper: ${failure}`, "submitNotifications");
               break;
             }
             postSubmitState({
@@ -618,15 +615,16 @@ export class CpHelperViewProvider
               title: result.title,
             });
             if (result.verdict) {
-              const line = `CP Helper: ${result.title} - ${result.verdict}`;
-              if (result.accepted) {
-                void vscode.window.showInformationMessage(line);
-              } else {
-                void vscode.window.showWarningMessage(line);
-              }
+              notify(
+                result.accepted ? "info" : "warn",
+                `CP Helper: ${result.title} - ${result.verdict}`,
+                "submitNotifications",
+              );
             } else if (result.submitted) {
-              void vscode.window.showInformationMessage(
+              notify(
+                "info",
                 `CP Helper: submitted to ${result.title}.`,
+                "submitNotifications",
               );
             }
           } finally {
@@ -746,16 +744,14 @@ export class CpHelperViewProvider
           const resolvedDbg = getActiveSourceFilePath();
           if ("error" in resolvedDbg) {
             log.error(`debug rejected: ${resolvedDbg.error}`);
-            void vscode.window.showErrorMessage(
-              `CP Helper: ${resolvedDbg.error}`,
-            );
+            notify("error", `CP Helper: ${resolvedDbg.error}`);
             break;
           }
           const dbgFile = resolvedDbg.file;
           const savedDbg = await ensureSourceSavedBeforeRun(dbgFile);
           if ("error" in savedDbg) {
             log.error(`debug rejected: ${savedDbg.error}`);
-            void vscode.window.showErrorMessage(`CP Helper: ${savedDbg.error}`);
+            notify("error", `CP Helper: ${savedDbg.error}`);
             break;
           }
           const started = await startDebugCase(
@@ -767,7 +763,7 @@ export class CpHelperViewProvider
           if ("error" in started) {
             maybeShowOutputOnRun();
             log.error(`debug failed: ${started.error}`);
-            void vscode.window.showErrorMessage(`CP Helper: ${started.error}`);
+            notify("error", `CP Helper: ${started.error}`);
           }
           break;
         }

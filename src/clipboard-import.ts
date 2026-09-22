@@ -4,6 +4,10 @@ import {
   importSamplesFromJsonText,
   type SamplesWebviewSink,
 } from "./import-samples";
+import { createCpLogger } from "./log";
+import { notify } from "./notify";
+
+const log = createCpLogger("import");
 
 /**
  * User-facing follow-up when JSON parse/persist fails.
@@ -14,12 +18,12 @@ export function reportImportFailure(
 ): void {
   const message = e instanceof Error ? e.message : String(e);
   if (message === ERR_IMPORT_EMPTY) {
-    void vscode.window.showWarningMessage(emptyContentMessage);
+    log.warn(emptyContentMessage);
+    notify("warn", emptyContentMessage);
     return;
   }
-  void vscode.window.showErrorMessage(
-    `CP Helper: invalid samples JSON - ${message}`,
-  );
+  log.error(`invalid samples JSON: ${message}`);
+  notify("error", `CP Helper: invalid samples JSON - ${message}`);
 }
 
 /**
@@ -29,9 +33,8 @@ export async function readClipboardText(): Promise<string | null> {
   try {
     return await vscode.env.clipboard.readText();
   } catch {
-    void vscode.window.showErrorMessage(
-      "CP Helper: could not read the clipboard.",
-    );
+    log.error("could not read the clipboard");
+    notify("error", "CP Helper: could not read the clipboard.");
     return null;
   }
 }
