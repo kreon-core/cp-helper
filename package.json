@@ -200,35 +200,31 @@
           "type": "string",
           "enum": [
             "auto",
-            "status",
             "sticky",
             "off"
           ],
           "enumDescriptions": [
-            "Information toast, which VS Code drops after 10s of window focus.",
-            "Status bar message, which clears itself after 2s (4s for a warning or an error) whether the window is focused or not.",
-            "Error or warning notification, which VS Code keeps for 15s / 12s of window focus.",
+            "Closed by CP Helper after 1s; a warning or an error is left to VS Code at information severity, so it takes 10s and hovering holds it open.",
+            "Every message left to VS Code at its own level, so a warning takes 12s and an error 15s, in their own colours.",
             "No notification at all."
           ],
           "default": "auto",
-          "description": "Notification CP Helper pops for an import, an export, a stress run or a failed action. VS Code only auto-dismisses information toasts, so a failure is kept on screen only by \"sticky\". The CP Helper output log carries the same text in every mode. Prompts that ask a question are not affected. Submits follow cp-helper.submitNotifications."
+          "description": "Notification CP Helper pops for an import, an export, a stress run or a failed action. VS Code drops a plain notification on its own schedule and only while the window has focus, so \"auto\" times it out itself instead. The CP Helper output log carries the same text in every mode. Prompts that ask a question are not affected. Submits follow cp-helper.submitNotifications."
         },
         "cp-helper.submitNotifications": {
           "type": "string",
           "enum": [
             "auto",
-            "status",
             "sticky",
             "off"
           ],
           "enumDescriptions": [
-            "Information toast, which VS Code drops after 10s of window focus.",
-            "Status bar message, which clears itself after 2s (4s for a warning or an error) whether the window is focused or not.",
-            "Error or warning notification, which VS Code keeps for 15s / 12s of window focus.",
+            "Closed by CP Helper after 1s; a warning or an error is left to VS Code at information severity, so it takes 10s and hovering holds it open.",
+            "Every message left to VS Code at its own level, so a warning takes 12s and an error 15s, in their own colours.",
             "No notification at all."
           ],
           "default": "auto",
-          "description": "Notification a submit pops when it settles or fails. VS Code only auto-dismisses information toasts, so a failure is kept on screen only by \"sticky\". The problem header and the CP Helper output log carry the same text in every mode. Everything else follows cp-helper.notifications."
+          "description": "Notification a submit pops when it settles or fails. VS Code drops a plain notification on its own schedule and only while the window has focus, so \"auto\" times it out itself instead. The problem header and the CP Helper output log carry the same text in every mode. Everything else follows cp-helper.notifications."
         },
         "cp-helper.submitPollTimeoutMs": {
           "type": "number",

@@ -113,8 +113,6 @@ export const DEFAULT_SUBMIT_POLL_TIMEOUT_MS = 90_000;
 /** Largest source file the bridge will hand to the browser. */
 export const SUBMIT_MAX_SOURCE_BYTES = 512 * 1024;
 
-/** How long a plain `status` notification sits in the status bar before it clears itself. */
-export const NOTIFY_STATUS_BAR_MS = 2_000;
+/** How long a notification with nothing wrong in it stays up before CP Helper closes it. */
+export const NOTIFY_TOAST_MS = 1_000;
 
-/** The same, for one that reports a problem: a failure is worth a second read. */
-export const NOTIFY_STATUS_BAR_PROBLEM_MS = 4_000;

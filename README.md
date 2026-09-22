@@ -80,14 +80,14 @@ the buttons in its own header, which is how you point it at a different file.
 | cp-helper.floatAbsEpsilon | Absolute float tolerance |
 | cp-helper.floatRelEpsilon | Relative float tolerance |
 | cp-helper.trimOutput | Trim trailing whitespace before compare |
-| cp-helper.notifications | Notification for everything but a submit: `auto` (toast, default), `status` (status bar), `sticky`, `off` |
+| cp-helper.notifications | Notification for everything but a submit: `auto` (closed after 1s, a problem left to VS Code for 10s; default), `sticky`, `off` |
 | cp-helper.enableLocalImportServer | Enable localhost import server |
 | cp-helper.localImportPort | Local import port (default 17337) |
 | cp-helper.instantRunAllOnLocalImport | Run the problem that was just synced, after a single-problem local import |
 | cp-helper.submitLanguageCodeforces | Language option to pick on the Codeforces submit form |
 | cp-helper.submitLanguageAtCoder | Language option to pick on the AtCoder submit form (whitespace ignored when matching) |
 | cp-helper.submitConfirm | Ask before every submit (default on) |
-| cp-helper.submitNotifications | Notification a submit pops: `auto` (toast, default), `status` (status bar), `sticky`, `off` |
+| cp-helper.submitNotifications | Notification a submit pops: `auto` (closed after 1s, a problem left to VS Code for 10s; default), `sticky`, `off` |
 | cp-helper.submitPollTimeoutMs | How long to watch the judge for the verdict after a submit |
 
 ## Samples view

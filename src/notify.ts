@@ -4,10 +4,7 @@
  * a question has to stay until it is answered.
  */
 import * as vscode from "vscode";
-import {
-  NOTIFY_STATUS_BAR_MS,
-  NOTIFY_STATUS_BAR_PROBLEM_MS,
-} from "./constants";
+import { NOTIFY_TOAST_MS } from "./constants";
 
 /** Level a message would be shown at when notifications are left sticky. */
 export type NotifyLevel = "error" | "warn" | "info";
@@ -15,28 +12,37 @@ export type NotifyLevel = "error" | "warn" | "info";
 /** Setting a notification takes its mode from. */
 export type NotifyChannel = "notifications" | "submitNotifications";
 
-export type NotifyMode = "auto" | "status" | "sticky" | "off";
-
-/** Status bar icon per level, since the status bar carries no severity of its own. */
-const STATUS_ICON: Record<NotifyLevel, string> = {
-  error: "$(error)",
-  warn: "$(warning)",
-  info: "$(info)",
-};
+export type NotifyMode = "auto" | "sticky" | "off";
 
 function modeOf(channel: NotifyChannel): NotifyMode {
   const raw = vscode.workspace
     .getConfiguration("cp-helper")
     .get<string>(channel);
-  return raw === "status" || raw === "sticky" || raw === "off" ? raw : "auto";
+  return raw === "sticky" || raw === "off" ? raw : "auto";
 }
 
 /**
- * A toast is dropped on a timer VS Code owns - 10s for information, 12s for a warning, 15s for an
- * error - and that timer only runs while the window has focus, so one raised while the judge is in
- * front stays until VS Code is looked at again. `auto` therefore picks the shortest of the three,
- * `status` sidesteps the toast for a status bar message on a timer of our own, `sticky`
- * keeps `level`, and `off` leaves the message to the output log.
+ * A notification raised the plain way is VS Code's to drop, on a timer that only runs while the
+ * window has focus - so one raised while the judge is in front sits there until VS Code is looked
+ * at again, and nothing can close it early. A progress notification instead lives exactly as long
+ * as the task behind it, which is the only handle an extension gets on the lifetime of a toast.
+ * The handle costs the rest: VS Code's own timer is what reschedules itself while the pointer is
+ * over a notification, so one this closes cannot be held open by hovering it, and it is gone from
+ * the notification centre with it.
+ */
+function timedToast(text: string, ms: number): void {
+  void vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: text },
+    () => new Promise<void>((done) => setTimeout(done, ms)),
+  );
+}
+
+/**
+ * `auto` closes a message with nothing wrong in it after `NOTIFY_TOAST_MS`, and hands a warning or
+ * an error to VS Code at information severity: only VS Code's own timer holds a notification open
+ * while the pointer is over it and files it in the notification centre afterwards, and information
+ * is the shortest that timer goes - 10s, against 12s for a warning and 15s for an error. `sticky`
+ * spends those extra seconds on the level's own colour; `off` leaves the message to the log.
  */
 export function notify(
   level: NotifyLevel,
@@ -47,18 +53,19 @@ export function notify(
   if (mode === "off") {
     return;
   }
-  if (mode === "status") {
-    vscode.window.setStatusBarMessage(
-      `${STATUS_ICON[level]} ${text}`,
-      level === "info" ? NOTIFY_STATUS_BAR_MS : NOTIFY_STATUS_BAR_PROBLEM_MS,
-    );
+  if (mode === "auto") {
+    if (level === "info") {
+      timedToast(text, NOTIFY_TOAST_MS);
+    } else {
+      void vscode.window.showInformationMessage(text);
+    }
     return;
   }
-  if (mode === "auto" || level === "info") {
-    void vscode.window.showInformationMessage(text);
-  } else if (level === "error") {
+  if (level === "error") {
     void vscode.window.showErrorMessage(text);
-  } else {
+  } else if (level === "warn") {
     void vscode.window.showWarningMessage(text);
+  } else {
+    void vscode.window.showInformationMessage(text);
   }
 }
