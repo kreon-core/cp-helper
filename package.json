@@ -2,7 +2,7 @@
   "name": "cp-helper",
   "displayName": "CP Helper",
   "description": "Run online judge samples against your local C++ solution in VSCode.",
-  "version": "1.2.3",
+  "version": "1.2.5",
   "publisher": "from-cero",
   "license": "MIT",
   "engines": {
@@ -285,8 +285,9 @@
     "sync-codicons": "cp node_modules/@vscode/codicons/dist/codicon.css node_modules/@vscode/codicons/dist/codicon.ttf public/codicon/",
     "watch": "tsc -watch -p ./",
     "vsix": "vsce package",
-    "vsix:bump": "npm version patch --no-git-tag-version && npm run vsix",
-    "vsix:local:run": "vsce package -o cp-helper.vsix && NODE_NO_WARNINGS=1 code --install-extension cp-helper.vsix --force --profile \"${CP_HELPER_PROFILE:-Problem Solving [ C++ ]}\""
+    "bump": "node scripts/bump-version.mjs",
+    "vsix:local:run": "vsce package -o cp-helper.vsix && NODE_NO_WARNINGS=1 code --install-extension cp-helper.vsix --force --profile \"${CP_HELPER_PROFILE:-Problem Solving [ C++ ]}\"",
+    "vsix:local:bump": "npm run bump && npm run vsix:local:run"
   },
   "devDependencies": {
     "@types/node": "^20.19.39",

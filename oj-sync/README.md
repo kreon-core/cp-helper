@@ -1,6 +1,6 @@
 # OJ Sync (Chrome)
 
-**Version 1.2.3** - aligned with **CP Helper 1.2.3**.
+**Version 1.2.5** - aligned with **CP Helper 1.2.5**.
 
 Chrome extension that reads **sample test cases** from **AtCoder**, **Codeforces**, and **LeetCode** problem pages and sends them to **CP Helper** in VS Code, and submits solutions to **Codeforces** and **AtCoder** on CP Helper's behalf.
 
@@ -135,3 +135,5 @@ CP Helper's **instant Run all** after import applies only when that payload reso
 ## Version
 
 See **`manifest.json`** -> **`version`**. Bump it whenever you change this extension (see repo rule **`oj-sync-release.mdc`**).
+
+Run **`npm run bump`** in the repo root: it raises the patch version in **`package.json`**, **`oj-sync/manifest.json`** and the version line above, all to the same number. Pass **`minor`**, **`major`** or an explicit **`x.y.z`** to override (**`npm run bump -- minor`**).

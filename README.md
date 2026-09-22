@@ -23,6 +23,7 @@ you visited when the active tab is not C++, and are disabled until one has been 
 - VSIX install: run npm run vsix, then use Extensions: Install from VSIX.
 - Local install: npm run vsix:local:run packages and installs into the "Problem Solving [ C++ ]" profile. Set CP_HELPER_PROFILE to target a different one, for example CP_HELPER_PROFILE="Default" npm run vsix:local:run.
 - Development: npm install, npm run compile, then press F5 (Run Extension).
+- Version bump: npm run bump raises the patch version in package.json, oj-sync/manifest.json, and the oj-sync README version line. Pass minor, major, or an explicit x.y.z to override (npm run bump -- minor).
 
 ## Quick start
 
