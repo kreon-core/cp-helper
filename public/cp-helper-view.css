@@ -69,26 +69,6 @@ body {
   height: 0;
 }
 
-.app-header {
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.28));
-}
-
-.app-title {
-  margin: 0 0 4px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.app-sub {
-  margin: 0;
-  font-size: 11px;
-  opacity: 0.78;
-  line-height: 1.35;
-}
-
 .import {
   flex: 0 0 auto;
   margin-bottom: var(--cp-space-2);
@@ -334,10 +314,6 @@ button.btn-run-local {
   }
 }
 
-.btn-row--tight {
-  margin-top: 8px;
-}
-
 button {
   cursor: pointer;
   padding: 3px 10px;
@@ -371,10 +347,6 @@ button:disabled {
   cursor: not-allowed;
 }
 
-button.btn-primary {
-  font-weight: 600;
-}
-
 button.btn-secondary {
   background: var(--vscode-button-secondaryBackground);
   color: var(--vscode-button-secondaryForeground);
@@ -382,12 +354,6 @@ button.btn-secondary {
 
 button.btn-stop:not([hidden]) {
   color: var(--vscode-errorForeground);
-}
-
-button.btn-ghost {
-  background: transparent;
-  color: var(--vscode-textLink-foreground);
-  padding: 5px 8px;
 }
 
 .hint {
@@ -421,11 +387,6 @@ button.btn-ghost {
   overflow-y: auto;
 }
 
-.add-case-row {
-  margin: 0;
-  padding: 0;
-}
-
 .add-problem-group-row {
   margin: var(--cp-space-2) 0 0;
   padding: 0;
@@ -436,10 +397,8 @@ button.btn-ghost {
   margin-top: 0;
 }
 
-/**
- * A slot under the last problem rather than a control of its own: dashed, unfilled and spanning
- * the same width as the panels above, so it appends without competing with the run buttons.
- */
+/* A slot under the last problem rather than a control of its own, so it appends without
+   competing with the run buttons for attention. */
 button.btn-add-problem-group {
   display: flex;
   align-items: center;
@@ -623,6 +582,7 @@ button.case-group-disclose:focus-visible {
 /**
  * Every other control in a header acts on a run; a rename sitting beside them at rest reads as
  * one more of those, so it only surfaces while the pointer is on the problem it belongs to.
+ * Still tab-reachable, hence opacity rather than `display`.
  */
 button.case-group__rename {
   flex: 0 0 auto;
@@ -994,28 +954,6 @@ button.case-disclose:focus-visible {
 
 .case-verdict {
   min-width: 34px;
-}
-
-.case-time {
-  min-width: 46px;
-  font-weight: 600;
-  letter-spacing: 0;
-  font-variant-numeric: tabular-nums;
-  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
-  background: rgba(128, 128, 128, 0.1);
-  border-color: rgba(128, 128, 128, 0.18);
-}
-
-.case-overhead {
-  min-width: 44px;
-  font-weight: 600;
-  letter-spacing: 0;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.65;
-  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
-  background: transparent;
-  border-color: rgba(128, 128, 128, 0.18);
-  border-style: dashed;
 }
 
 .case--ac {

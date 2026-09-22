@@ -19,7 +19,7 @@ import {
 } from "./constants";
 import { importFromClipboardAndReveal } from "./clipboard-import";
 import { withLocalDefineExpanded } from "./compile-expansion";
-import { loadCaseGroups, loadCaseGroupsFromFile } from "./case-groups";
+import { loadCaseGroupsFromFile } from "./case-groups";
 import { exportCasesToTestcasesDir } from "./export-cases";
 import { importSamplesFromJsonText } from "./import-samples";
 import { startLocalImportHttpServer } from "./local-import-server";

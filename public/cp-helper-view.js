@@ -885,7 +885,7 @@
     return label !== "" ? label : `Group ${gi + 1}`;
   }
 
-  /** Single empty unnamed bucket (nothing imported yet) - show "add problem group" and first custom becomes `custom/1`. */
+  /** The unnamed empty bucket `ensureDefaultGroup` leaves behind: a list with nothing on it yet. */
   function isNoProblemsPlaceholder() {
     return (
       groups.length === 1 &&
@@ -927,8 +927,8 @@
     } else {
       groups.push(group);
     }
-    // An imported problem arrives collapsed because its samples are already filled in; one asked
-    // for by hand is empty and about to be typed into, so it opens with the caret in its input.
+    // An import arrives collapsed because its samples are already filled in; a problem asked for
+    // by hand is empty and about to be typed into.
     delete groupCollapsed[newId];
     delete caseCollapsed[`${newId}::1`];
     pendingFocusGroupId = newId;
@@ -938,8 +938,7 @@
   }
 
   /**
-   * Swaps a problem header's disclosure for a text box holding its label. Enter or focus loss
-   * keeps what was typed, Escape drops it.
+   * Enter or focus loss keeps what was typed, Escape drops it.
    * @param {number} gi
    */
   function startGroupRename(gi) {
@@ -2285,8 +2284,8 @@
     groupDisclosures.forEach((apply) => apply());
     applySubmitButtonsState();
 
-    // With nothing imported this is the only thing to click, so it carries the accent fill and the
-    // wordier tooltip; once problems are listed it drops back to a quiet appender under the last.
+    // With nothing imported this is the only thing on the list to click, so it is filled and says
+    // what a custom problem is for; once problems are listed it is just an appender.
     const firstProblem = isNoProblemsPlaceholder();
     const addProblemRow = document.createElement("li");
     addProblemRow.className = firstProblem

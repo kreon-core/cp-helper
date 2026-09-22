@@ -2,7 +2,6 @@ import * as vscode from "vscode";
 import * as path from "path";
 import * as os from "os";
 import * as fs from "fs/promises";
-import { constants as fsConstants } from "fs";
 import { randomBytes } from "crypto";
 import {
   DEFAULT_RUN_TIMEOUT_MS,
