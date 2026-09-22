@@ -21,7 +21,10 @@ import { importFromClipboardAndReveal } from "./clipboard-import";
 import { withLocalDefineExpanded } from "./compile-expansion";
 import { loadCaseGroupsFromFile } from "./case-groups";
 import { exportCasesToTestcasesDir } from "./export-cases";
-import { importSamplesFromJsonText } from "./import-samples";
+import {
+  importSamplesFromJsonText,
+  readClipboardOnlyPayload,
+} from "./import-samples";
 import { startLocalImportHttpServer } from "./local-import-server";
 import {
   getOrCreateSubmitToken,
@@ -83,6 +86,13 @@ export async function activate(
   };
 
   const importAndReveal = async (body: string): Promise<void> => {
+    const clipboardOnly = readClipboardOnlyPayload(body);
+    if (clipboardOnly !== null) {
+      await vscode.env.clipboard.writeText(clipboardOnly);
+      log.info(`contest setup copied to the clipboard: ${clipboardOnly}`);
+      notify("info", `${clipboardOnly}`);
+      return;
+    }
     const { imported } = await importSamplesFromJsonText(
       context,
       provider,

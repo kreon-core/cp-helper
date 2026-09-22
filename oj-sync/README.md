@@ -1,6 +1,6 @@
 # OJ Sync (Chrome)
 
-**Version 1.1.0** - aligned with **CP Helper 1.1.0**.
+**Version 1.2.3** - aligned with **CP Helper 1.2.3**.
 
 Chrome extension that reads **sample test cases** from **AtCoder**, **Codeforces**, and **LeetCode** problem pages and sends them to **CP Helper** in VS Code, and submits solutions to **Codeforces** and **AtCoder** on CP Helper's behalf.
 
@@ -9,7 +9,34 @@ Chrome extension that reads **sample test cases** from **AtCoder**, **Codeforces
 1. **Preferred:** `POST` JSON to CP Helper's local server (**`http://127.0.0.1:<port>/import`** by default - port matches **`cp-helper.localImportPort`**, usually **17337**). No clipboard for samples; avoids Chrome **`vscode://`** prompts when this works. **LeetCode** bodies may include **`starterCode`**; CP Helper copies that to the **VS Code** clipboard after import (the extension tab cannot rely on the page's clipboard from a toolbar click).
 2. **Fallback (optional):** If POST fails and the option is enabled, open a **`vscode://from-cero.cp-helper/focusSamples`** tab so CP Helper is visible (samples are not in the URL; use manual paste if needed).
 
-### LeetCode
+### Codeforces contest list
+
+On a contest landing page (**`/contest/<id>`** or **`/gym/<id>`**, which carries no statements), the
+toolbar action reads the problem table instead of samples and sends CP Helper the argument line for
+`contest.sh` in the problem repo: the contest id and the comma-joined labels in page order, split
+subproblems included (**`2266 A,B,C1,C2,D,E`**). CP Helper puts it on the **VS Code** clipboard and
+imports nothing. Use **`/contest/<id>/problems`** for the samples as before.
+
+### AtCoder contest list
+
+On a contest top page (**`/contests/<id>`**) or its task list (**`/contests/<id>/tasks`**), the
+toolbar action sends the argument line for `contest.sh` the same way: the contest id and the task
+labels in table order, `Ex` included (**`abc475 A,B,C,D,E,F,G`**). The top page carries no task
+links, so the labels are read from a same-origin `fetch` of `/contests/<id>/tasks` inside the tab,
+which uses your AtCoder session. Labels are passed through as the table prints them, so a round that
+still labels its last task `H` arrives as `H` and `contest.sh` will reject it - rename it to `Ex`.
+
+### LeetCode contest list
+
+On a contest page (**`/contest/weekly-contest-520/`**, **`/contest/biweekly-contest-178/`**), the
+toolbar action sends the `contest.sh` argument line. LeetCode has no per-problem letter, so the
+labels are positional (**`lcwk520 A,B,C,D`** for a four-problem contest) and the contest name is the
+one `contest.sh` expects: `weekly-contest-<n>` -> **`lcwk<n>`**, `biweekly-contest-<n>` ->
+**`lcbw<n>`**. The problem table is rendered client side, so a tab that has not painted it falls back
+to the contest's own `/contest/api/info/<slug>/` JSON. Any other contest slug is not mappable to a
+`contest.sh` name and is reported as a failure.
+
+### LeetCode problem page
 
 On a problem page, the toolbar action:
 
@@ -53,9 +80,9 @@ reconnect after a suspend.
 | `background.js`                    | Service worker: injects `lib/inpage/*.js`, then calls `__ojSyncExtractSamplesInPage`; POST / fallback. |
 | `lib/inpage/inject-manifest.js`    | **ES module** (SW only): ordered list of classic scripts to inject.                                    |
 | `lib/inpage/shared-dom.js`         | Injected: `prePlainText` (AtCoder + Codeforces).                                                       |
-| `lib/inpage/extract-atcoder.js`    | Injected: AtCoder scrape. Remove + drop `dispatch.js` branch to disable.                               |
-| `lib/inpage/extract-codeforces.js` | Injected: Codeforces scrape. Remove + drop `dispatch.js` branch to disable.                            |
-| `lib/inpage/extract-leetcode.js`   | Injected: LeetCode scrape + clipboard. Remove + drop `dispatch.js` branch to disable.                  |
+| `lib/inpage/extract-atcoder.js`    | Injected: AtCoder scrape + contest task labels. Remove + drop `dispatch.js` branch to disable.          |
+| `lib/inpage/extract-codeforces.js` | Injected: Codeforces scrape + contest problem labels. Remove + drop `dispatch.js` branch to disable.   |
+| `lib/inpage/extract-leetcode.js`   | Injected: LeetCode scrape + clipboard + contest labels. Remove + drop `dispatch.js` branch to disable.  |
 | `lib/inpage/dispatch.js`           | Injected: hostname -> `extractAtcoder` / `extractCodeforces` / `extractLeetcode`.                      |
 | `lib/inpage/submit-shared.js`      | Injected: language picking and same-origin page reads for the submit drivers.                          |
 | `lib/inpage/submit-atcoder.js`     | Injected: AtCoder submit + verdict. Remove + drop `submit-dispatch.js` branch to disable.              |
@@ -92,6 +119,10 @@ Right-click the extension -> **Options** (or open the options page from **Extens
 ## Payload shape
 
 The POST body is JSON understood by CP Helper (plain array of cases, or wrapped `{ problem, samples }` / `{ problems: [...] }` for multi-problem imports). Optional wrapper field **`source`** is set to **`oj-sync`** for debugging.
+
+A body with **`clipboardText`** and no cases is not an import: CP Helper writes that string to the
+**VS Code** clipboard and stops. Codeforces, AtCoder and LeetCode contest list pages use it for the
+`contest.sh` arguments.
 
 Codeforces and AtCoder imports also carry the problem page **`url`**, which is what CP Helper turns
 into a submit target (it is also the only thing that distinguishes a `gym` contest from a regular

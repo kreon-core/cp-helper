@@ -37,7 +37,7 @@
       return ns.extractCodeforces(pageUrl);
     }
     if (lc && typeof ns.extractLeetcode === "function") {
-      return ns.extractLeetcode();
+      return ns.extractLeetcode(pageUrl);
     }
     return [];
   };

@@ -59,6 +59,33 @@ function readStarterCodeField(o: Record<string, unknown>): string | null {
 }
 
 /**
+ * OJ Sync contest-list payload: `{ clipboardText }` with no samples, carrying the `contest.sh`
+ * arguments for a Codeforces contest.
+ * @returns the text to put on the clipboard, or `null` when this is a normal samples payload.
+ */
+export function readClipboardOnlyPayload(text: string): string | null {
+  let data: unknown;
+  try {
+    data = JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return null;
+  }
+  const o = data as Record<string, unknown>;
+  if (
+    o.samples !== undefined ||
+    o.cases !== undefined ||
+    o.problems !== undefined
+  ) {
+    return null;
+  }
+  const t = o.clipboardText;
+  return typeof t === "string" && t.trim() !== "" ? t.trim() : null;
+}
+
+/**
  * OJ Sync: plain array, `{ problem, samples }`, or `{ problems: [...] }` (Codeforces multi).
  */
 export function parseImportPayload(text: string): {

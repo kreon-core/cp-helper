@@ -70,7 +70,7 @@
   function cfContestIdFromUrl(urlStr) {
     try {
       const u = new URL(urlStr, "https://codeforces.com");
-      const m = u.pathname.match(/\/(?:contest|gym)\/(\d+)\//u);
+      const m = u.pathname.match(/\/(?:contest|gym)\/(\d+)(?:\/|$)/u);
       return m ? m[1] : "";
     } catch {
       return "";
@@ -78,13 +78,57 @@
   }
 
   /**
+   * @param {string} urlStr
+   * @returns {boolean}
+   */
+  function cfIsContestListUrl(urlStr) {
+    try {
+      const u = new URL(urlStr, "https://codeforces.com");
+      return /^\/(?:contest|gym)\/\d+\/?$/u.test(u.pathname);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * @param {string} contestId
+   * @returns {string[]}
+   */
+  function cfLabelsFromContestList(contestId) {
+    if (!contestId) return [];
+    const re = new RegExp(
+      `/(?:contest|gym)/${contestId}/problem/([^/?#]+)`,
+      "u",
+    );
+    /** @type {string[]} */
+    const labels = [];
+    for (const a of document.querySelectorAll(
+      'table.problems a[href*="/problem/"]',
+    )) {
+      const m = (a.getAttribute("href") ?? "").match(re);
+      if (!m) continue;
+      const raw = decodeURIComponent(m[1]);
+      const id = /^[a-z]/u.test(raw) ? raw[0].toUpperCase() + raw.slice(1) : raw;
+      if (!labels.includes(id)) labels.push(id);
+    }
+    return labels;
+  }
+
+  /**
    * @param {string} pageUrl
-   * @returns {{ kind: string; items?: unknown[]; timeLimitMs?: number | null; contestId?: string; problems?: unknown[] }}
+   * @returns {{ kind: string; items?: unknown[]; timeLimitMs?: number | null; contestId?: string; problems?: unknown[]; labels?: string[] }}
    */
   ns.extractCodeforces = function extractCodeforces(pageUrl) {
-    const contestId = cfContestIdFromUrl(
-      pageUrl && pageUrl.length > 0 ? pageUrl : window.location.href,
-    );
+    const url = pageUrl && pageUrl.length > 0 ? pageUrl : window.location.href;
+    const contestId = cfContestIdFromUrl(url);
+    if (cfIsContestListUrl(url)) {
+      return {
+        kind: "contest-labels",
+        contestId,
+        labels: cfLabelsFromContestList(contestId),
+      };
+    }
+
     const holders = Array.from(
       document.querySelectorAll("div.problemindexholder"),
     ).filter((h) => h.querySelector("div.sample-test"));

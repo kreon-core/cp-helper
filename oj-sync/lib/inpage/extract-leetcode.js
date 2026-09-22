@@ -1,5 +1,6 @@
 /**
  * LeetCode: description examples + console testcase fallback; starter from Monaco or CodeMirror 6.
+ * A contest page yields `contest.sh` labels instead of samples.
  * Stdin line ordering uses the C++ method parameter list from the editor when possible.
  * Delete this file and remove the lc branch in `dispatch.js` to drop support.
  */
@@ -624,7 +625,109 @@
   /**
    * @returns {{ kind: "leetcode"; frontendId: string | null; starterCode: string; items: { id: string; text: string }[] }}
    */
-  ns.extractLeetcode = function extractLeetcode() {
+  /**
+   * Contest directory name used by `contest.sh`: `weekly-contest-520` -> `lcwk520`.
+   * @param {string} slug
+   * @returns {string}
+   */
+  function leetcodeContestName(slug) {
+    let m = slug.match(/^weekly-contest-(\d+)$/u);
+    if (m) return `lcwk${m[1]}`;
+    m = slug.match(/^biweekly-contest-(\d+)$/u);
+    return m ? `lcbw${m[1]}` : "";
+  }
+
+  /**
+   * @param {string} urlStr
+   * @returns {string}
+   */
+  function leetcodeContestSlugFromUrl(urlStr) {
+    try {
+      const u = new URL(urlStr, "https://leetcode.com");
+      const m = u.pathname.match(/^\/contest\/([^/]+)\/?$/u);
+      return m ? m[1] : "";
+    } catch {
+      return "";
+    }
+  }
+
+  /**
+   * @param {string} slug
+   * @returns {number}
+   */
+  function leetcodeProblemCountFromDom(slug) {
+    const prefix = `/contest/${slug}/problems/`;
+    const seen = new Set();
+    for (const a of document.querySelectorAll('a[href*="/problems/"]')) {
+      const href = a.getAttribute("href") ?? "";
+      const at = href.indexOf(prefix);
+      if (at < 0) continue;
+      const rest = href.slice(at + prefix.length).replace(/[/?#].*$/u, "");
+      if (rest.length > 0) seen.add(rest);
+    }
+    return seen.size;
+  }
+
+  /**
+   * The contest page renders its problem table client side, so a tab that has not painted it yet
+   * falls back to the contest's own JSON.
+   * @param {string} slug
+   * @returns {Promise<number>}
+   */
+  async function leetcodeProblemCountFromApi(slug) {
+    try {
+      const res = await fetch(`/contest/api/info/${slug}/`, {
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      });
+      if (!res.ok) return 0;
+      const data = await res.json();
+      const questions = data && data.questions;
+      return Array.isArray(questions) ? questions.length : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * @param {number} count
+   * @returns {string[]}
+   */
+  function leetcodeLabels(count) {
+    /** @type {string[]} */
+    const labels = [];
+    for (let i = 0; i < count && i < 26; i += 1) {
+      labels.push(String.fromCharCode(65 + i));
+    }
+    return labels;
+  }
+
+  /**
+   * @param {string} url
+   * @returns {Promise<{ kind: string; contestId: string; labels: string[] }>}
+   */
+  async function leetcodeContestLabels(url) {
+    const slug = leetcodeContestSlugFromUrl(url);
+    const contestId = leetcodeContestName(slug);
+    if (contestId.length === 0) {
+      return { kind: "contest-labels", contestId: "", labels: [] };
+    }
+    let count = leetcodeProblemCountFromDom(slug);
+    if (count === 0) {
+      count = await leetcodeProblemCountFromApi(slug);
+    }
+    return { kind: "contest-labels", contestId, labels: leetcodeLabels(count) };
+  }
+
+  /**
+   * @param {string} pageUrl
+   * @returns {{ kind: string; frontendId: string | null; starterCode: string; items: { id: string; text: string }[] } | Promise<{ kind: string; contestId: string; labels: string[] }>}
+   */
+  ns.extractLeetcode = function extractLeetcode(pageUrl) {
+    const url = pageUrl && pageUrl.length > 0 ? pageUrl : window.location.href;
+    if (leetcodeContestSlugFromUrl(url).length > 0) {
+      return leetcodeContestLabels(url);
+    }
     const rawStarter = extractLeetcodeStarterCode();
     copyTextToClipboardBestEffort(rawStarter);
     let items = extractLeetcodeDescriptionExamples(rawStarter);

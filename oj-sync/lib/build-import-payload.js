@@ -41,6 +41,27 @@ export function buildImportJsonFromExtractResult(tabUrl, raw) {
     raw &&
     typeof raw === "object" &&
     !Array.isArray(raw) &&
+    /** @type {{ kind?: string }} */ (raw).kind === "contest-labels"
+  ) {
+    const list = /** @type {{ contestId?: string; labels?: unknown }} */ (raw);
+    const contestId = (list.contestId ?? "").toString();
+    const labels = Array.isArray(list.labels)
+      ? list.labels.map((x) => String(x)).filter((x) => x.length > 0)
+      : [];
+    if (contestId.length === 0 || labels.length === 0) {
+      return { ok: false };
+    }
+    const payload = {
+      source: "oj-sync",
+      clipboardText: `${contestId} ${labels.join(",")}`,
+    };
+    return { ok: true, json: JSON.stringify(payload, null, 2) };
+  }
+
+  if (
+    raw &&
+    typeof raw === "object" &&
+    !Array.isArray(raw) &&
     /** @type {{ kind?: string; problems?: unknown }} */ (raw).kind === "cf-multi" &&
     Array.isArray(/** @type {{ problems: unknown }} */ (raw).problems)
   ) {
