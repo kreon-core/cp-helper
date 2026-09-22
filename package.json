@@ -200,12 +200,14 @@
           "type": "string",
           "enum": [
             "auto",
+            "status",
             "sticky",
             "off"
           ],
           "enumDescriptions": [
-            "Information toast, which VS Code dismisses on its own.",
-            "Error or warning notification, which stays until it is clicked away.",
+            "Information toast, which VS Code drops after 10s of window focus.",
+            "Status bar message, which clears itself after 2s (4s for a warning or an error) whether the window is focused or not.",
+            "Error or warning notification, which VS Code keeps for 15s / 12s of window focus.",
             "No notification at all."
           ],
           "default": "auto",
@@ -215,12 +217,14 @@
           "type": "string",
           "enum": [
             "auto",
+            "status",
             "sticky",
             "off"
           ],
           "enumDescriptions": [
-            "Information toast, which VS Code dismisses on its own.",
-            "Error or warning notification, which stays until it is clicked away.",
+            "Information toast, which VS Code drops after 10s of window focus.",
+            "Status bar message, which clears itself after 2s (4s for a warning or an error) whether the window is focused or not.",
+            "Error or warning notification, which VS Code keeps for 15s / 12s of window focus.",
             "No notification at all."
           ],
           "default": "auto",
