@@ -161,7 +161,7 @@
         explicit: true,
         error: `Codeforces already has this source for ${job.problemId}${
           verdict === "" ? "" : ` (${verdict})`
-        } - edit it to resubmit.`,
+        }.`,
       };
     }
     if (ns.isGenericError(errors)) {

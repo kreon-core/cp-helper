@@ -828,7 +828,8 @@
   /**
    * Remember which file a problem is being solved in. Only a Run button inside a problem does this,
    * so a keybinding never moves a binding the user set by hand. A file solves one problem at a
-   * time: binding it here drops it from whichever problem held it before, results included.
+   * time: binding it here drops it from whichever problem held it before, results and submit
+   * status included.
    * @param {number} gi
    * @param {string} file
    */
@@ -842,6 +843,7 @@
       if (i !== gi && (other.source ?? "") === file) {
         delete other.source;
         purgeLastRunForGroup(i);
+        setSubmitStatus(i, "", "");
         changed = true;
       }
     });
@@ -857,7 +859,7 @@
   /**
    * Drop a problem's file binding. The chip in the header is the only place a binding is visible,
    * so right-clicking it is what takes back a binding a stray Run left behind. The problem's
-   * results go with it: every verdict on screen describes a run of the file just unlinked.
+   * results and submit status go with it: every verdict on screen describes the file just unlinked.
    * @param {number} gi
    */
   function unbindGroupSource(gi) {
@@ -867,6 +869,7 @@
     }
     delete g.source;
     purgeLastRunForGroup(gi);
+    setSubmitStatus(gi, "", "");
     persist();
     if (incrementalDomReady()) {
       syncMultiGroupHeadersFromState();
@@ -1662,8 +1665,19 @@
     if (submitBusyGroups.has(gi)) {
       return "A submit for this problem is already in progress";
     }
-    if ((groups[gi]?.source ?? "") === "") {
+    const linked = groups[gi]?.source ?? "";
+    if (linked === "") {
       return "No file is linked to this problem - press Run in its header to link the file in the editor";
+    }
+    const gs = lastRunAllSummaryByGroup[gi];
+    if (!gs || gs.total <= 0 || gs.partial) {
+      return "Run all samples of this problem first - only a full pass can be submitted";
+    }
+    if ((gs.file ?? "") !== "" && gs.file !== linked) {
+      return `The last run compiled ${pathToParentAndName(gs.file)}, not the linked file - run all samples again`;
+    }
+    if (gs.passed !== gs.total) {
+      return `${gs.passed} of ${gs.total} samples passed - fix them, then run all again`;
     }
     return null;
   }
