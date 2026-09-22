@@ -169,7 +169,7 @@
       return {
         submitted: false,
         posted: true,
-        error: `Codeforces did not reach the submissions list ${banner}(${detail}).`,
+        error: `Codeforces did not reach its submissions list ${banner}(${detail}, ${lang.text}).`,
       };
     }
     return {

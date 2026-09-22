@@ -92,7 +92,7 @@
       return {
         submitted: false,
         posted: true,
-        error: `AtCoder refused the submission without saying why ${banner}(${detail}, ${lang.text}).`,
+        error: `AtCoder did not reach its submissions list ${banner}(${detail}, ${lang.text}).`,
       };
     }
     return {
