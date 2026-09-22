@@ -15,6 +15,9 @@ export const WORKSPACE_KEY_RUN_RESULTS = "cp-helper.runResults";
 /** Ceiling on the stored results blob; past it the save is dropped rather than bloating the state db. */
 export const RUN_RESULTS_MAX_BYTES = 4_000_000;
 
+/** Last submit outcome per problem (stage text, tone, submission url), keyed by group id. */
+export const WORKSPACE_KEY_SUBMIT_STATUS = "cp-helper.submitStatus";
+
 /** `when` clause: Samples webview has keyboard focus (for user keybindings). */
 export const CONTEXT_SAMPLES_FOCUS = "cp-helper.samplesFocus";
 

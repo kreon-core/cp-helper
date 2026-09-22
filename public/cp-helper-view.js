@@ -1061,6 +1061,59 @@
     return out;
   }
 
+  /**
+   * Hand the submit outcomes to the host, which keeps them in workspace state.
+   */
+  function persistSubmitStatus() {
+    vscode.postMessage({
+      type: "saveSubmitStatus",
+      status: submitStatusByGroup,
+    });
+  }
+
+  /**
+   * Paint back the submit outcomes of an earlier session. Entries for a group that is gone are
+   * dropped: the samples are the truth.
+   * @param {unknown} stored blob from the host, keyed by `CaseGroup.id`
+   */
+  function restoreSubmitStatus(stored) {
+    if (!stored || typeof stored !== "object" || Array.isArray(stored)) {
+      return;
+    }
+    groups.forEach((g, gi) => {
+      const gid = String(g?.id ?? gi);
+      const st = stored[gid];
+      if (!st || typeof st !== "object" || typeof st.text !== "string" || st.text === "") {
+        return;
+      }
+      submitStatusByGroup[gid] = {
+        text: st.text,
+        tone: typeof st.tone === "string" ? st.tone : "",
+        title: typeof st.title === "string" && st.title !== "" ? st.title : st.text,
+        url: typeof st.url === "string" ? st.url : "",
+      };
+    });
+  }
+
+  /**
+   * Collapse state for a list that has just been replaced. A group or case the previous list
+   * already held keeps whatever the user left it at; anything new takes the collapsed default.
+   * @param {Record<string, boolean>} prev
+   * @param {Record<string, boolean>} defaults
+   * @param {Set<string>} known keys the previous list held
+   * @returns {Record<string, boolean>}
+   */
+  function carryCollapsed(prev, defaults, known) {
+    /** @type {Record<string, boolean>} */
+    const out = {};
+    for (const k of Object.keys(defaults)) {
+      if (known.has(k) ? prev[k] : defaults[k]) {
+        out[k] = true;
+      }
+    }
+    return out;
+  }
+
   function persistWebviewNavState() {
     const prev = vscode.getState();
     const base =
@@ -1152,10 +1205,15 @@
   function pruneGroupCollapseState() {
     const ids = new Set(groups.map((g) => String(g.id ?? "")));
     let changed = false;
+    let submitChanged = false;
     for (const k of Object.keys(submitStatusByGroup)) {
       if (!ids.has(k)) {
         delete submitStatusByGroup[k];
+        submitChanged = true;
       }
+    }
+    if (submitChanged) {
+      persistSubmitStatus();
     }
     for (const k of Object.keys(groupCollapsed)) {
       if (!ids.has(k)) {
@@ -1573,6 +1631,7 @@
     if (el) {
       paintSubmitStatusEl(el, submitStatusByGroup[gid]);
     }
+    persistSubmitStatus();
   }
 
   /**
@@ -2717,6 +2776,17 @@
       return;
     }
     if (m.type === "cases") {
+      const knownGroupIds = new Set();
+      const knownCaseKeys = new Set();
+      groups.forEach((g, gi) => {
+        const gid = String(g?.id ?? gi);
+        knownGroupIds.add(gid);
+        (g?.cases ?? []).forEach((c, ci) => {
+          knownCaseKeys.add(`${gid}::${c?.sample ?? ci + 1}`);
+        });
+      });
+      const prevGroupCollapsed = groupCollapsed;
+      const prevCaseCollapsed = caseCollapsed;
       if (Array.isArray(m.groups) && m.groups.length > 0) {
         groups = m.groups.map((g, i) => {
           const out = {
@@ -2741,9 +2811,24 @@
         groups = [];
       }
       submitTargets = Array.isArray(m.submitTargets) ? m.submitTargets : [];
-      submitStatusByGroup = {};
-      groupCollapsed = defaultCollapsedAllHeaders(groups);
-      caseCollapsed = defaultCollapsedAllCases(groups);
+      const liveGroupIds = new Set(groups.map((g, i) => String(g?.id ?? i)));
+      for (const k of Object.keys(submitStatusByGroup)) {
+        if (!liveGroupIds.has(k)) {
+          delete submitStatusByGroup[k];
+        }
+      }
+      restoreSubmitStatus(m.submitStatus);
+      persistSubmitStatus();
+      groupCollapsed = carryCollapsed(
+        prevGroupCollapsed,
+        defaultCollapsedAllHeaders(groups),
+        knownGroupIds,
+      );
+      caseCollapsed = carryCollapsed(
+        prevCaseCollapsed,
+        defaultCollapsedAllCases(groups),
+        knownCaseKeys,
+      );
       persistWebviewNavState();
       Object.keys(lastRun).forEach((k) => delete lastRun[k]);
       Object.keys(lastRunAllSummaryByGroup).forEach(

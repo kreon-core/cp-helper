@@ -8,6 +8,7 @@ import {
   RUN_TAKEOVER_TIMEOUT_MS,
   VIEW_TYPE_SAMPLES,
   WORKSPACE_KEY_RUN_RESULTS,
+  WORKSPACE_KEY_SUBMIT_STATUS,
 } from "./constants";
 import {
   coerceTimeLimitMs,
@@ -263,6 +264,8 @@ export class CpHelperViewProvider
       type: "cases",
       groups,
       submitTargets: submitTargetTitles(groups),
+      runResults: this.ctx.workspaceState.get(WORKSPACE_KEY_RUN_RESULTS),
+      submitStatus: this.ctx.workspaceState.get(WORKSPACE_KEY_SUBMIT_STATUS),
     });
   }
 
@@ -421,6 +424,9 @@ export class CpHelperViewProvider
             groups,
             submitTargets: submitTargetTitles(groups),
             runResults: this.ctx.workspaceState.get(WORKSPACE_KEY_RUN_RESULTS),
+            submitStatus: this.ctx.workspaceState.get(
+              WORKSPACE_KEY_SUBMIT_STATUS,
+            ),
           });
           postActiveSourceHint(webviewView.webview);
           this.postSubmitBridgeState();
@@ -476,6 +482,18 @@ export class CpHelperViewProvider
           void this.ctx.workspaceState.update(
             WORKSPACE_KEY_RUN_RESULTS,
             results,
+          );
+          break;
+        }
+        case "saveSubmitStatus": {
+          const status = msg.status;
+          const empty =
+            status === null ||
+            typeof status !== "object" ||
+            Object.keys(status as object).length === 0;
+          void this.ctx.workspaceState.update(
+            WORKSPACE_KEY_SUBMIT_STATUS,
+            empty ? undefined : status,
           );
           break;
         }
