@@ -6,6 +6,9 @@
   --cp-radius-sm: 3px;
   --cp-radius-md: 4px;
   --cp-radius-lg: 6px;
+  /** Shared geometry for every status chip: verdict, timings, Run all count, source, time limit. */
+  --cp-chip-radius: 5px;
+  --cp-chip-height: 20px;
   --cp-space-1: 4px;
   --cp-space-2: 6px;
   --cp-space-3: 8px;
@@ -154,8 +157,10 @@ body {
   align-items: center;
   gap: var(--cp-space-1);
   min-width: 0;
-  padding: 1px var(--cp-space-2) 1px var(--cp-space-1);
-  border-radius: var(--cp-radius-lg);
+  min-height: var(--cp-chip-height);
+  padding: 0 var(--cp-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--cp-chip-radius);
   background: transparent;
   color: var(--vscode-descriptionForeground, var(--vscode-foreground));
   transition: background-color 80ms ease-out;
@@ -305,36 +310,22 @@ button.btn-run-local {
   box-shadow: 0 0 0 1px var(--vscode-focusBorder, #007fd4);
 }
 
-.run-status-spinner {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  border: 2px solid var(--vscode-badge-background, rgba(128, 128, 128, 0.4));
-  border-top-color: var(
-    --vscode-progressBar-background,
-    var(--vscode-textLink-foreground, #3794ff)
-  );
-  border-radius: 50%;
-  animation: cp-helper-spin 0.65s linear infinite;
-}
-
-.run-status-label {
-  white-space: nowrap;
-}
-
+/* A faint track with one leading arc in the theme's own foreground: white on a dark theme. */
+.run-status-spinner,
 .run-row-spinner {
   display: inline-block;
   width: 12px;
   height: 12px;
   flex-shrink: 0;
-  border: 2px solid var(--vscode-badge-background, rgba(128, 128, 128, 0.35));
-  border-top-color: var(
-    --vscode-progressBar-background,
-    var(--vscode-textLink-foreground, #3794ff)
-  );
+  border: 1.5px solid rgba(128, 128, 128, 0.25);
+  border-top-color: var(--vscode-foreground, #ffffff);
   border-radius: 50%;
-  animation: cp-helper-spin 0.65s linear infinite;
+  animation: cp-helper-spin 0.7s linear infinite;
   vertical-align: middle;
+}
+
+.run-status-label {
+  white-space: nowrap;
 }
 
 @keyframes cp-helper-spin {
@@ -611,12 +602,16 @@ button.case-group-disclose:focus-visible {
 }
 
 .case-group-limit {
+  display: inline-flex;
+  align-items: center;
   flex: 0 0 auto;
-  margin-left: 6px;
-  padding: 0 4px;
-  border: 1px solid var(--vscode-widget-border, transparent);
-  border-radius: 3px;
-  font-size: 0.85em;
+  margin-left: var(--cp-space-1);
+  min-height: var(--cp-chip-height);
+  padding: 0 var(--cp-space-2);
+  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.18));
+  border-radius: var(--cp-chip-radius);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
   opacity: 0.75;
 }
 
@@ -634,8 +629,10 @@ button.case-group-disclose:focus-visible {
   border-bottom-color: rgba(46, 160, 67, 0.35);
 }
 
-.case-group-wrap--ac .case-group-passed {
+.case-group-wrap--ac .case-group-passed:not(:empty) {
   color: var(--vscode-testing-iconPassed, #3fb950);
+  background: rgba(46, 160, 67, 0.15);
+  border-color: rgba(46, 160, 67, 0.3);
 }
 
 .case-group-wrap--ac button.case-group-disclose:hover:not(:disabled) {
@@ -652,8 +649,10 @@ button.case-group-disclose:focus-visible {
   border-bottom-color: rgba(248, 81, 73, 0.35);
 }
 
-.case-group-wrap--wa .case-group-passed {
+.case-group-wrap--wa .case-group-passed:not(:empty) {
   color: var(--vscode-errorForeground, #f85149);
+  background: rgba(248, 81, 73, 0.12);
+  border-color: rgba(248, 81, 73, 0.3);
 }
 
 .case-group-wrap--wa button.case-group-disclose:hover:not(:disabled) {
@@ -671,8 +670,7 @@ button.case-group-disclose:focus-visible {
   min-height: 22px;
   font-size: 11px;
   font-weight: 500;
-  opacity: 0.92;
-  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  color: var(--vscode-foreground);
 }
 
 .case-group-run-status .run-status-label {
@@ -682,14 +680,23 @@ button.case-group-disclose:focus-visible {
   white-space: nowrap;
 }
 
+/* Same chip as the verdicts it sums up; the fill comes with the verdict, so a header with no
+   count keeps the slot but shows nothing. */
 .case-group-passed {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
+  min-width: 34px;
+  min-height: var(--cp-chip-height);
+  padding: 0 var(--cp-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--cp-chip-radius);
   font-size: 11px;
   font-weight: 600;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--vscode-descriptionForeground, var(--vscode-foreground));
-  min-width: 2.5em;
-  text-align: right;
 }
 
 /**
@@ -715,7 +722,6 @@ button.case-group-disclose:focus-visible {
   flex: 0 1 auto;
   min-width: 0;
   max-width: min(180px, 45%);
-  padding: 1px var(--cp-space-1);
 }
 
 /**
@@ -724,8 +730,8 @@ button.case-group-disclose:focus-visible {
  * the difference between them has to survive a glance down a list of problems.
  */
 .case-group-src--current {
-  background: rgba(88, 166, 255, 0.16);
-  box-shadow: inset 0 0 0 1px rgba(88, 166, 255, 0.4);
+  background: rgba(88, 166, 255, 0.15);
+  border-color: rgba(88, 166, 255, 0.3);
 }
 
 .case-group-src--current:hover {
@@ -767,8 +773,10 @@ button.case-group-disclose:focus-visible {
   border-color: var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
 }
 
-.case-group-wrap--stale .case-group-passed {
+.case-group-wrap--stale .case-group-passed:not(:empty) {
   color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  background: rgba(128, 128, 128, 0.1);
+  border-color: rgba(128, 128, 128, 0.18);
   opacity: 0.7;
 }
 
@@ -900,18 +908,18 @@ button.case-disclose:focus-visible {
  * text, so the run buttons after them line up down the list instead of stepping in and out.
  */
 .case-status {
-  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-height: var(--cp-chip-height);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.05em;
   line-height: 1;
   flex-shrink: 0;
   white-space: nowrap;
-  padding: 2px 6px;
-  border-radius: 3px;
+  padding: 0 var(--cp-space-2);
+  border-radius: var(--cp-chip-radius);
   border: 1px solid transparent;
 }
 
@@ -983,6 +991,11 @@ button.case-disclose:focus-visible {
   color: var(--vscode-editorWarning-foreground, #d29922);
   background: rgba(210, 153, 34, 0.12);
   border-color: rgba(210, 153, 34, 0.3);
+}
+
+.case-head .case-verdict--running {
+  background: transparent;
+  border-color: transparent;
 }
 
 .case-actions {
@@ -1159,11 +1172,6 @@ pre.input-area:focus-visible {
   .run-status-spinner,
   .run-row-spinner {
     animation: none;
-    border-color: var(--vscode-badge-background, rgba(128, 128, 128, 0.35));
-    border-top-color: var(
-      --vscode-progressBar-background,
-      var(--vscode-textLink-foreground, #3794ff)
-    );
   }
 }
 

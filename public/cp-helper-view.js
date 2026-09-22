@@ -14,10 +14,7 @@
    */
   const lastRunAllSummaryByGroup = {};
 
-  /**
-   * Stamp of the run each result came from, and the one every group is on. Results restored from
-   * an earlier session carry stamps of their own, so the counter starts above any of them.
-   */
+  /** Stamp of the run a result came from; seeded past the stamps restored from an earlier session. */
   let runStampSeq = Date.now();
   /** @type {Record<string, number | undefined>} */
   const runStampByGroup = {};
@@ -198,8 +195,9 @@
    * @param {HTMLElement} head
    * @param {{ verdict: string; elapsedMs?: number; execMs?: number; overheadMs?: number; timeLimitMs?: number } | null} runInfo
    * @param {Element | null} before insertion anchor, or null to append
+   * @param {boolean} [running] sample in flight: the verdict slot holds the spinner
    */
-  function appendCaseStatus(head, runInfo, before) {
+  function appendCaseStatus(head, runInfo, before, running) {
     const execMs = runInfo
       ? (runInfo.execMs != null ? runInfo.execMs : runInfo.elapsedMs)
       : undefined;
@@ -208,6 +206,13 @@
       runInfo && runInfo.overheadMs != null
         ? `+${formatElapsed(runInfo.overheadMs).trim()}`
         : "";
+    const put = (el) => {
+      if (before) {
+        head.insertBefore(el, before);
+      } else {
+        head.appendChild(el);
+      }
+    };
     const mk = (kind, text, hint) => {
       const el = document.createElement("span");
       el.className = `case-status case-${kind}`;
@@ -220,18 +225,26 @@
           el.title = hint;
         }
       }
-      if (before) {
-        head.insertBefore(el, before);
-      } else {
-        head.appendChild(el);
-      }
+      put(el);
     };
     const limitMs = runInfo && runInfo.timeLimitMs != null ? runInfo.timeLimitMs : null;
     const timeHint =
       limitMs != null
         ? `Execution time (judge limit${formatElapsed(limitMs)})`
         : "Execution time";
-    mk("verdict", runInfo ? runInfo.verdict : "");
+    if (running) {
+      const slot = document.createElement("span");
+      slot.className = "case-status case-verdict case-verdict--running";
+      slot.title = "Running";
+      slot.setAttribute("aria-label", "Running");
+      const spin = document.createElement("span");
+      spin.className = "run-row-spinner";
+      spin.setAttribute("aria-hidden", "true");
+      slot.appendChild(spin);
+      put(slot);
+    } else {
+      mk("verdict", runInfo ? runInfo.verdict : "");
+    }
     mk("time", elapsed, timeHint);
     mk("overhead", overhead, "Overhead outside the program: process spawn and output drain");
   }
@@ -810,8 +823,7 @@
   /**
    * Remember which file a problem is being solved in. Only a Run button inside a problem does this,
    * so a keybinding never moves a binding the user set by hand. A file solves one problem at a
-   * time: binding it here drops it from whichever problem held it before, and that problem's
-   * results go with the binding - they all describe a run of the file it just lost.
+   * time: binding it here drops it from whichever problem held it before, results included.
    * @param {number} gi
    * @param {string} file
    */
@@ -1309,10 +1321,8 @@
   }
 
   /**
-   * Retire the rows a finished Run all never reached - a stopped run leaves the previous run's
-   * verdicts there, and they describe a run that is now history. Run all sweeps here instead of
-   * blanking the list up front, so a row keeps its verdict until the new one lands on it. A run
-   * that produced no verdict at all was rejected before it compiled: it leaves the list alone.
+   * Retire the rows a finished Run all never reached, so what the list shows belongs to that run
+   * alone. A run that produced no verdict at all never started, and leaves the list as it was.
    * @param {number} gi
    */
   function dropRowsFromEarlierRuns(gi) {
@@ -1607,8 +1617,6 @@
         return;
       }
       wrap.classList.toggle("case-group-wrap--active", gi === activeGi);
-      // Nothing is blanked when a run starts: every group keeps its last AC/WA + n/m until the
-      // run in flight has a summary of its own to put there.
       const sumEl = wrap.querySelector(".case-group-passed");
       const srcEl = wrap.querySelector(".case-group-src");
       if (sumEl && srcEl) {
@@ -1616,23 +1624,33 @@
       }
       const grpStatus = wrap.querySelector(".case-group-run-status");
       if (grpStatus) {
-        grpStatus.innerHTML = "";
         const st = textForActiveGroupRunStatus(gi);
-        if (st !== null) {
-          const grpSpin = document.createElement("span");
-          grpSpin.className = "run-status-spinner";
-          grpSpin.setAttribute("aria-hidden", "true");
-          grpStatus.appendChild(grpSpin);
-          if (st) {
-            const grpLbl = document.createElement("span");
-            grpLbl.className = "run-status-label";
-            grpLbl.textContent = st;
-            grpLbl.setAttribute("aria-live", "polite");
-            grpStatus.appendChild(grpLbl);
+        if (st === null) {
+          grpStatus.replaceChildren();
+          grpStatus.hidden = true;
+        } else {
+          // Recreating the spinner would restart its animation on every sample.
+          if (!grpStatus.querySelector(".run-status-spinner")) {
+            const grpSpin = document.createElement("span");
+            grpSpin.className = "run-status-spinner";
+            grpSpin.setAttribute("aria-hidden", "true");
+            grpStatus.appendChild(grpSpin);
+          }
+          let grpLbl = grpStatus.querySelector(".run-status-label");
+          if (st === "") {
+            grpLbl?.remove();
+          } else {
+            if (!grpLbl) {
+              grpLbl = document.createElement("span");
+              grpLbl.className = "run-status-label";
+              grpLbl.setAttribute("aria-live", "polite");
+              grpStatus.appendChild(grpLbl);
+            }
+            if (grpLbl.textContent !== st) {
+              grpLbl.textContent = st;
+            }
           }
           grpStatus.hidden = false;
-        } else {
-          grpStatus.hidden = true;
         }
       }
       wrap.querySelectorAll(".case-group__run-all").forEach((runAllBtn) => {
@@ -1669,19 +1687,16 @@
       }
       const head = li.querySelector(".case-head");
       const actions = head && head.querySelector(".case-actions");
-      if (!head || !actions) {
+      const slot = head && head.querySelector(".case-verdict");
+      if (!head || !actions || !slot) {
         return;
       }
-      head.querySelectorAll(".run-row-spinner").forEach((el) => el.remove());
-      const showRowSpinner = isRowRunning(gi, index);
-      if (showRowSpinner) {
-        const spin = document.createElement("span");
-        spin.className = "run-row-spinner";
-        spin.title = "Running";
-        spin.setAttribute("aria-label", "Running");
-        const status = head.querySelector(".case-status");
-        head.insertBefore(spin, status ?? actions);
+      const running = isRowRunning(gi, index);
+      if (running === slot.classList.contains("case-verdict--running")) {
+        return;
       }
+      head.querySelectorAll(".case-status").forEach((el) => el.remove());
+      appendCaseStatus(head, lastRun[rk(gi, index)] ?? null, actions, running);
     });
   }
 
@@ -1712,7 +1727,7 @@
       return false;
     }
     head.querySelectorAll(".case-status").forEach((el) => el.remove());
-    appendCaseStatus(head, runInfo ?? null, actions);
+    appendCaseStatus(head, runInfo ?? null, actions, isRowRunning(gi, ci));
     const body = li.querySelector(".case-body");
     if (!body) {
       return true;
@@ -1856,7 +1871,6 @@
         unbindGroupSource(gi);
       });
       paintGroupResults(wrap, sumEl, srcEl, gi);
-      ghead.appendChild(sumEl);
 
       const grpStatus = document.createElement("span");
       grpStatus.className = "case-group-run-status";
@@ -1878,6 +1892,7 @@
         grpStatus.hidden = true;
       }
       ghead.appendChild(grpStatus);
+      ghead.appendChild(sumEl);
       ghead.appendChild(srcEl);
 
       const groupName = (group.label ?? "").trim() || `group ${gi + 1}`;
@@ -2112,15 +2127,7 @@
         actions.appendChild(remove);
 
         head.appendChild(tEl);
-        const showRowSpinner = isRowRunning(gi, index);
-        if (showRowSpinner) {
-          const spin = document.createElement("span");
-          spin.className = "run-row-spinner";
-          spin.title = "Running";
-          spin.setAttribute("aria-label", "Running");
-          head.appendChild(spin);
-        }
-        appendCaseStatus(head, runInfo ?? null, null);
+        appendCaseStatus(head, runInfo ?? null, null, isRowRunning(gi, index));
         head.appendChild(actions);
 
         const body = document.createElement("div");
