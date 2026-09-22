@@ -72,7 +72,8 @@
    * Replays the page's own submit form. Building the body from the live form keeps `csrf_token`,
    * `ftaa` and `bfaa` exactly as Codeforces issued them for this session.
    * @param {{ problemId: string; language: string; source: string }} job
-   * @returns {Promise<{ submitted: boolean; error?: string; language?: string }>}
+   * @returns {Promise<{ submitted: boolean; posted?: boolean; error?: string; language?: string }>}
+   * `posted` means the POST went out, which spends the page's anti-bot token.
    */
   ns.submitCodeforces = async function submitCodeforces(job) {
     const form = submitForm();
@@ -136,7 +137,7 @@
     });
     const html = await res.text();
     if (/\/(?:my|status)\b/u.test(new URL(res.url).pathname)) {
-      return { submitted: true, language: lang.text };
+      return { submitted: true, posted: true, language: lang.text };
     }
     const doc = ns.parseHtml(html);
     const errors = ns.collectErrors(doc);
@@ -145,11 +146,13 @@
       const banner = errors.length > 0 ? `"${errors[0]}" ` : "";
       return {
         submitted: false,
+        posted: true,
         error: `Codeforces did not redirect to the submissions list ${banner}(${detail}).`,
       };
     }
     return {
       submitted: false,
+      posted: true,
       explicit: true,
       error: `Codeforces rejected the submission: ${errors.join(" | ")}`,
     };

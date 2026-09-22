@@ -35,7 +35,8 @@ Codeforces guards its submit form with an anti-bot widget. Its token is only fil
 two after the page loads, so the driver waits for it before replaying the form (a replay without it
 comes back as *"Please complete the anti-bot verification"*). When the widget wants the user to act,
 the tab is brought to the front and the submit is reported as needing that instead of failing
-silently.
+silently. A token is good for one submission and the widget goes on showing the spent one, so a tab
+that has posted is reloaded before the next submit is replayed in it.
 
 Pairing: in VS Code run **CP Helper: Copy Submit Bridge URL** and paste the result into the options
 page. The URL carries a token; WebSocket connections are not subject to CORS, so that token is the

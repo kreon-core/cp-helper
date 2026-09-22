@@ -38,7 +38,8 @@
 
   /**
    * @param {{ problemId: string; language: string; source: string }} job
-   * @returns {Promise<{ submitted: boolean; error?: string; language?: string }>}
+   * @returns {Promise<{ submitted: boolean; posted?: boolean; error?: string; language?: string }>}
+   * `posted` means the POST went out, which spends the page's anti-bot token.
    */
   ns.submitAtcoder = async function submitAtcoder(job) {
     const form = submitForm();
@@ -81,7 +82,7 @@
       headers,
     });
     if (/\/submissions\/me/u.test(new URL(res.url).pathname)) {
-      return { submitted: true, language: lang.text };
+      return { submitted: true, posted: true, language: lang.text };
     }
     const doc = ns.parseHtml(await res.text());
     const errors = ns.collectErrors(doc);
@@ -90,11 +91,13 @@
       const banner = errors.length > 0 ? `"${errors[0]}" ` : "";
       return {
         submitted: false,
+        posted: true,
         error: `AtCoder refused the submission without saying why ${banner}(${detail}, language "${lang.text}", task ${job.problemId}).`,
       };
     }
     return {
       submitted: false,
+      posted: true,
       explicit: true,
       error: `AtCoder rejected the submission: ${errors.join(" | ")}`,
     };

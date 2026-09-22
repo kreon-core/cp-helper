@@ -39,6 +39,13 @@ const CLAIM_TIMEOUT_MS = 15000;
 const wedgedTabs = new Set();
 
 /**
+ * Tabs whose anti-bot token has already been spent by a POST. The widget keeps showing the used
+ * token, and the judge rejects a second submission carrying it, so such a tab is reloaded before
+ * it is replayed again even when it is already on the right page.
+ */
+const spentTabs = new Set();
+
+/**
  * How long an anti-bot widget gets to clear itself while its tab is still in the background.
  * After this the tab is brought forward, since a hidden tab may never finish the challenge.
  */
@@ -125,6 +132,61 @@ function pageKey(url) {
 }
 
 /**
+ * Points a tab at `url` and resolves once it has loaded a document. `tabs.update` resolves as soon
+ * as the navigation is requested, and a tab sent to the page it is already on keeps reporting the
+ * old document as `complete` until the new one arrives - so polling alone would hand the drivers
+ * the page that is about to be replaced. What loaded is still `waitForLoad`'s to check: a judge
+ * that answered with its login page has to be reported as that, not as a load that never came.
+ * @param {number} tabId
+ * @param {string} url
+ * @returns {Promise<void>}
+ */
+function navigateTab(tabId, url) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    /** @param {Error} [err] */
+    const finish = (err) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+      chrome.tabs.onRemoved.removeListener(onRemoved);
+      clearTimeout(timer);
+      if (err) {
+        reject(err);
+      } else {
+        resolve();
+      }
+    };
+    /**
+     * @param {number} id
+     * @param {chrome.tabs.TabChangeInfo} info
+     */
+    const onUpdated = (id, info) => {
+      if (id === tabId && info.status === "complete") {
+        finish();
+      }
+    };
+    /** @param {number} id */
+    const onRemoved = (id) => {
+      if (id === tabId) {
+        finish(new Error("The submit tab was closed."));
+      }
+    };
+    const timer = setTimeout(
+      () => finish(new Error("The judge's submit page did not finish loading.")),
+      TAB_LOAD_TIMEOUT_MS,
+    );
+    chrome.tabs.onUpdated.addListener(onUpdated);
+    chrome.tabs.onRemoved.addListener(onRemoved);
+    chrome.tabs.update(tabId, { url }).catch((e) => {
+      finish(e instanceof Error ? e : new Error(String(e)));
+    });
+  });
+}
+
+/**
  * Waits for the tab to finish loading `expectedUrl`. The URL has to be checked as well as the
  * status: right after a navigation is requested the tab still reports the previous page as
  * `complete`, which would let the drivers run against the wrong document.
@@ -157,10 +219,11 @@ async function waitForLoad(tabId, expectedUrl) {
 }
 
 /**
- * Take a tab out of the pool and point it at `submitUrl`, opening one when every pooled tab is
- * either gone or already carrying another job.
+ * Take a tab out of the pool for `submitUrl`, opening one when every pooled tab is either gone or
+ * already carrying another job. The navigation itself is left to the caller: claims are
+ * serialized, so waiting for a page to load in here would park every later submit behind it.
  * @param {string} submitUrl
- * @returns {Promise<number>} id of the claimed tab, marked busy
+ * @returns {Promise<{ tabId: number; navigate: boolean }>} claimed tab, marked busy
  */
 async function claimTab(submitUrl) {
   const stored = await chrome.storage.session.get({ [TAB_KEY]: [] });
@@ -174,6 +237,7 @@ async function claimTab(submitUrl) {
     }
   }
   let tabId = alive.find((id) => !busyTabs.has(id));
+  let navigate = false;
   if (tabId === undefined) {
     const created = await chrome.tabs.create({ url: submitUrl, active: false });
     if (created.id === undefined) {
@@ -185,13 +249,12 @@ async function claimTab(submitUrl) {
     const tab = await getTab(tabId);
     // Re-navigating a tab that is already on this exact page throws away an anti-bot token the
     // user just cleared by hand, which is what "clear it there, then submit again" asks them to do.
-    if (!tab || (tab.url ?? "") !== submitUrl) {
-      await chrome.tabs.update(tabId, { url: submitUrl });
-    }
+    // A token this pool has already submitted with is worth nothing, so that tab does reload.
+    navigate = !tab || (tab.url ?? "") !== submitUrl || spentTabs.has(tabId);
   }
   busyTabs.add(tabId);
   await chrome.storage.session.set({ [TAB_KEY]: alive });
-  return tabId;
+  return { tabId, navigate };
 }
 
 /**
@@ -206,8 +269,12 @@ async function acquireTab(submitUrl) {
     () => undefined,
     () => undefined,
   );
-  const tabId = await claim;
+  const { tabId, navigate } = await claim;
   try {
+    if (navigate) {
+      await navigateTab(tabId, submitUrl);
+      spentTabs.delete(tabId);
+    }
     await waitForLoad(tabId, submitUrl);
   } catch (e) {
     busyTabs.delete(tabId);
@@ -529,6 +596,9 @@ async function submitInTab(tabId, job, onProgress) {
     job,
     IN_PAGE_SUBMIT_TIMEOUT_MS,
   );
+  if (sent && sent.posted === true) {
+    spentTabs.add(tabId);
+  }
   if (!sent || sent.submitted !== true) {
     const reason =
       (sent && sent.error) || "The judge did not accept the submission.";
