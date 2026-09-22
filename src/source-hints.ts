@@ -30,7 +30,7 @@ export async function ensureSourceSavedBeforeRun(
     if (!saved) {
       return {
         error:
-          "Save was cancelled. CP Helper compiles the file on disk - save the source, then run again.",
+          "Save was cancelled. The file on disk is what gets compiled - save the source, then run again.",
       };
     }
   }
@@ -71,7 +71,7 @@ export function getActiveSourceFilePath():
   const file = runTargetPath();
   if (file === null) {
     return {
-      error: `CP Helper runs C++ only. Open a ${CPP_EXTENSIONS_HINT} file and run again.`,
+      error: `Runs C++ only. Open a ${CPP_EXTENSIONS_HINT} file and run again.`,
     };
   }
   return { file };

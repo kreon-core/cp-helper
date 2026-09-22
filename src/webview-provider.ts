@@ -439,7 +439,7 @@ export class CpHelperViewProvider
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : String(e);
             log.error(`save test cases failed: ${errMsg}`);
-            notify("error", "CP Helper: Could not save test cases.");
+            notify("error", "Could not save test cases.");
           }
           const wsFolderSave = vscode.workspace.workspaceFolders?.[0]?.uri;
           if (wsFolderSave) {
@@ -492,7 +492,7 @@ export class CpHelperViewProvider
           if (!wsForExport) {
             webviewView.webview.postMessage({
               type: "error",
-              message: "CP Helper: No workspace folder to export to.",
+              message: "No workspace folder to export to.",
             });
             break;
           }
@@ -509,7 +509,7 @@ export class CpHelperViewProvider
             log.error(`export failed: ${errMsg}`);
             webviewView.webview.postMessage({
               type: "error",
-              message: `CP Helper: Export failed - ${errMsg}`,
+              message: `Export failed - ${errMsg}`,
             });
           }
           break;
@@ -538,8 +538,8 @@ export class CpHelperViewProvider
             notify(
               "error",
               fs.existsSync(wanted)
-                ? `CP Helper: Could not open ${name}.`
-                : `CP Helper: ${name} no longer exists - press Run to relink.`,
+                ? `Could not open ${name}.`
+                : `${name} no longer exists - press Run to relink.`,
             );
           }
           break;
@@ -611,7 +611,7 @@ export class CpHelperViewProvider
               maybeShowOutputOnRun();
               log.error(`submit rejected: ${failure}`);
               postSubmitState({ phase: "done", error: failure });
-              notify("error", `CP Helper: ${failure}`, "submitNotifications");
+              notify("error", failure, "submitNotifications");
               break;
             }
             postSubmitState({
@@ -625,13 +625,13 @@ export class CpHelperViewProvider
             if (result.verdict) {
               notify(
                 result.accepted ? "info" : "warn",
-                `CP Helper: ${result.title} - ${result.verdict}`,
+                `${result.title} - ${result.verdict}`,
                 "submitNotifications",
               );
             } else if (result.submitted) {
               notify(
                 "info",
-                `CP Helper: submitted to ${result.title}.`,
+                `Submitted to ${result.title}.`,
                 "submitNotifications",
               );
             }
@@ -752,14 +752,14 @@ export class CpHelperViewProvider
           const resolvedDbg = getActiveSourceFilePath();
           if ("error" in resolvedDbg) {
             log.error(`debug rejected: ${resolvedDbg.error}`);
-            notify("error", `CP Helper: ${resolvedDbg.error}`);
+            notify("error", resolvedDbg.error);
             break;
           }
           const dbgFile = resolvedDbg.file;
           const savedDbg = await ensureSourceSavedBeforeRun(dbgFile);
           if ("error" in savedDbg) {
             log.error(`debug rejected: ${savedDbg.error}`);
-            notify("error", `CP Helper: ${savedDbg.error}`);
+            notify("error", savedDbg.error);
             break;
           }
           const started = await startDebugCase(
@@ -771,7 +771,7 @@ export class CpHelperViewProvider
           if ("error" in started) {
             maybeShowOutputOnRun();
             log.error(`debug failed: ${started.error}`);
-            notify("error", `CP Helper: ${started.error}`);
+            notify("error", started.error);
           }
           break;
         }

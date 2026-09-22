@@ -141,7 +141,7 @@ export async function activate(
       log.info("submit bridge URL copied to the clipboard");
       notify(
         "info",
-        "CP Helper: Bridge URL copied - paste it into the OJ Sync options page.",
+        "Bridge URL copied - paste it into the OJ Sync options page.",
       );
     }),
   );
@@ -175,7 +175,7 @@ export async function activate(
           context,
           provider,
           revealSamplesAndFocus,
-          "CP Helper: clipboard is empty. Paste samples JSON into the clipboard, then open this link again or run \"Import samples from clipboard\".",
+          "Clipboard is empty. Paste samples JSON into the clipboard, then open this link again or run \"Import samples from clipboard\".",
         );
       },
     }),
@@ -192,7 +192,7 @@ export async function activate(
         context,
         provider,
         revealSamplesAndFocus,
-        "CP Helper: clipboard is empty.",
+        "Clipboard is empty.",
       );
     }),
   );
@@ -256,14 +256,14 @@ export async function activate(
         },
       ];
       const target = await vscode.window.showQuickPick(targets, {
-        title: "CP Helper: Select Compile Preset",
+        title: "Select Compile Preset",
         placeHolder: "Which build does this preset configure?",
       });
       if (!target) {
         return;
       }
       const picked = await vscode.window.showQuickPick(presets, {
-        title: `CP Helper: ${target.label}`,
+        title: target.label,
         placeHolder: "Pick a compiler and standard",
       });
       if (!picked) {
@@ -291,23 +291,23 @@ export async function activate(
       const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri;
       if (!wsFolder) {
         log.error("export rejected: no workspace folder");
-        notify("error", "CP Helper: No workspace folder to export to.");
+        notify("error", "No workspace folder to export to.");
         return;
       }
       const groups = await loadCaseGroupsFromFile(context.workspaceState, wsFolder);
       const cases = groups.flatMap((g) => g.cases);
       if (cases.length === 0) {
-        notify("info", "CP Helper: No test cases to export.");
+        notify("info", "No test cases to export.");
         return;
       }
       try {
         await exportCasesToTestcasesDir(wsFolder, cases);
         log.info(`exported ${cases.length} case(s) to testcases/`);
-        notify("info", `CP Helper: Exported ${cases.length} case(s) to testcases/`);
+        notify("info", `Exported ${cases.length} case(s) to testcases/`);
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);
         log.error(`export failed: ${errMsg}`);
-        notify("error", `CP Helper: Export failed - ${errMsg}`);
+        notify("error", `Export failed - ${errMsg}`);
       }
     }),
   );
@@ -317,14 +317,14 @@ export async function activate(
     vscode.commands.registerCommand(CMD_STRESS_TEST, async () => {
       if (runState.runLocked) {
         stressLog.warn("rejected: another run is in progress");
-        notify("warn", "CP Helper: Another run is in progress.");
+        notify("warn", "Another run is in progress.");
         return;
       }
       const cfg = vscode.workspace.getConfiguration("cp-helper");
       const generatorCmd = (cfg.get<string>("stressGeneratorCommand") ?? "").trim();
       if (!generatorCmd) {
         stressLog.error("rejected: cp-helper.stressGeneratorCommand is not set");
-        notify("error", "CP Helper: Set cp-helper.stressGeneratorCommand first.");
+        notify("error", "Set cp-helper.stressGeneratorCommand first.");
         return;
       }
       const referenceCmd = (cfg.get<string>("stressReferenceCommand") ?? "").trim();
@@ -336,14 +336,14 @@ export async function activate(
       const resolved = getActiveSourceFilePath();
       if ("error" in resolved) {
         stressLog.error(`rejected: ${resolved.error}`);
-        notify("error", `CP Helper: ${resolved.error}`);
+        notify("error", resolved.error);
         return;
       }
       const file = resolved.file;
       const saveFirst = await ensureSourceSavedBeforeRun(file);
       if ("error" in saveFirst) {
         stressLog.error(`rejected: ${saveFirst.error}`);
-        notify("error", `CP Helper: ${saveFirst.error}`);
+        notify("error", saveFirst.error);
         return;
       }
 
@@ -373,16 +373,16 @@ export async function activate(
 
         switch (result.status) {
           case "passed":
-            notify("info", `CP Helper Stress: ${result.iterations} iterations passed ✓`);
+            notify("info", `Stress: ${result.iterations} iterations passed ✓`);
             break;
           case "stopped":
             stressLog.warn(`stopped after ${result.iterations} iteration(s)`);
             break;
           case "compile_error":
-            notify("error", "CP Helper Stress: compile failed - see Output.");
+            notify("error", "Stress: compile failed - see Output.");
             break;
           case "generator_error":
-            notify("error", "CP Helper Stress: generator failed - see Output.");
+            notify("error", "Stress: generator failed - see Output.");
             break;
           case "bug": {
             const fc = result.failedCase;
@@ -398,7 +398,7 @@ export async function activate(
               stressLog.detail(`actual: ${fc.actual.slice(0, 500)}`, "ERROR");
             }
             const choice = await vscode.window.showWarningMessage(
-              `CP Helper Stress: bug found at iteration ${result.iterations}! Add failing case to samples?`,
+              `Stress: bug found at iteration ${result.iterations}! Add failing case to samples?`,
               "Add to Samples",
               "Dismiss",
             );

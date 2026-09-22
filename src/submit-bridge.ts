@@ -259,7 +259,7 @@ export class SubmitBridge {
       clearInterval(this.pingTimer);
       this.pingTimer = undefined;
     }
-    this.failPending("CP Helper shut the submit bridge down.");
+    this.failPending("The submit bridge was shut down.");
     this.client?.close(1001, "shutdown");
     this.client = undefined;
     this.wss.close();

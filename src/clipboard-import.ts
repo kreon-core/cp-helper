@@ -23,7 +23,7 @@ export function reportImportFailure(
     return;
   }
   log.error(`invalid samples JSON: ${message}`);
-  notify("error", `CP Helper: invalid samples JSON - ${message}`);
+  notify("error", `Invalid samples JSON - ${message}`);
 }
 
 /**
@@ -34,7 +34,7 @@ export async function readClipboardText(): Promise<string | null> {
     return await vscode.env.clipboard.readText();
   } catch {
     log.error("could not read the clipboard");
-    notify("error", "CP Helper: could not read the clipboard.");
+    notify("error", "Could not read the clipboard.");
     return null;
   }
 }
