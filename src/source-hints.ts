@@ -61,6 +61,23 @@ function runTargetPath(): string | null {
 }
 
 /**
+ * The file a problem is already being solved in, when the run names one. An import can auto-run a
+ * problem that is not the one in the editor, and that run belongs to the linked file, not to
+ * whatever tab happens to be in front.
+ * @param linked `CaseGroup.source` sent with the run request
+ */
+export function linkedSourceFilePath(linked: unknown): string | null {
+  if (typeof linked !== "string" || linked.trim() === "") {
+    return null;
+  }
+  const file = linked.trim();
+  if (!isCppSourcePath(file) || !fs.existsSync(file)) {
+    return null;
+  }
+  return file;
+}
+
+/**
  * File path for a new Run: read once when the user clicks Run.
  * Compile/run use the captured string passed into `runSingleTest` / `runAllTestsSharedCompile`, not a live editor lookup.
  * @returns file path or user-facing error

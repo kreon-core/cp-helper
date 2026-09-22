@@ -130,6 +130,7 @@
   const jsonEl = $("import-json");
   const btnToggleJson = $("btnToggleJson");
   const btnLoad = $("btnLoad");
+  const btnAddProblem = $("btnAddProblem");
   const btnClear = $("btnClear");
   const btnExport = $("btnExport");
   const btnStopRun = $("btnStopRun");
@@ -1573,8 +1574,8 @@
       [/^partial/iu, "PARTIAL"],
       [/^hacked/iu, "HACKED"],
       [/^skipped/iu, "SKIPPED"],
-      [/^in queue/iu, "queued"],
-      [/^running/iu, "running"],
+      [/^in queue/iu, "Q"],
+      [/^running/iu, "RUN"],
     ];
     for (const [re, short] of table) {
       if (re.test(v)) {
@@ -1687,7 +1688,7 @@
     }
     hideErr();
     submitBusyGroups.add(gi);
-    setSubmitStatus(gi, "submitting", "");
+    setSubmitStatus(gi, "...", "", "Submitting");
     applySubmitButtonsState();
     vscode.postMessage({ type: "submit", groupIndex: gi });
   }
@@ -1699,6 +1700,7 @@
     const busy = runState.active;
     btnToggleJson.disabled = busy;
     btnLoad.disabled = busy;
+    btnAddProblem.disabled = busy;
     btnClear.disabled = busy;
     btnExport.disabled = busy || totalCaseCount() === 0;
     applySubmitButtonsState();
@@ -1758,15 +1760,6 @@
       if (rows.length !== groups[gi].cases.length) {
         return false;
       }
-    }
-    const addProblemGroupRow = listEl.querySelector(
-      ":scope > li.add-problem-group-row",
-    );
-    if (
-      !addProblemGroupRow ||
-      !addProblemGroupRow.querySelector(".btn-add-problem-group")
-    ) {
-      return false;
     }
     return true;
   }
@@ -1934,7 +1927,7 @@
     listEmptyEl.hidden = totalCaseCount() > 0;
     listEl
       .querySelectorAll(
-        ".btn-add-case, .btn-add-problem-group, .case-group__add-case",
+        ".btn-add-case, .case-group__add-case",
       )
       .forEach((btn) => {
         btn.disabled = runState.active;
@@ -2343,40 +2336,6 @@
     groupDisclosures.forEach((apply) => apply());
     applySubmitButtonsState();
 
-    // With nothing imported this is the only thing on the list to click, so it is filled and says
-    // what a custom problem is for; once problems are listed it is just an appender.
-    const firstProblem = isNoProblemsPlaceholder();
-    const addProblemRow = document.createElement("li");
-    addProblemRow.className = firstProblem
-      ? "add-problem-group-row add-problem-group-row--cta"
-      : "add-problem-group-row";
-    const btnAddProblem = document.createElement("button");
-    btnAddProblem.type = "button";
-    btnAddProblem.className = firstProblem
-      ? "btn-add-problem-group btn-add-problem-group--cta"
-      : "btn-add-problem-group";
-    btnAddProblem.setAttribute(
-      "aria-label",
-      firstProblem
-        ? "New custom problem, with one empty testcase"
-        : "Custom problem, adds a problem with one empty testcase",
-    );
-    btnAddProblem.title = firstProblem
-      ? "Write your own problem instead of importing one (starts with one empty testcase)"
-      : "Add a custom problem (one empty testcase)";
-    const plusMark = document.createElement("span");
-    plusMark.className = "btn-add-problem-group__plus";
-    plusMark.setAttribute("aria-hidden", "true");
-    plusMark.appendChild(mkIcon("add"));
-    btnAddProblem.appendChild(plusMark);
-    btnAddProblem.disabled = busy;
-    btnAddProblem.addEventListener("click", () => {
-      addCustomProblemGroup();
-    });
-    addProblemRow.appendChild(btnAddProblem);
-    listEl.appendChild(addProblemRow);
-
-
     syncRunAffordances();
 
     requestAnimationFrame(() => {
@@ -2620,9 +2579,11 @@
   /**
    * @param {number} gi
    * @param {boolean} defineLocal compile with `localCompileCommand` instead of `compileCommand`
+   * @param {string} [sourceFile] file to compile instead of the editor's, for a run that is not the
+   * editor's problem (an import auto-running a problem already linked to a file)
    * @returns {boolean} false when the group has nothing to run
    */
-  function startRunAllForGroup(gi, defineLocal) {
+  function startRunAllForGroup(gi, defineLocal, sourceFile) {
     const g = groups[gi];
     if (!g || g.cases.length === 0) {
       return false;
@@ -2640,6 +2601,7 @@
       cases: g.cases,
       defineLocal: defineLocal === true,
       timeLimitMs: g.timeLimitMs,
+      sourceFile: typeof sourceFile === "string" ? sourceFile : "",
     });
     return true;
   }
@@ -2718,8 +2680,9 @@
     if (m.type === "runGroupAll") {
       hideErr();
       const gi = typeof m.groupIndex === "number" ? m.groupIndex : 0;
-      explicitRunGroup = (groups[gi]?.source ?? "") === "" ? gi : null;
-      startRunAllForGroup(gi, m.defineLocal === true);
+      const linked = String(groups[gi]?.source ?? "");
+      explicitRunGroup = linked === "" ? gi : null;
+      startRunAllForGroup(gi, m.defineLocal === true, linked);
       return;
     }
     if (m.type === "syncFocusContext") {
@@ -3004,20 +2967,20 @@
       }
       if (m.phase === "start") {
         submitBusyGroups.add(gi);
-        setSubmitStatus(gi, "submitting", "");
+        setSubmitStatus(gi, "...", "", "Submitting");
       } else if (m.phase === "progress") {
         const live = typeof m.message === "string" ? m.message.trim() : "";
         if (live !== "") {
           setSubmitStatus(gi, shortVerdict(live), "", live);
         } else {
-          setSubmitStatus(gi, String(m.stage ?? "working"), "");
+          setSubmitStatus(gi, "...", "", String(m.stage ?? "working"));
         }
       } else if (m.phase === "done") {
         submitBusyGroups.delete(gi);
         if (m.cancelled === true) {
           setSubmitStatus(gi, "", "");
         } else if (typeof m.error === "string" && m.error !== "") {
-          setSubmitStatus(gi, "failed", "bad", m.error, m.submissionUrl);
+          setSubmitStatus(gi, "ERR", "bad", m.error, m.submissionUrl);
         } else if (typeof m.verdict === "string" && m.verdict !== "") {
           setSubmitStatus(
             gi,
@@ -3027,7 +2990,7 @@
             m.submissionUrl,
           );
         } else if (m.submitted === true) {
-          setSubmitStatus(gi, "submitted", "ok", "Submitted", m.submissionUrl);
+          setSubmitStatus(gi, "OK", "ok", "Submitted", m.submissionUrl);
         } else {
           setSubmitStatus(gi, "", "");
         }
@@ -3078,6 +3041,11 @@
   btnLoad.addEventListener("click", () => {
     hideErr();
     vscode.postMessage({ type: "loadJson", text: jsonEl.value });
+  });
+
+  btnAddProblem.addEventListener("click", () => {
+    hideErr();
+    addCustomProblemGroup();
   });
 
   btnStopRun.addEventListener("click", () => {

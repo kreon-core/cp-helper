@@ -54,6 +54,7 @@ export function buildSamplesWebviewHtml(
       <div class="btn-row__cluster" role="group" aria-label="Import actions">
         <button id="btnToggleJson" type="button" class="btn-secondary btn-icon" title="Show the JSON paste box" aria-label="Paste JSON" aria-expanded="false" aria-controls="import-json"><span class="codicon codicon-json" aria-hidden="true"></span></button>
         <button id="btnLoad" type="button" class="btn-icon" title="Add the problems in the JSON above to the list" aria-label="Load"><span class="codicon codicon-desktop-download" aria-hidden="true"></span></button>
+        <button id="btnAddProblem" type="button" class="btn-secondary btn-icon" title="Add a custom problem (one empty testcase)" aria-label="Custom problem"><span class="codicon codicon-add" aria-hidden="true"></span></button>
         <span class="btn-sep" aria-hidden="true"></span>
         <button id="btnStopRun" type="button" class="btn-secondary btn-stop btn-icon" hidden title="Stop compile or run" aria-label="Stop"><span class="codicon codicon-debug-stop" aria-hidden="true"></span></button>
         <button id="btnClear" type="button" class="btn-secondary btn-icon" title="Remove every problem from the list" aria-label="Clear"><span class="codicon codicon-clear-all" aria-hidden="true"></span></button>
@@ -71,7 +72,7 @@ export function buildSamplesWebviewHtml(
 
   <section class="cases-section" aria-labelledby="casesHeading">
   <h2 class="cases-heading" id="casesHeading">Test cases</h2>
-  <p id="list-empty" class="list-empty">No test cases yet.<br>Open the <strong>JSON box</strong> and click <strong>Load</strong>, use <strong>OJ Sync</strong> from your browser,<br>or add a <strong>custom problem</strong> below.</p>
+  <p id="list-empty" class="list-empty">No test cases yet.<br>Open the <strong>JSON box</strong> and click <strong>Load</strong>, use <strong>OJ Sync</strong> from your browser,<br>or add a <strong>custom problem</strong> from the toolbar.</p>
   <ul id="list" class="list"></ul>
   </section>
   <script nonce="${nonce}" src="${scriptUri}"></script>

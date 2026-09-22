@@ -35,6 +35,7 @@ import { resolveSubmitTarget } from "./submit-target";
 import {
   ensureSourceSavedBeforeRun,
   getActiveSourceFilePath,
+  linkedSourceFilePath,
   postActiveSourceHint,
   postRunSourceSnapshot,
 } from "./source-hints";
@@ -806,7 +807,10 @@ export class CpHelperViewProvider
             postRunState(false);
             break;
           }
-          const resolvedAll = getActiveSourceFilePath();
+          const linkedAll = linkedSourceFilePath(msg.sourceFile);
+          const resolvedAll = linkedAll
+            ? { file: linkedAll }
+            : getActiveSourceFilePath();
           if ("error" in resolvedAll) {
             maybeShowOutputOnRun();
             log.error(`run all rejected: ${resolvedAll.error}`);

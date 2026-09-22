@@ -387,62 +387,6 @@ button.btn-stop:not([hidden]) {
   overflow-y: auto;
 }
 
-.add-problem-group-row {
-  margin: var(--cp-space-2) 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.add-problem-group-row--cta {
-  margin-top: 0;
-}
-
-/* A slot under the last problem rather than a control of its own, so it appends without
-   competing with the run buttons for attention. */
-button.btn-add-problem-group {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 28px;
-  margin: 0;
-  padding: 4px var(--cp-space-2);
-  line-height: 1;
-  border: 1px dashed var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
-  border-radius: var(--cp-radius-md);
-  background: transparent;
-  color: var(--vscode-foreground);
-  opacity: 0.72;
-}
-
-button.btn-add-problem-group:hover:not(:disabled) {
-  filter: none;
-  opacity: 1;
-  border-color: var(--vscode-focusBorder, #007fd4);
-  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12));
-}
-
-/* Nothing imported yet: the only thing on the list to click, so it carries the accent fill. */
-button.btn-add-problem-group--cta {
-  min-height: 32px;
-  border: none;
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-  opacity: 1;
-}
-
-button.btn-add-problem-group--cta:hover:not(:disabled) {
-  border: none;
-  background: var(--vscode-button-hoverBackground, var(--vscode-button-background));
-  filter: brightness(1.08);
-}
-
-button.btn-add-problem-group .btn-add-problem-group__plus {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
 button.btn-add-case {
   display: inline-grid;
   place-items: center;
