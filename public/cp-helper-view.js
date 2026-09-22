@@ -4,7 +4,7 @@
   /** @type {{ id: string; label: string; timeLimitMs?: number; cases: { sample: number; input: string; output: string }[] }[]} */
   let groups = [];
 
-  /** @type {Record<string, { verdict: string; badge: string; stdout: string; stderr: string; elapsedMs?: number; execMs?: number; overheadMs?: number; timeLimitMs?: number }>} */
+  /** @type {Record<string, { verdict: string; badge: string; stdout: string; stderr: string; elapsedMs?: number; execMs?: number; overheadMs?: number; timeLimitMs?: number; run?: number }>} */
   const lastRun = {};
 
   /**
@@ -13,6 +13,14 @@
    * @type {Record<string, { passed: number; total: number; file: string } | undefined>}
    */
   const lastRunAllSummaryByGroup = {};
+
+  /**
+   * Stamp of the run each result came from, and the one every group is on. Results restored from
+   * an earlier session carry stamps of their own, so the counter starts above any of them.
+   */
+  let runStampSeq = Date.now();
+  /** @type {Record<string, number | undefined>} */
+  const runStampByGroup = {};
 
   /** Collapsed problem groups: key = `CaseGroup.id`, value true = collapsed (`setState` while session lasts). */
   /** @type {Record<string, boolean>} */
@@ -802,7 +810,8 @@
   /**
    * Remember which file a problem is being solved in. Only a Run button inside a problem does this,
    * so a keybinding never moves a binding the user set by hand. A file solves one problem at a
-   * time: binding it here drops it from whichever problem held it before.
+   * time: binding it here drops it from whichever problem held it before, and that problem's
+   * results go with the binding - they all describe a run of the file it just lost.
    * @param {number} gi
    * @param {string} file
    */
@@ -815,6 +824,7 @@
     groups.forEach((other, i) => {
       if (i !== gi && (other.source ?? "") === file) {
         delete other.source;
+        purgeLastRunForGroup(i);
         changed = true;
       }
     });
@@ -1278,8 +1288,8 @@
 
   /**
    * Drop every result a problem is showing: the case rows' verdicts and the header's tint and
-   * count. Every run of a problem starts with this, so what the header and the rows show belongs
-   * to that run alone - one sample leaves its own tint and no verdict from a run now history.
+   * count. A single-sample run starts with this, so what the header and the rows show belongs to
+   * that run alone - one sample leaves its own tint and no verdict from a run now history.
    * @param {number} gi
    */
   function purgeLastRunForGroup(gi) {
@@ -1296,6 +1306,37 @@
     for (let ci = 0; ci < n; ci++) {
       patchCaseRowFromLastRun(gi, ci);
     }
+  }
+
+  /**
+   * Retire the rows a finished Run all never reached - a stopped run leaves the previous run's
+   * verdicts there, and they describe a run that is now history. Run all sweeps here instead of
+   * blanking the list up front, so a row keeps its verdict until the new one lands on it. A run
+   * that produced no verdict at all was rejected before it compiled: it leaves the list alone.
+   * @param {number} gi
+   */
+  function dropRowsFromEarlierRuns(gi) {
+    const stamp = runStampByGroup[gi];
+    const prefix = `${gi}-`;
+    const keys = Object.keys(lastRun).filter((k) => k.startsWith(prefix));
+    if (stamp === undefined || !keys.some((k) => lastRun[k].run === stamp)) {
+      return;
+    }
+    const dropped = [];
+    keys.forEach((k) => {
+      if (lastRun[k].run !== stamp) {
+        delete lastRun[k];
+        dropped.push(Number(k.slice(prefix.length)));
+      }
+    });
+    if (dropped.length === 0) {
+      return;
+    }
+    persistRunResults();
+    if (!incrementalDomReady()) {
+      return;
+    }
+    dropped.forEach((ci) => patchCaseRowFromLastRun(gi, ci));
   }
 
   /**
@@ -1566,7 +1607,8 @@
         return;
       }
       wrap.classList.toggle("case-group-wrap--active", gi === activeGi);
-      // Only the running group's summary is cleared in state; keep other groups' AC/WA + n/m visible.
+      // Nothing is blanked when a run starts: every group keeps its last AC/WA + n/m until the
+      // run in flight has a summary of its own to put there.
       const sumEl = wrap.querySelector(".case-group-passed");
       const srcEl = wrap.querySelector(".case-group-src");
       if (sumEl && srcEl) {
@@ -2393,7 +2435,7 @@
     if (!g || g.cases.length === 0) {
       return false;
     }
-    purgeLastRunForGroup(gi);
+    runStampByGroup[gi] = ++runStampSeq;
     runState = { active: true, mode: "all", phase: "compile", groupIndex: gi, index: null, total: g.cases.length };
     if (incrementalDomReady()) {
       refreshIncrementalRunUi();
@@ -2483,11 +2525,9 @@
     }
     if (m.type === "runGroupAll") {
       hideErr();
-      explicitRunGroup = null;
-      startRunAllForGroup(
-        typeof m.groupIndex === "number" ? m.groupIndex : 0,
-        m.defineLocal === true,
-      );
+      const gi = typeof m.groupIndex === "number" ? m.groupIndex : 0;
+      explicitRunGroup = (groups[gi]?.source ?? "") === "" ? gi : null;
+      startRunAllForGroup(gi, m.defineLocal === true);
       return;
     }
     if (m.type === "syncFocusContext") {
@@ -2517,10 +2557,9 @@
     }
     if (m.type === "runState") {
       if (m.running) {
-        const giClear =
-          typeof m.groupIndex === "number" ? m.groupIndex : 0;
-        delete lastRunAllSummaryByGroup[giClear];
-        staleResultGroups.delete(giClear);
+        staleResultGroups.delete(
+          typeof m.groupIndex === "number" ? m.groupIndex : 0,
+        );
         if (m.phase === "compile") {
           runningRows.clear();
         }
@@ -2682,6 +2721,7 @@
       if (typeof m.timeLimitMs === "number") {
         lastRun[key].timeLimitMs = m.timeLimitMs;
       }
+      lastRun[key].run = runStampByGroup[gi];
       if (runState.mode === "one") {
         lastRunAllSummaryByGroup[gi] = {
           passed: lastRun[key].verdict === "AC" ? 1 : 0,
@@ -2704,6 +2744,7 @@
       if (staleResultGroups.has(gi)) {
         return;
       }
+      dropRowsFromEarlierRuns(gi);
       const gr = groups[gi];
       let passed = 0;
       const n = gr?.cases.length ?? 0;
