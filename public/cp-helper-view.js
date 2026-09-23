@@ -1577,7 +1577,7 @@
       [/^partial/iu, "PARTIAL"],
       [/^hacked/iu, "HACKED"],
       [/^skipped/iu, "SKIPPED"],
-      [/^in queue/iu, "Q"],
+      [/^in queue/iu, "QUEUED"],
       [/^running/iu, "RUN"],
     ];
     for (const [re, short] of table) {
@@ -2994,7 +2994,7 @@
         if (m.cancelled === true) {
           setSubmitStatus(gi, "", "");
         } else if (typeof m.error === "string" && m.error !== "") {
-          setSubmitStatus(gi, "ERR", "bad", m.error, m.submissionUrl);
+          setSubmitStatus(gi, "ERROR", "bad", m.error, m.submissionUrl);
         } else if (typeof m.verdict === "string" && m.verdict !== "") {
           setSubmitStatus(
             gi,

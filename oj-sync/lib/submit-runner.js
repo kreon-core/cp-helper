@@ -35,7 +35,7 @@ const IN_PAGE_SUBMIT_TIMEOUT_MS = 45000;
 /** Claims are serialized, so one that hangs would park every later submit too. */
 const CLAIM_TIMEOUT_MS = 15000;
 
-/** Tabs that stopped answering. Never reused: whatever wedged them is still there. */
+/** Tabs that stopped answering. Closed on the spot, and never reused if a claim already had one. */
 const wedgedTabs = new Set();
 
 /**
@@ -82,13 +82,14 @@ function delay(ms) {
  * @param {Promise<T>} work
  * @param {number} ms
  * @param {string} what subject of the error message, e.g. `The judge's tab`
+ * @param {string} [advice] what the user should do about it
  * @returns {Promise<T>}
  */
-function withTimeout(work, ms, what) {
+function withTimeout(work, ms, what, advice = "Check the tab it opened on the judge.") {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       const e = new Error(
-        `${what} stopped answering after ${Math.round(ms / 1000)}s. Check the tab it opened on the judge.`,
+        `${what} stopped answering after ${Math.round(ms / 1000)}s. ${advice}`,
       );
       e.name = "OjSyncTimeout";
       reject(e);
@@ -258,6 +259,34 @@ async function claimTab(submitUrl) {
 }
 
 /**
+ * Drop a tab that stopped answering: out of the pool, off the screen. Whatever wedged it is still
+ * there, so it is no use to a later submit, and left open it would sit on the judge for the rest
+ * of the browser session while every submit after it opens a tab of its own.
+ * @param {number} tabId
+ * @returns {Promise<void>}
+ */
+async function discardTab(tabId) {
+  wedgedTabs.add(tabId);
+  const drop = claimChain.then(async () => {
+    const stored = await chrome.storage.session.get({ [TAB_KEY]: [] });
+    const pool = Array.isArray(stored[TAB_KEY]) ? stored[TAB_KEY] : [];
+    await chrome.storage.session.set({
+      [TAB_KEY]: pool.filter((id) => typeof id === "number" && id !== tabId),
+    });
+    try {
+      await chrome.tabs.remove(tabId);
+    } catch {
+      /* already gone */
+    }
+  });
+  claimChain = drop.then(
+    () => undefined,
+    () => undefined,
+  );
+  await drop;
+}
+
+/**
  * @param {string} submitUrl
  * @returns {Promise<number>} id of a tab sitting on `submitUrl`
  */
@@ -338,12 +367,17 @@ function callVerdictsInPage(opts) {
  */
 async function inTab(tabId, work, timeoutMs) {
   try {
-    const out = await withTimeout(work, timeoutMs, "The judge's tab");
+    const out = await withTimeout(
+      work,
+      timeoutMs,
+      "The judge's tab",
+      "Its tab was closed - submit again.",
+    );
     wedgedTabs.delete(tabId);
     return out;
   } catch (e) {
     if (e instanceof Error && e.name === "OjSyncTimeout") {
-      wedgedTabs.add(tabId);
+      await discardTab(tabId);
     }
     throw e;
   }
