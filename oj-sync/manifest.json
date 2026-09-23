@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "OJ Sync",
-  "version": "1.2.12",
+  "version": "1.2.15",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -32,6 +32,23 @@
     "http://leetcode.cn/*",
     "https://*.leetcode.cn/*",
     "http://*.leetcode.cn/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://codeforces.com/*",
+        "http://codeforces.com/*",
+        "https://*.codeforces.com/*",
+        "http://*.codeforces.com/*",
+        "https://atcoder.jp/*",
+        "http://atcoder.jp/*",
+        "https://*.atcoder.jp/*",
+        "http://*.atcoder.jp/*"
+      ],
+      "js": ["lib/tab-title.js"],
+      "run_at": "document_end",
+      "all_frames": false
+    }
   ],
   "background": {
     "service_worker": "background.js",

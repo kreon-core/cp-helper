@@ -1,6 +1,6 @@
 # OJ Sync (Chrome)
 
-**Version 1.2.12** - aligned with **CP Helper 1.2.12**.
+**Version 1.2.15** - aligned with **CP Helper 1.2.15**.
 
 Chrome extension that reads **sample test cases** from **AtCoder**, **Codeforces**, and **LeetCode** problem pages and sends them to **CP Helper** in VS Code, and submits solutions to **Codeforces** and **AtCoder** on CP Helper's behalf.
 
@@ -44,6 +44,15 @@ On a problem page, the toolbar action:
 - **Starter code:** scraped from the editor surface - **Monaco** `.view-line` (typical practice) or **CodeMirror 6** `.cm-line` (many contest tabs). Sent **verbatim** as **`starterCode`** in the POST JSON (same method names as on LeetCode); CP Helper copies it to the **VS Code** clipboard after import. The in-page copy remains best-effort only (often blocked without a gesture on the problem page).
 - If no examples are found in the DOM, falls back to the **custom testcase** fields in the bottom console (`console-testcase-input`); expected output may be empty - fill it in CP Helper if needed.
 - CP Helper **problem** label for LeetCode is **`leetcode/<number>` only** (from the title row, meta titles, or page JSON - including `__NEXT_DATA__`). **URL slugs are never used**; if no numeric id is found, samples import without a problem label.
+
+### Problem tab titles
+
+A content script on **Codeforces** and **AtCoder** problem pages rewrites the browser tab title to
+**`<letter> - <contest>`** (**`/contest/2266/problem/D`** -> **`D - 2266`**,
+**`/contests/abc451/tasks/abc451_a`** -> **`A - abc451`**), so a row of open problems reads as the
+problem list it is. Contest lists, standings and every other page keep their own title, and the
+title is re-applied when the page rewrites it or navigates in place. **LeetCode** is not covered:
+its URL carries the slug only, never the problem number.
 
 ## Submit bridge
 
