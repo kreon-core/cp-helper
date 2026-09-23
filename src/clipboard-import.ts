@@ -12,7 +12,7 @@ const log = createCpLogger("import");
 /**
  * User-facing follow-up when JSON parse/persist fails.
  */
-export function reportImportFailure(
+function reportImportFailure(
   e: unknown,
   emptyContentMessage: string,
 ): void {
@@ -29,7 +29,7 @@ export function reportImportFailure(
 /**
  * @returns clipboard text, or `null` if read failed (error toast already shown).
  */
-export async function readClipboardText(): Promise<string | null> {
+async function readClipboardText(): Promise<string | null> {
   try {
     return await vscode.env.clipboard.readText();
   } catch {

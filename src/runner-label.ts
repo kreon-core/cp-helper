@@ -124,7 +124,7 @@ async function probeCompileExecutable(
  * Effective cwd for compile/run (matches `createRunSession` when `file` is the active source).
  * @param filePath absolute source path or null
  */
-export function getEffectiveCwdForRunner(filePath: string | null): string {
+function getEffectiveCwdForRunner(filePath: string | null): string {
   const cfg = vscode.workspace.getConfiguration("cp-helper");
   const wdSetting = (cfg.get<string>("workingDirectory") ?? "").trim();
   if (wdSetting.length > 0) {

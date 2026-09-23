@@ -25,7 +25,7 @@ export function getCpHelperOutputChannel(): vscode.OutputChannel | undefined {
 /**
  * @returns `YYYY-MM-DD HH:MM:SS.mmm` local time
  */
-export function cpTimeStamp(): string {
+function cpTimeStamp(): string {
   const d = new Date();
   const p = (n: number, w = 2): string => String(n).padStart(w, "0");
   return (

@@ -88,7 +88,7 @@ export function readClipboardOnlyPayload(text: string): string | null {
 /**
  * OJ Sync: plain array, `{ problem, samples }`, or `{ problems: [...] }` (Codeforces multi).
  */
-export function parseImportPayload(text: string): {
+function parseImportPayload(text: string): {
   groups: CaseGroup[];
   starterCode: string | null;
 } {

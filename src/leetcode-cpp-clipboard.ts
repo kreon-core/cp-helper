@@ -4,7 +4,7 @@
  * LeetCode editor snippets use 4-space indentation; normalize each leading run of four
  * spaces to two so pasted code matches a 2-space style.
  */
-export function normalizeLeadingIndent4To2(code: string): string {
+function normalizeLeadingIndent4To2(code: string): string {
   const lines = code.split(/\r?\n/);
   return lines
     .map((line) => {
@@ -46,7 +46,7 @@ function indexOfMatchingCloseParen(s: string, openIdx: number): number {
 }
 
 /** C++ `public:` access block (not Java `public void`). */
-export function isLeetcodeCppAccessStyle(code: string): boolean {
+function isLeetcodeCppAccessStyle(code: string): boolean {
   return /\bclass\s+\w+\b/.test(code) && /\bpublic\s*:/m.test(code);
 }
 
@@ -63,7 +63,7 @@ export function isLikelyCppSource(code: string): boolean {
 }
 
 /** First `class Name` in the snippet. */
-export function extractFirstCppClassName(code: string): string | null {
+function extractFirstCppClassName(code: string): string | null {
   const m = code.match(/\bclass\s+(\w+)\b/);
   return m?.[1] ?? null;
 }
@@ -73,7 +73,7 @@ export function extractFirstCppClassName(code: string): string | null {
  * @param code
  * @param className
  */
-export function extractLeetcodeCppDispatchMethod(
+function extractLeetcodeCppDispatchMethod(
   code: string,
   className: string,
 ): string | null {

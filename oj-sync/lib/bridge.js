@@ -172,10 +172,3 @@ export async function connectBridge(opts) {
     // `close` always follows, and carries the retry.
   });
 }
-
-/**
- * @returns {boolean}
- */
-export function bridgeConnected() {
-  return !!socket && socket.readyState === WebSocket.OPEN;
-}

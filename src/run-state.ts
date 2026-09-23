@@ -63,7 +63,7 @@ function listUnixPidTreePostOrder(rootPid: number): number[] {
  * `activeShells` while the program is still running (Stop then reports no subprocess).
  * @param child direct child from spawn(..., { shell: true })
  */
-export function forceKillShellChild(child: ChildProcess): void {
+function forceKillShellChild(child: ChildProcess): void {
   const pid = child.pid;
   if (pid == null) {
     return;
