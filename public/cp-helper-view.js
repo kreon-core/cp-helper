@@ -2030,6 +2030,11 @@
         ),
       );
       ghead.appendChild(disclose);
+      ghead.addEventListener("click", (e) => {
+        if (e.target === ghead) {
+          disclose.click();
+        }
+      });
 
       const btnRenameG = document.createElement("button");
       btnRenameG.type = "button";
@@ -2042,6 +2047,36 @@
         startGroupRename(gi);
       });
       ghead.appendChild(btnRenameG);
+
+      if (typeof submitTargets[gi] === "string" && submitTargets[gi] !== "") {
+        const btnSubmitG = document.createElement("button");
+        btnSubmitG.type = "button";
+        btnSubmitG.className =
+          "case-group__submit btn-secondary btn-icon btn-submit";
+        btnSubmitG.dataset.cpGi = String(gi);
+        btnSubmitG.setAttribute(
+          "aria-label",
+          `Submit to ${submitTargets[gi]}`,
+        );
+        btnSubmitG.appendChild(mkIcon("submit"));
+        btnSubmitG.addEventListener("click", () => startSubmit(gi));
+        ghead.appendChild(btnSubmitG);
+
+        const submitStatusG = document.createElement("button");
+        submitStatusG.type = "button";
+        submitStatusG.className = "submit-status";
+        submitStatusG.dataset.cpGi = String(gi);
+        submitStatusG.setAttribute("role", "status");
+        submitStatusG.setAttribute("aria-live", "polite");
+        paintSubmitStatusEl(submitStatusG, submitStatusByGroup[gid]);
+        submitStatusG.addEventListener("click", () => {
+          const url = submitStatusG.dataset.cpUrl ?? "";
+          if (url !== "") {
+            vscode.postMessage({ type: "openSubmission", url });
+          }
+        });
+        ghead.appendChild(submitStatusG);
+      }
 
       const sumEl = document.createElement("span");
       sumEl.className = "case-group-passed";
@@ -2109,36 +2144,6 @@
         });
         ghead.appendChild(btnRunG);
       });
-
-      if (typeof submitTargets[gi] === "string" && submitTargets[gi] !== "") {
-        const btnSubmitG = document.createElement("button");
-        btnSubmitG.type = "button";
-        btnSubmitG.className =
-          "case-group__submit btn-secondary btn-icon btn-submit";
-        btnSubmitG.dataset.cpGi = String(gi);
-        btnSubmitG.setAttribute(
-          "aria-label",
-          `Submit to ${submitTargets[gi]}`,
-        );
-        btnSubmitG.appendChild(mkIcon("submit"));
-        btnSubmitG.addEventListener("click", () => startSubmit(gi));
-        ghead.appendChild(btnSubmitG);
-
-        const submitStatusG = document.createElement("button");
-        submitStatusG.type = "button";
-        submitStatusG.className = "submit-status";
-        submitStatusG.dataset.cpGi = String(gi);
-        submitStatusG.setAttribute("role", "status");
-        submitStatusG.setAttribute("aria-live", "polite");
-        paintSubmitStatusEl(submitStatusG, submitStatusByGroup[gid]);
-        submitStatusG.addEventListener("click", () => {
-          const url = submitStatusG.dataset.cpUrl ?? "";
-          if (url !== "") {
-            vscode.postMessage({ type: "openSubmission", url });
-          }
-        });
-        ghead.appendChild(submitStatusG);
-      }
 
       const btnAddCaseG = document.createElement("button");
       btnAddCaseG.type = "button";

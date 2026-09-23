@@ -457,6 +457,7 @@ button.btn-add-case {
   background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
   background-image: linear-gradient(var(--cp-head-tint), var(--cp-head-tint));
   border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
+  cursor: pointer;
 }
 
 /**
@@ -479,7 +480,7 @@ button.case-group-disclose {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   margin: 0;
   padding: 2px 6px;
@@ -657,6 +658,7 @@ input.case-group-rename {
   justify-content: center;
   flex: 0 0 auto;
   min-width: 34px;
+  margin-left: auto;
   min-height: var(--cp-chip-height);
   padding: 0 var(--cp-space-2);
   border: 1px solid transparent;
