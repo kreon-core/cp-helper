@@ -693,6 +693,12 @@ input.case-group-rename {
   flex: 0 1 auto;
   min-width: 0;
   max-width: min(180px, 45%);
+  background: rgba(128, 128, 128, 0.1);
+  border-color: rgba(128, 128, 128, 0.18);
+}
+
+.case-group-src:hover {
+  background: rgba(128, 128, 128, 0.18);
 }
 
 /**
