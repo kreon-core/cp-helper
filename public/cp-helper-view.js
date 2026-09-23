@@ -2036,18 +2036,6 @@
         }
       });
 
-      const btnRenameG = document.createElement("button");
-      btnRenameG.type = "button";
-      btnRenameG.className = "case-group__rename btn-icon";
-      btnRenameG.title = "Rename this problem";
-      btnRenameG.setAttribute("aria-label", `Rename ${labelText}`);
-      btnRenameG.appendChild(mkIcon("edit"));
-      btnRenameG.disabled = busy;
-      btnRenameG.addEventListener("click", () => {
-        startGroupRename(gi);
-      });
-      ghead.appendChild(btnRenameG);
-
       if (typeof submitTargets[gi] === "string" && submitTargets[gi] !== "") {
         const btnSubmitG = document.createElement("button");
         btnSubmitG.type = "button";
@@ -2076,6 +2064,20 @@
           }
         });
         ghead.appendChild(submitStatusG);
+      }
+
+      if (gid.startsWith("manual-")) {
+        const btnRenameG = document.createElement("button");
+        btnRenameG.type = "button";
+        btnRenameG.className = "case-group__rename btn-icon";
+        btnRenameG.title = "Rename this problem";
+        btnRenameG.setAttribute("aria-label", `Rename ${labelText}`);
+        btnRenameG.appendChild(mkIcon("edit"));
+        btnRenameG.disabled = busy;
+        btnRenameG.addEventListener("click", () => {
+          startGroupRename(gi);
+        });
+        ghead.appendChild(btnRenameG);
       }
 
       const sumEl = document.createElement("span");
