@@ -1352,39 +1352,52 @@ button.btn-icon--on {
   }
 }
 
-.submit-status {
+button.submit-status {
+  display: inline-flex;
+  align-items: center;
   flex: 0 0 auto;
-  font: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  background: none;
-  border: 0;
-  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
-  opacity: 0.92;
-  padding: 0 2px;
+  min-height: var(--cp-chip-height);
   max-width: 14ch;
+  padding: 0 var(--cp-space-2);
+  border: 1px solid rgba(128, 128, 128, 0.18);
+  border-radius: var(--cp-chip-radius);
+  background: rgba(128, 128, 128, 0.1);
+  color: var(--vscode-foreground);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   user-select: text;
 }
 
-.submit-status:disabled {
+button.submit-status:disabled {
+  opacity: 1;
   cursor: default;
 }
 
-.submit-status:not(:disabled) {
+button.submit-status:not(:disabled) {
   cursor: pointer;
-  text-decoration: underline dotted;
-  text-underline-offset: 3px;
 }
 
-.submit-status--ok {
+button.submit-status:not(:disabled):hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+button.submit-status--ok {
   color: var(--vscode-testing-iconPassed, #3fb950);
+  background: rgba(46, 160, 67, 0.15);
+  border-color: rgba(46, 160, 67, 0.3);
 }
 
-.submit-status--bad {
-  color: var(--vscode-testing-iconFailed, #f85149);
+button.submit-status--bad {
+  color: var(--vscode-errorForeground, #f85149);
+  background: rgba(248, 81, 73, 0.12);
+  border-color: rgba(248, 81, 73, 0.3);
 }
 
 .btn-submit:not(:disabled) {
