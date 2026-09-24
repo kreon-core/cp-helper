@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import {
+  coerceMemoryLimitMb,
   coerceTimeLimitMs,
   loadCaseGroups,
   loadCaseGroupsFromFile,
@@ -133,6 +134,10 @@ function parseImportPayload(text: string): {
         if (tl !== null) {
           group.timeLimitMs = tl;
         }
+        const ml = coerceMemoryLimitMb(bo.memoryLimitMb);
+        if (ml !== null) {
+          group.memoryLimitMb = ml;
+        }
         const purl = readProblemUrlField(bo);
         if (purl !== null) {
           group.url = purl;
@@ -160,6 +165,10 @@ function parseImportPayload(text: string): {
       if (tl !== null) {
         group.timeLimitMs = tl;
       }
+      const ml = coerceMemoryLimitMb(o.memoryLimitMb);
+      if (ml !== null) {
+        group.memoryLimitMb = ml;
+      }
       const purl = readProblemUrlField(o);
       if (purl !== null) {
         group.url = purl;
@@ -171,7 +180,7 @@ function parseImportPayload(text: string): {
     }
   }
   throw new Error(
-    "JSON must be a testcase array, { samples: [...], problem?: string, timeLimitMs?: number, starterCode?: string }, or { problems: [{ samples, problem?, timeLimitMs? }, ...] }",
+    "JSON must be a testcase array, { samples: [...], problem?: string, timeLimitMs?: number, memoryLimitMb?: number, starterCode?: string }, or { problems: [{ samples, problem?, timeLimitMs?, memoryLimitMb? }, ...] }",
   );
 }
 

@@ -1,7 +1,7 @@
 (function () {
   const vscode = acquireVsCodeApi();
 
-  /** @type {{ id: string; label: string; timeLimitMs?: number; cases: { sample: number; input: string; output: string }[] }[]} */
+  /** @type {{ id: string; label: string; timeLimitMs?: number; memoryLimitMb?: number; cases: { sample: number; input: string; output: string }[] }[]} */
   let groups = [];
 
   /** @type {Record<string, { verdict: string; badge: string; stdout: string; stderr: string; elapsedMs?: number; execMs?: number; overheadMs?: number; timeLimitMs?: number; run?: number }>} */
@@ -190,6 +190,16 @@
     if (ms == null) return "";
     if (ms < 1000) return ` ${ms}ms`;
     return ` ${(ms / 1000).toFixed(2)}s`;
+  }
+
+  /**
+   * Format a memory limit in MB: "256MB", or "1GB" / "1.5GB" from 1024 MB up.
+   * @param {number} mb
+   * @returns {string}
+   */
+  function formatMemoryLimit(mb) {
+    if (mb < 1024) return `${mb}MB`;
+    return `${Number((mb / 1024).toFixed(2))}GB`;
   }
 
   /**
@@ -2003,6 +2013,13 @@
         limitChip.title = "Judge time limit for this problem";
         disclose.appendChild(limitChip);
       }
+      if (typeof group.memoryLimitMb === "number") {
+        const memChip = document.createElement("span");
+        memChip.className = "case-group-limit";
+        memChip.textContent = formatMemoryLimit(group.memoryLimitMb);
+        memChip.title = "Judge memory limit for this problem";
+        disclose.appendChild(memChip);
+      }
       disclose.addEventListener("click", () => {
         const nowCollapsed = toggleGroupCollapsed(gid);
         applyGroupCollapsedUi(
@@ -2780,6 +2797,9 @@
           };
           if (typeof g.timeLimitMs === "number") {
             out.timeLimitMs = g.timeLimitMs;
+          }
+          if (typeof g.memoryLimitMb === "number") {
+            out.memoryLimitMb = g.memoryLimitMb;
           }
           if (typeof g.url === "string" && g.url !== "") {
             out.url = g.url;

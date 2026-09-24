@@ -14,6 +14,15 @@ export function coerceTimeLimitMs(v: unknown): number | null {
   return Number.isFinite(n) && n >= 100 && n <= 60_000 ? Math.round(n) : null;
 }
 
+/**
+ * Judge limits outside 1MB..64GB are treated as a scrape error and dropped.
+ * @param v raw `memoryLimitMb` from storage or import
+ */
+export function coerceMemoryLimitMb(v: unknown): number | null {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 1 && n <= 65_536 ? Math.round(n) : null;
+}
+
 function multiGroupsAllDigitIds(groups: CaseGroup[]): boolean {
   return (
     groups.length > 1 &&
@@ -47,6 +56,10 @@ export function normalizeCaseGroups(groups: CaseGroup[]): CaseGroup[] {
     const tl = coerceTimeLimitMs(g.timeLimitMs);
     if (tl !== null) {
       out.timeLimitMs = tl;
+    }
+    const ml = coerceMemoryLimitMb(g.memoryLimitMb);
+    if (ml !== null) {
+      out.memoryLimitMb = ml;
     }
     if (typeof g.url === "string" && g.url.trim() !== "") {
       out.url = g.url.trim();

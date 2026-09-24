@@ -1,6 +1,6 @@
 # OJ Sync (Chrome)
 
-**Version 1.2.17** - aligned with **CP Helper 1.2.17**.
+**Version 1.2.19** - aligned with **CP Helper 1.2.19**.
 
 Chrome extension that reads **sample test cases** from **AtCoder**, **Codeforces**, and **LeetCode** problem pages and sends them to **CP Helper** in VS Code, and submits solutions to **Codeforces** and **AtCoder** on CP Helper's behalf.
 
@@ -137,7 +137,7 @@ Codeforces and AtCoder imports also carry the problem page **`url`**, which is w
 into a submit target (it is also the only thing that distinguishes a `gym` contest from a regular
 one). Older imports fall back to parsing the `problem` label.
 
-Codeforces and AtCoder statements also carry a time limit; when it is found it rides along as **`timeLimitMs`** next to `samples` (per entry for multi-problem imports) and CP Helper judges TLE against it. LeetCode publishes no time limit, so the field is absent there.
+Codeforces and AtCoder statements also carry a time limit; when it is found it rides along as **`timeLimitMs`** next to `samples` (per entry for multi-problem imports) and CP Helper judges TLE against it. The memory limit rides along the same way as **`memoryLimitMb`** and is shown next to the time limit. LeetCode publishes neither, so both fields are absent there.
 
 CP Helper's **instant Run all** after import applies only when that payload resolves to **one** problem group (no extra HTTP headers required).
 

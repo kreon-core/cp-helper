@@ -31,6 +31,15 @@ function coerceTimeLimitMs(v) {
 }
 
 /**
+ * @param {unknown} v
+ * @returns {number | null}
+ */
+function coerceMemoryLimitMb(v) {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 1 && n <= 65536 ? Math.round(n) : null;
+}
+
+/**
  * Turn `executeScript` result from `__ojSyncExtractSamplesInPage` (see `lib/inpage/`) into POST body JSON.
  * @param {string | undefined} tabUrl
  * @param {unknown} raw
@@ -65,10 +74,10 @@ export function buildImportJsonFromExtractResult(tabUrl, raw) {
     /** @type {{ kind?: string; problems?: unknown }} */ (raw).kind === "cf-multi" &&
     Array.isArray(/** @type {{ problems: unknown }} */ (raw).problems)
   ) {
-    const multi = /** @type {{ kind: string; contestId?: string; problems: { letter?: string; timeLimitMs?: unknown; items?: { id: string; text: string }[] }[] }} */ (
+    const multi = /** @type {{ kind: string; contestId?: string; problems: { letter?: string; timeLimitMs?: unknown; memoryLimitMb?: unknown; items?: { id: string; text: string }[] }[] }} */ (
       raw
     );
-    /** @type {{ problem: string; timeLimitMs?: number; samples: { sample: number; input: string; output: string }[] }[]} */
+    /** @type {{ problem: string; timeLimitMs?: number; memoryLimitMb?: number; samples: { sample: number; input: string; output: string }[] }[]} */
     const problemsOut = [];
     for (const pr of multi.problems) {
       const paired = pairSamples(pr.items ?? []);
@@ -78,7 +87,7 @@ export function buildImportJsonFromExtractResult(tabUrl, raw) {
         multi.contestId && letter !== "?"
           ? `codeforces/${multi.contestId}${letter}`
           : "";
-      /** @type {{ problem: string; url?: string; timeLimitMs?: number; samples: { sample: number; input: string; output: string }[] }} */
+      /** @type {{ problem: string; url?: string; timeLimitMs?: number; memoryLimitMb?: number; samples: { sample: number; input: string; output: string }[] }} */
       const out = {
         problem: pid || `codeforces/${letter}`,
         samples: paired,
@@ -87,6 +96,8 @@ export function buildImportJsonFromExtractResult(tabUrl, raw) {
       if (purl !== "") out.url = purl;
       const tl = coerceTimeLimitMs(pr.timeLimitMs);
       if (tl !== null) out.timeLimitMs = tl;
+      const ml = coerceMemoryLimitMb(pr.memoryLimitMb);
+      if (ml !== null) out.memoryLimitMb = ml;
       problemsOut.push(out);
     }
     if (problemsOut.length === 0) {
@@ -142,7 +153,7 @@ export function buildImportJsonFromExtractResult(tabUrl, raw) {
     /** @type {{ kind?: string }} */ (raw).kind === "single" &&
     Array.isArray(/** @type {{ items?: unknown }} */ (raw).items)
   ) {
-    const one = /** @type {{ timeLimitMs?: unknown; items: { id: string; text: string }[] }} */ (
+    const one = /** @type {{ timeLimitMs?: unknown; memoryLimitMb?: unknown; items: { id: string; text: string }[] }} */ (
       raw
     );
     const pairs = pairSamples(one.items);
@@ -157,6 +168,8 @@ export function buildImportJsonFromExtractResult(tabUrl, raw) {
     payload.samples = pairs;
     const tl = coerceTimeLimitMs(one.timeLimitMs);
     if (tl !== null) payload.timeLimitMs = tl;
+    const ml = coerceMemoryLimitMb(one.memoryLimitMb);
+    if (ml !== null) payload.memoryLimitMb = ml;
     return { ok: true, json: JSON.stringify(payload, null, 2) };
   }
 
