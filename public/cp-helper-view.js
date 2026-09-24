@@ -121,10 +121,12 @@
     close: "close",
     copy: "copy",
     debug: "debug-alt",
-    local: "output",
+    local: "beaker",
     submit: "cloud-upload",
     file: "file-code",
     edit: "edit",
+    timeLimit: "watch",
+    memoryLimit: "chip",
   };
 
   /**
@@ -2071,19 +2073,19 @@
       lbl.textContent = labelText;
       disclose.appendChild(chev);
       disclose.appendChild(lbl);
+      const addLimit = (icon, text, title) => {
+        const limit = document.createElement("span");
+        limit.className = "case-group-limit";
+        limit.title = title;
+        limit.appendChild(mkIcon(icon));
+        limit.append(text);
+        disclose.appendChild(limit);
+      };
       if (typeof group.timeLimitMs === "number") {
-        const limitChip = document.createElement("span");
-        limitChip.className = "case-group-limit";
-        limitChip.textContent = formatElapsed(group.timeLimitMs).trim();
-        limitChip.title = "Time limit";
-        disclose.appendChild(limitChip);
+        addLimit("timeLimit", formatElapsed(group.timeLimitMs).trim(), "Time limit");
       }
       if (typeof group.memoryLimitMb === "number") {
-        const memChip = document.createElement("span");
-        memChip.className = "case-group-limit";
-        memChip.textContent = formatMemoryLimit(group.memoryLimitMb);
-        memChip.title = "Memory limit";
-        disclose.appendChild(memChip);
+        addLimit("memoryLimit", formatMemoryLimit(group.memoryLimitMb), "Memory limit");
       }
       disclose.addEventListener("click", () => {
         const nowCollapsed = toggleGroupCollapsed(gid);
@@ -2112,42 +2114,6 @@
         ),
       );
       ghead.appendChild(disclose);
-      ghead.addEventListener("click", (e) => {
-        if (e.target === ghead) {
-          disclose.click();
-        }
-      });
-
-      if (typeof submitTargets[gi] === "string" && submitTargets[gi] !== "") {
-        const btnSubmitG = document.createElement("button");
-        btnSubmitG.type = "button";
-        btnSubmitG.className =
-          "case-group__submit btn-secondary btn-icon btn-submit";
-        btnSubmitG.dataset.cpGi = String(gi);
-        btnSubmitG.setAttribute(
-          "aria-label",
-          `Submit to ${submitTargets[gi]}`,
-        );
-        btnSubmitG.appendChild(mkIcon("submit"));
-        btnSubmitG.addEventListener("click", () => startSubmit(gi));
-        ghead.appendChild(btnSubmitG);
-
-        const submitStatusG = document.createElement("button");
-        submitStatusG.type = "button";
-        submitStatusG.className = "submit-status";
-        submitStatusG.dataset.cpGi = String(gi);
-        submitStatusG.setAttribute("role", "status");
-        submitStatusG.setAttribute("aria-live", "polite");
-        paintSubmitStatusEl(submitStatusG, submitStatusByGroup[gid]);
-        submitStatusG.addEventListener("click", () => {
-          const url = submitStatusG.dataset.cpUrl ?? "";
-          if (url !== "") {
-            vscode.postMessage({ type: "openSubmission", url });
-          }
-        });
-        ghead.appendChild(submitStatusG);
-      }
-
       if (gid.startsWith("manual-")) {
         const btnRenameG = document.createElement("button");
         btnRenameG.type = "button";
@@ -2160,6 +2126,44 @@
           startGroupRename(gi);
         });
         ghead.appendChild(btnRenameG);
+      }
+
+      const actions = document.createElement("div");
+      actions.className = "case-group-actions";
+      let btnSubmitG = null;
+      let submitStatusG = null;
+      ghead.addEventListener("click", (e) => {
+        if (e.target === ghead) {
+          disclose.click();
+        }
+      });
+
+      if (typeof submitTargets[gi] === "string" && submitTargets[gi] !== "") {
+        btnSubmitG = document.createElement("button");
+        btnSubmitG.type = "button";
+        btnSubmitG.className =
+          "case-group__submit btn-icon btn-submit";
+        btnSubmitG.dataset.cpGi = String(gi);
+        btnSubmitG.setAttribute(
+          "aria-label",
+          `Submit to ${submitTargets[gi]}`,
+        );
+        btnSubmitG.appendChild(mkIcon("submit"));
+        btnSubmitG.addEventListener("click", () => startSubmit(gi));
+
+        submitStatusG = document.createElement("button");
+        submitStatusG.type = "button";
+        submitStatusG.className = "submit-status";
+        submitStatusG.dataset.cpGi = String(gi);
+        submitStatusG.setAttribute("role", "status");
+        submitStatusG.setAttribute("aria-live", "polite");
+        paintSubmitStatusEl(submitStatusG, submitStatusByGroup[gid]);
+        submitStatusG.addEventListener("click", () => {
+          const url = submitStatusG.dataset.cpUrl ?? "";
+          if (url !== "") {
+            vscode.postMessage({ type: "openSubmission", url });
+          }
+        });
       }
 
       const sumEl = document.createElement("span");
@@ -2200,15 +2204,19 @@
       }
       ghead.appendChild(grpStatus);
       ghead.appendChild(sumEl);
+      if (submitStatusG) {
+        ghead.appendChild(submitStatusG);
+      }
       ghead.appendChild(srcEl);
+      ghead.appendChild(actions);
 
       const groupName = (group.label ?? "").trim() || `group ${gi + 1}`;
       [false, true].forEach((local) => {
         const btnRunG = document.createElement("button");
         btnRunG.type = "button";
         btnRunG.className = local
-          ? "case-group__run-all needs-cpp btn-secondary btn-icon btn-run-local"
-          : "case-group__run-all needs-cpp btn-icon";
+          ? "case-group__run-all needs-cpp btn-icon btn-run-local"
+          : "case-group__run-all needs-cpp btn-icon btn-run";
         btnRunG.title = local
           ? "Run all (LOCAL)"
           : "Run all";
@@ -2226,12 +2234,15 @@
           explicitRunGroup = gi;
           startRunAllForGroup(gi, local);
         });
-        ghead.appendChild(btnRunG);
+        actions.appendChild(btnRunG);
       });
+      if (btnSubmitG) {
+        actions.appendChild(btnSubmitG);
+      }
 
       const btnAddCaseG = document.createElement("button");
       btnAddCaseG.type = "button";
-      btnAddCaseG.className = "btn-secondary case-group__add-case btn-icon";
+      btnAddCaseG.className = "case-group__add-case btn-icon";
       btnAddCaseG.title = "Add testcase";
       btnAddCaseG.appendChild(mkIcon("add"));
       btnAddCaseG.setAttribute(
@@ -2250,11 +2261,11 @@
         persist();
         render();
       });
-      ghead.appendChild(btnAddCaseG);
+      actions.appendChild(btnAddCaseG);
 
       const btnClrG = document.createElement("button");
       btnClrG.type = "button";
-      btnClrG.className = "btn-secondary case-group__clear btn-icon";
+      btnClrG.className = "case-group__clear btn-icon";
       btnClrG.disabled = busy;
       btnClrG.title = "Remove problem";
       btnClrG.setAttribute("aria-label", "Remove this problem group");
@@ -2267,7 +2278,7 @@
         persist();
         render();
       });
-      ghead.appendChild(btnClrG);
+      actions.appendChild(btnClrG);
 
       wrap.appendChild(ghead);
 
@@ -2300,7 +2311,7 @@
         caseChev.setAttribute("aria-hidden", "true");
         const num = document.createElement("span");
         num.className = "case-num";
-        num.textContent = String(c.sample);
+        num.textContent = `${c.sample}`;
         tEl.appendChild(caseChev);
         tEl.appendChild(num);
         tEl.addEventListener("click", () => {
@@ -2318,8 +2329,8 @@
           const runOne = document.createElement("button");
           runOne.type = "button";
           runOne.className = local
-            ? "needs-cpp btn-secondary btn-icon btn-run-local"
-            : "needs-cpp btn-icon";
+            ? "needs-cpp btn-icon btn-run-local"
+            : "needs-cpp btn-icon btn-run";
           runOne.title = local
             ? `Run sample ${c.sample} (LOCAL)`
             : `Run sample ${c.sample}`;
@@ -2355,7 +2366,7 @@
 
         const debugOne = document.createElement("button");
         debugOne.type = "button";
-        debugOne.className = "needs-cpp btn-secondary btn-icon";
+        debugOne.className = "needs-cpp btn-icon";
         debugOne.title = `Debug sample ${c.sample}`;
         debugOne.dataset.cpTitle = debugOne.title;
         debugOne.setAttribute("aria-label", `Debug sample ${c.sample}`);
@@ -2374,7 +2385,7 @@
 
         const remove = document.createElement("button");
         remove.type = "button";
-        remove.className = "btn-secondary btn-icon";
+        remove.className = "btn-icon btn-remove";
         remove.title = "Remove testcase";
         remove.setAttribute("aria-label", "Remove this testcase");
         remove.appendChild(mkIcon("close"));

@@ -2,7 +2,7 @@
   "name": "cp-helper",
   "displayName": "CP Helper",
   "description": "Run online judge samples against your local C++ solution in VSCode.",
-  "version": "1.2.20",
+  "version": "1.2.21",
   "publisher": "from-cero",
   "license": "MIT",
   "engines": {

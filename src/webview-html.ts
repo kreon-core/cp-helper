@@ -52,13 +52,13 @@ export function buildSamplesWebviewHtml(
     </div>
     <div id="importActions" class="import__actions">
       <div class="btn-row__cluster" role="group" aria-label="Import actions">
-        <button id="btnToggleJson" type="button" class="btn-secondary btn-icon" title="Paste JSON" aria-label="Paste JSON" aria-expanded="false" aria-controls="import-json"><span class="codicon codicon-json" aria-hidden="true"></span></button>
+        <button id="btnToggleJson" type="button" class="btn-icon" title="Paste JSON" aria-label="Paste JSON" aria-expanded="false" aria-controls="import-json"><span class="codicon codicon-json" aria-hidden="true"></span></button>
         <button id="btnLoad" type="button" class="btn-icon" title="Load JSON" aria-label="Load"><span class="codicon codicon-desktop-download" aria-hidden="true"></span></button>
-        <button id="btnAddProblem" type="button" class="btn-secondary btn-icon" title="Add custom problem" aria-label="Custom problem"><span class="codicon codicon-add" aria-hidden="true"></span></button>
+        <button id="btnAddProblem" type="button" class="btn-icon" title="Add custom problem" aria-label="Custom problem"><span class="codicon codicon-add" aria-hidden="true"></span></button>
         <span class="btn-sep" aria-hidden="true"></span>
-        <button id="btnStopRun" type="button" class="btn-secondary btn-stop btn-icon" hidden title="Stop" aria-label="Stop"><span class="codicon codicon-debug-stop" aria-hidden="true"></span></button>
-        <button id="btnClear" type="button" class="btn-secondary btn-icon" title="Clear all" aria-label="Clear"><span class="codicon codicon-clear-all" aria-hidden="true"></span></button>
-        <button id="btnExport" type="button" class="btn-secondary btn-icon" title="Export to testcases/" aria-label="Export"><span class="codicon codicon-export" aria-hidden="true"></span></button>
+        <button id="btnStopRun" type="button" class="btn-stop btn-icon" hidden title="Stop" aria-label="Stop"><span class="codicon codicon-debug-stop" aria-hidden="true"></span></button>
+        <button id="btnClear" type="button" class="btn-icon" title="Clear all" aria-label="Clear"><span class="codicon codicon-clear-all" aria-hidden="true"></span></button>
+        <button id="btnExport" type="button" class="btn-icon" title="Export to testcases/" aria-label="Export"><span class="codicon codicon-export" aria-hidden="true"></span></button>
       </div>
       <div id="runnerHint" class="runner-hint meta-chip" hidden role="status" aria-live="polite">
         <span class="codicon codicon-tools meta-chip__icon" aria-hidden="true"></span>

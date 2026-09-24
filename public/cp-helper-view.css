@@ -8,7 +8,25 @@
   --cp-radius-lg: 6px;
   /** Shared geometry for every status chip: verdict, timings, Run all count, source, time limit. */
   --cp-chip-radius: 5px;
-  --cp-chip-height: 20px;
+  --cp-chip-height: 22px;
+  /** Type scale: titles, everything else in the chrome, uppercase field labels. */
+  --cp-text-title: 12px;
+  --cp-text-body: 11px;
+  --cp-text-label: 10px;
+  /** Icon scale: toolbar buttons, icons inside a chip or next to text. */
+  --cp-icon: 16px;
+  --cp-icon-sm: 12px;
+  --cp-chip-font-size: var(--cp-text-body);
+  --cp-chip-font-weight: 600;
+  --cp-chip-letter-spacing: 0.02em;
+  --cp-chip-neutral-bg: rgba(128, 128, 128, 0.1);
+  --cp-chip-neutral-border: rgba(128, 128, 128, 0.18);
+  --cp-surface-border: var(--vscode-widget-border, rgba(128, 128, 128, 0.22));
+  --cp-surface-raised: rgba(128, 128, 128, 0.06);
+  --cp-ac: var(--vscode-testing-iconPassed, #3fb950);
+  --cp-wa: var(--vscode-errorForeground, #f85149);
+  --cp-tle: var(--vscode-textLink-foreground, #58a6ff);
+  --cp-re: var(--vscode-editorWarning-foreground, #d29922);
   --cp-space-1: 4px;
   --cp-space-2: 6px;
   --cp-space-3: 8px;
@@ -95,13 +113,9 @@ body {
   gap: var(--cp-space-1) var(--cp-space-2);
   margin: 0 calc(-1 * var(--cp-space-2));
   padding: var(--cp-space-2) calc(var(--cp-space-2) + var(--cp-gutter));
-  background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
-  background-image: linear-gradient(
-    var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12)),
-    var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12))
-  );
-  border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.28));
-  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.28));
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  border-top: 1px solid var(--cp-surface-border);
+  border-bottom: 1px solid var(--cp-surface-border);
 }
 
 .import--stuck .import__actions {
@@ -110,12 +124,11 @@ body {
 
 .btn-sep {
   flex: 0 0 auto;
-  align-self: stretch;
+  align-self: center;
   width: 1px;
-  min-height: 16px;
-  margin: 0 2px;
+  height: 14px;
+  margin: 0 var(--cp-space-1);
   background: var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
-  opacity: 0.7;
 }
 
 .btn-row__cluster {
@@ -152,8 +165,8 @@ body {
 
 .meta-chip__icon.codicon[class*="codicon-"] {
   flex: 0 0 auto;
-  font-size: 12px;
-  opacity: 0.65;
+  font-size: var(--cp-icon-sm);
+  opacity: 0.8;
 }
 
 .meta-chip--running .meta-chip__icon.codicon[class*="codicon-"] {
@@ -176,11 +189,9 @@ body {
   text-align: right;
   padding: 2px 0;
   color: inherit;
-  font-family: var(--vscode-editor-font-family);
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--cp-text-body);
+  font-weight: 600;
   line-height: 1.3;
-  opacity: 0.92;
 }
 
 /**
@@ -225,9 +236,8 @@ button.btn-run-local {
   overflow-y: hidden;
   overscroll-behavior-x: contain;
   white-space: nowrap;
-  font-family: var(--vscode-editor-font-family);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--cp-text-title);
+  font-weight: 700;
   line-height: 1.2;
   color: var(--vscode-foreground);
 }
@@ -250,9 +260,8 @@ button.btn-run-local {
   margin: 0 0 0 auto;
   max-width: min(100%, 320px);
   line-height: 1.3;
-  font-family: var(--vscode-editor-font-family);
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--cp-text-body);
+  font-weight: 600;
   overflow: hidden;
 }
 
@@ -357,7 +366,7 @@ button.btn-stop:not([hidden]) {
 }
 
 .hint {
-  font-size: 11px;
+  font-size: var(--cp-text-body);
   opacity: 0.72;
   flex: 1;
   min-width: 140px;
@@ -371,7 +380,7 @@ button.btn-stop:not([hidden]) {
   background: var(--vscode-editor-background, var(--vscode-sideBar-background));
   padding: var(--cp-space-1) var(--cp-space-2);
   border-radius: var(--cp-radius-md);
-  font-size: 11px;
+  font-size: var(--cp-text-body);
   line-height: 1.4;
   margin-bottom: var(--cp-space-1);
   border: 1px solid var(--vscode-inputValidation-errorBorder, rgba(248, 81, 73, 0.55));
@@ -403,7 +412,7 @@ button.btn-add-case {
 
 .list-empty {
   flex: 0 0 auto;
-  font-size: 11px;
+  font-size: var(--cp-text-body);
   line-height: 1.6;
   opacity: 0.7;
   text-align: center;
@@ -438,7 +447,7 @@ button.btn-add-case {
 }
 
 .case-group-wrap--panel {
-  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
+  border: 1px solid var(--cp-surface-border);
   border-radius: var(--cp-radius-lg);
   background: var(--vscode-sideBar-background, var(--vscode-editor-background));
 }
@@ -453,10 +462,11 @@ button.btn-add-case {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--cp-space-1) var(--cp-space-2);
-  padding: var(--cp-space-1) var(--cp-gutter);
+  min-height: 32px;
+  padding: var(--cp-space-1) var(--cp-space-2) var(--cp-space-1) var(--cp-space-1);
   background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
   background-image: linear-gradient(var(--cp-head-tint), var(--cp-head-tint));
-  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
+  border-bottom: 1px solid var(--cp-surface-border);
   cursor: pointer;
 }
 
@@ -489,9 +499,9 @@ button.case-group-disclose {
   background: transparent;
   color: var(--vscode-foreground);
   font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: var(--cp-text-title);
+  font-weight: 700;
+  letter-spacing: 0.01em;
   line-height: 1.3;
   text-align: left;
   cursor: pointer;
@@ -560,9 +570,9 @@ input.case-group-rename {
   margin: 0;
   padding: 2px 6px;
   font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: var(--cp-text-title);
+  font-weight: 700;
+  letter-spacing: 0.01em;
   line-height: 1.3;
   border: 1px solid var(--vscode-focusBorder, #007fd4);
   border-radius: var(--cp-radius-sm);
@@ -571,18 +581,102 @@ input.case-group-rename {
   outline: none;
 }
 
+/* Judge limits read as metadata of the title, not as status: plain dim text with an icon. */
 .case-group-limit {
   display: inline-flex;
   align-items: center;
+  gap: 3px;
   flex: 0 0 auto;
   margin-left: var(--cp-space-1);
-  min-height: var(--cp-chip-height);
-  padding: 0 var(--cp-space-2);
-  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.18));
-  border-radius: var(--cp-chip-radius);
-  font-size: 11px;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  font-size: var(--cp-chip-font-size);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
-  opacity: 0.75;
+}
+
+.case-group-limit .codicon[class*="codicon-"] {
+  font-size: var(--cp-icon-sm);
+  opacity: 0.8;
+}
+
+/**
+ * Every command of a problem in one toolbar at the end of the header, split from the results by a
+ * rule. Buttons are flat until hovered; only Run and Submit carry a colour.
+ */
+.case-group-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-1);
+  flex: 0 0 auto;
+  margin-left: var(--cp-space-1);
+  padding-left: var(--cp-space-2);
+  border-left: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
+}
+
+/**
+ * One flat icon-button style for every toolbar: the view's top bar, problem headers and sample
+ * rows. Run carries green, LOCAL blue, destructive actions turn red on hover.
+ */
+.btn-row__cluster button.btn-icon,
+.case-group-actions button.btn-icon,
+.case-actions button.btn-icon {
+  width: 26px;
+  min-width: 26px;
+  height: var(--cp-chip-height);
+  padding: 0;
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-chip-neutral-bg);
+  box-shadow: inset 0 0 0 1px var(--cp-chip-neutral-border);
+  color: var(--vscode-foreground);
+  transition: background-color 80ms ease-out, color 80ms ease-out;
+}
+
+.btn-row__cluster button.btn-icon .codicon[class*="codicon-"],
+.case-group-actions button.btn-icon .codicon[class*="codicon-"],
+.case-actions button.btn-icon .codicon[class*="codicon-"] {
+  font-size: var(--cp-icon);
+}
+
+.btn-row__cluster button.btn-icon:hover:not(:disabled),
+.case-group-actions button.btn-icon:hover:not(:disabled),
+.case-actions button.btn-icon:hover:not(:disabled) {
+  background: rgba(128, 128, 128, 0.24);
+  filter: none;
+}
+
+.btn-row__cluster button.btn-icon:disabled,
+.case-group-actions button.btn-icon:disabled,
+.case-actions button.btn-icon:disabled {
+  opacity: 0.35;
+}
+
+.case-group-actions button.btn-run:not(:disabled),
+.case-actions button.btn-run:not(:disabled) {
+  color: var(--cp-ac);
+}
+
+.case-group-actions button.btn-run-local:not(:disabled),
+.case-actions button.btn-run-local:not(:disabled) {
+  color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+.btn-row__cluster button.btn-stop:not([hidden]) {
+  color: var(--cp-wa);
+}
+
+.btn-row__cluster button.btn-icon--on {
+  color: var(--vscode-textLink-foreground, #3794ff);
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.18));
+  box-shadow: inset 0 0 0 1px var(--vscode-focusBorder, rgba(0, 127, 212, 0.55));
+}
+
+.case-group-actions button.case-group__clear:hover:not(:disabled),
+.case-actions button.btn-remove:hover:not(:disabled),
+.btn-row__cluster button#btnClear:hover:not(:disabled) {
+  color: var(--cp-wa);
+  background: rgba(248, 81, 73, 0.12);
 }
 
 .case-group-wrap--collapsed .case-group-head {
@@ -654,7 +748,7 @@ input.case-group-rename {
   flex: 1 1 auto;
   min-width: 0;
   min-height: 22px;
-  font-size: 11px;
+  font-size: var(--cp-text-body);
   font-weight: 500;
   color: var(--vscode-foreground);
 }
@@ -687,8 +781,9 @@ input.case-group-rename {
   padding: 0 var(--cp-space-2);
   border: 1px solid transparent;
   border-radius: var(--cp-chip-radius);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--cp-chip-font-size);
+  font-weight: var(--cp-chip-font-weight);
+  letter-spacing: var(--cp-chip-letter-spacing);
   line-height: 1;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -741,8 +836,8 @@ input.case-group-rename {
   flex: 0 1 auto;
   min-width: 0;
   max-width: min(180px, 45%);
-  background: rgba(128, 128, 128, 0.1);
-  border-color: rgba(128, 128, 128, 0.18);
+  background: var(--cp-chip-neutral-bg);
+  border-color: var(--cp-chip-neutral-border);
 }
 
 .case-group-src:hover {
@@ -770,8 +865,6 @@ input.case-group-rename {
 
 .case-group-src--current .case-group-src__label {
   color: var(--vscode-textLink-foreground, #3794ff);
-  opacity: 1;
-  font-weight: 600;
 }
 
 .case-group-src--current .active-source-label__dir {
@@ -783,11 +876,9 @@ input.case-group-rename {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--vscode-editor-font-family);
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--cp-chip-font-size);
+  font-weight: var(--cp-chip-font-weight);
   line-height: 1.3;
-  opacity: 0.75;
 }
 
 /**
@@ -821,12 +912,12 @@ input.case-group-rename {
  */
 .case-group-wrap--panel > .case-group-cases {
   padding: var(--cp-space-2);
-  background: rgba(128, 128, 128, 0.05);
+  background: var(--cp-surface-raised);
   border-radius: 0 0 calc(var(--cp-radius-lg) - 1px) calc(var(--cp-radius-lg) - 1px);
 }
 
 .case-group-cases > .case + .case {
-  margin-top: var(--cp-space-1);
+  margin-top: var(--cp-space-2);
 }
 
 .case {
@@ -835,9 +926,9 @@ input.case-group-rename {
    * theme color so it stays visible in themes that leave the border tokens transparent. The cap
    * itself lives on `.case-head`, which travels with it while the header is stuck.
    */
-  --cp-case-accent: rgba(128, 128, 128, 0.55);
-  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
-  border-top: none;
+  --cp-case-accent: rgba(128, 128, 128, 0.45);
+  border: 1px solid var(--cp-surface-border);
+  border-left: 3px solid var(--cp-case-accent);
   border-radius: var(--cp-radius-md);
   margin-bottom: var(--cp-space-1);
   background: var(--vscode-sideBar-background, var(--vscode-editor-background));
@@ -849,7 +940,7 @@ input.case-group-rename {
 }
 
 .case:hover {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 }
 
 /**
@@ -864,16 +955,11 @@ input.case-group-rename {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  padding: var(--cp-space-1) var(--cp-space-2);
-  background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
-  background-image: linear-gradient(
-    var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12)),
-    var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12))
-  );
-  border-top: 2px solid var(--cp-case-accent);
-  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
-  border-radius: var(--cp-radius-md) var(--cp-radius-md) 0 0;
-  transition: border-color 0.15s ease;
+  min-height: 30px;
+  padding: var(--cp-space-1) var(--cp-space-2) var(--cp-space-1) var(--cp-space-1);
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  border-bottom: 1px solid var(--cp-surface-border);
+  border-radius: 0 var(--cp-radius-md) 0 0;
   --case-head-ctrl-h: 22px;
 }
 
@@ -891,7 +977,7 @@ button.case-disclose {
   background: transparent;
   color: var(--vscode-foreground);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--cp-text-title);
   font-weight: 600;
   text-align: left;
   cursor: pointer;
@@ -921,8 +1007,8 @@ button.case-disclose:focus-visible {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: inherit;
+  font-weight: inherit;
   font-variant-numeric: tabular-nums;
   color: var(--vscode-foreground);
   line-height: 1;
@@ -937,9 +1023,9 @@ button.case-disclose:focus-visible {
   align-items: center;
   justify-content: center;
   min-height: var(--cp-chip-height);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-size: var(--cp-chip-font-size);
+  font-weight: var(--cp-chip-font-weight);
+  letter-spacing: var(--cp-chip-letter-spacing);
   line-height: 1;
   flex-shrink: 0;
   white-space: nowrap;
@@ -953,28 +1039,24 @@ button.case-disclose:focus-visible {
 }
 
 .case-verdict {
-  min-width: 34px;
+  min-width: 38px;
 }
 
 .case-time {
-  min-width: 46px;
-  font-weight: 600;
-  letter-spacing: 0;
+  min-width: 50px;
   font-variant-numeric: tabular-nums;
   color: var(--vscode-descriptionForeground, var(--vscode-foreground));
-  background: rgba(128, 128, 128, 0.1);
-  border-color: rgba(128, 128, 128, 0.18);
+  background: var(--cp-chip-neutral-bg);
+  border-color: var(--cp-chip-neutral-border);
 }
 
 .case-overhead {
-  min-width: 44px;
-  font-weight: 600;
-  letter-spacing: 0;
+  min-width: 50px;
   font-variant-numeric: tabular-nums;
   opacity: 0.65;
   color: var(--vscode-descriptionForeground, var(--vscode-foreground));
   background: transparent;
-  border-color: rgba(128, 128, 128, 0.18);
+  border-color: var(--cp-chip-neutral-border);
   border-style: dashed;
 }
 
@@ -1026,8 +1108,11 @@ button.case-disclose:focus-visible {
 .case-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--cp-space-1);
   flex-wrap: wrap;
+  margin-left: var(--cp-space-1);
+  padding-left: var(--cp-space-2);
+  border-left: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
 }
 
 .case-actions button {
@@ -1038,18 +1123,18 @@ button.case-disclose:focus-visible {
   min-height: var(--case-head-ctrl-h, 22px);
   max-height: var(--case-head-ctrl-h, 22px);
   padding: 0 7px;
-  font-size: 11px;
+  font-size: var(--cp-text-body);
   font-weight: 500;
   line-height: 1;
 }
 
 .case--collapsed .case-head {
   border-bottom: none;
-  border-radius: var(--cp-radius-md);
+  border-radius: 0 var(--cp-radius-md) var(--cp-radius-md) 0;
 }
 
 .case-body {
-  padding: var(--cp-space-2);
+  padding: var(--cp-space-2) var(--cp-space-3) var(--cp-space-3);
   display: flex;
   flex-direction: column;
   gap: var(--cp-space-2);
@@ -1090,11 +1175,11 @@ button.case-disclose:focus-visible {
 }
 
 .field label {
-  font-size: 10px;
-  font-weight: 600;
+  font-size: var(--cp-text-label);
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.78;
+  letter-spacing: 0.08em;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
 }
 
 /**
@@ -1107,9 +1192,9 @@ button.case-disclose:focus-visible {
   font-family: var(--vscode-editor-font-family);
   font-size: 12px;
   line-height: 1.45;
-  padding: 6px var(--cp-space-2) 6px calc(var(--cp-space-2) + 2px);
-  border: 1px solid var(--vscode-input-border, #444);
-  border-radius: var(--cp-radius-sm);
+  padding: 6px var(--cp-space-3);
+  border: 1px solid var(--cp-surface-border);
+  border-radius: var(--cp-radius-md);
   resize: none;
   overflow-x: hidden;
   overflow-y: hidden;
@@ -1126,7 +1211,6 @@ button.case-disclose:focus-visible {
 .field--sample .input-area--sample {
   background: var(--vscode-textCodeBlock-background, rgba(127, 127, 127, 0.12));
   color: var(--vscode-editor-foreground, var(--vscode-foreground));
-  --field-stripe: inset 2px 0 0 var(--vscode-textLink-foreground, rgba(88, 166, 255, 0.55));
   cursor: text;
 }
 
@@ -1168,29 +1252,45 @@ pre.input-area:focus-visible {
   border-radius: 2px;
 }
 
-/* Stdout: auto-height in JS; green left stripe = run output. */
+/* Stdout: auto-height in JS; framed in the sample's verdict colour. */
 .field--result .input-area--stream-stdout {
   min-height: 32px;
   overflow-x: auto;
-  --field-stripe: inset 2px 0 0 var(--vscode-testing-iconPassed, rgba(63, 185, 80, 0.55));
+}
+
+.case--ac .field--result .input-area--stream-stdout {
+  border-color: rgba(46, 160, 67, 0.4);
+}
+
+.case--wa .field--result .input-area--stream-stdout {
+  border-color: rgba(248, 81, 73, 0.4);
+}
+
+.case--tle .field--result .input-area--stream-stdout {
+  border-color: rgba(88, 166, 255, 0.4);
+}
+
+.case--re .field--result .input-area--stream-stdout {
+  border-color: rgba(210, 153, 34, 0.4);
 }
 
 /* Stderr: auto-height in JS (same cap as stdout) + scroll when long; amber left stripe = errors. */
 .field--result .input-area--stream-stderr {
   min-height: 32px;
   overflow-x: auto;
-  --field-stripe: inset 2px 0 0 var(--vscode-editorWarning-foreground, rgba(210, 153, 34, 0.65));
+  border-color: rgba(210, 153, 34, 0.4);
+  --field-stripe: inset 3px 0 0 var(--cp-re);
 }
 
 .cases-heading {
   flex: 0 0 auto;
   padding: 0 var(--cp-gutter);
-  font-size: 10px;
-  font-weight: 600;
+  font-size: var(--cp-text-label);
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  opacity: 0.7;
-  margin: 0 0 var(--cp-space-1);
+  letter-spacing: 0.08em;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  margin: 0 0 var(--cp-space-2);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1214,11 +1314,6 @@ button.btn-icon {
   min-width: 26px;
   padding: 0;
   line-height: 1;
-}
-
-.case-actions button.btn-icon {
-  width: 22px;
-  min-width: 22px;
 }
 
 button.btn-icon--on {
@@ -1283,22 +1378,6 @@ button.btn-icon--on {
 }
 
 /* Subtle glow on the group header when all AC */
-.case-group-wrap--ac .case-group-head {
-  box-shadow: 0 1px 0 rgba(46, 160, 67, 0.2);
-}
-
-.case-group-wrap--wa .case-group-head {
-  box-shadow: 0 1px 0 rgba(248, 81, 73, 0.2);
-}
-
-.case-group-wrap--tle .case-group-head {
-  box-shadow: 0 1px 0 rgba(88, 166, 255, 0.2);
-}
-
-.case-group-wrap--re .case-group-head {
-  box-shadow: 0 1px 0 rgba(210, 153, 34, 0.2);
-}
-
 .case-group-wrap--stale .case-group-head {
   --cp-head-tint: var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12));
   border-bottom-color: var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
@@ -1320,13 +1399,8 @@ button.btn-icon--on {
     gap: var(--cp-space-1) var(--cp-space-2);
     margin: 0 calc(-1 * var(--cp-space-2));
     padding: var(--cp-space-2) calc(var(--cp-space-2) + var(--cp-gutter));
-    background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
-    background-image: linear-gradient(
-      var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12)),
-      var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12))
-    );
-    border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.28));
-    border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.28));
+    background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+    border-bottom: 1px solid var(--cp-surface-border);
   }
 
   .import--stuck {
@@ -1415,14 +1489,14 @@ button.submit-status {
   min-height: var(--cp-chip-height);
   max-width: 14ch;
   padding: 0 var(--cp-space-2);
-  border: 1px solid rgba(128, 128, 128, 0.18);
+  border: 1px solid var(--cp-chip-neutral-border);
   border-radius: var(--cp-chip-radius);
-  background: rgba(128, 128, 128, 0.1);
+  background: var(--cp-chip-neutral-bg);
   color: var(--vscode-foreground);
   font: inherit;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-size: var(--cp-chip-font-size);
+  font-weight: var(--cp-chip-font-weight);
+  letter-spacing: var(--cp-chip-letter-spacing);
   line-height: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1456,6 +1530,36 @@ button.submit-status--bad {
   border-color: rgba(248, 81, 73, 0.3);
 }
 
-.btn-submit:not(:disabled) {
-  color: var(--vscode-charts-blue, var(--vscode-foreground));
+.case-group-actions button.btn-submit:not(:disabled) {
+  background: rgba(88, 166, 255, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(88, 166, 255, 0.5);
+  color: var(--vscode-textLink-foreground, #58a6ff);
+}
+
+.case-group-actions button.btn-submit:hover:not(:disabled) {
+  background: rgba(88, 166, 255, 0.34);
+}
+
+/* The judge's verdict, marked with a cloud so it is not read as one more local count. */
+button.submit-status::before {
+  content: "\ebaa";
+  margin-right: 4px;
+  font-family: codicon;
+  font-size: var(--cp-icon-sm);
+  font-weight: normal;
+  letter-spacing: 0;
+}
+
+/* Narrow (sidebar): toolbars may wrap onto their own line, where a leading rule would dangle. */
+@media (max-width: 559px) {
+  .case-group-actions,
+  .case-actions {
+    margin-left: auto;
+    padding-left: 0;
+    border-left: none;
+  }
+
+  .case-head {
+    gap: var(--cp-space-1);
+  }
 }
