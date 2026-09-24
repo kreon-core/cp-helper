@@ -589,7 +589,7 @@ input.case-group-rename {
   border-bottom: none;
 }
 
-/* After Run all: group header tint (same palette as per-sample AC / WA). */
+/* After Run all: group header tint (same palette as the per-sample verdicts). */
 .case-group-wrap--panel.case-group-wrap--ac {
   border-color: rgba(46, 160, 67, 0.35);
 }
@@ -597,12 +597,6 @@ input.case-group-rename {
 .case-group-wrap--ac .case-group-head {
   --cp-head-tint: rgba(46, 160, 67, 0.12);
   border-bottom-color: rgba(46, 160, 67, 0.35);
-}
-
-.case-group-wrap--ac .case-group-passed:not(:empty) {
-  color: var(--vscode-testing-iconPassed, #3fb950);
-  background: rgba(46, 160, 67, 0.15);
-  border-color: rgba(46, 160, 67, 0.3);
 }
 
 .case-group-wrap--ac button.case-group-disclose:hover:not(:disabled) {
@@ -619,14 +613,36 @@ input.case-group-rename {
   border-bottom-color: rgba(248, 81, 73, 0.35);
 }
 
-.case-group-wrap--wa .case-group-passed:not(:empty) {
-  color: var(--vscode-errorForeground, #f85149);
-  background: rgba(248, 81, 73, 0.12);
-  border-color: rgba(248, 81, 73, 0.3);
-}
-
 .case-group-wrap--wa button.case-group-disclose:hover:not(:disabled) {
   background: rgba(248, 81, 73, 0.14);
+  filter: none;
+}
+
+.case-group-wrap--panel.case-group-wrap--tle {
+  border-color: rgba(88, 166, 255, 0.35);
+}
+
+.case-group-wrap--tle .case-group-head {
+  --cp-head-tint: rgba(88, 166, 255, 0.1);
+  border-bottom-color: rgba(88, 166, 255, 0.35);
+}
+
+.case-group-wrap--tle button.case-group-disclose:hover:not(:disabled) {
+  background: rgba(88, 166, 255, 0.14);
+  filter: none;
+}
+
+.case-group-wrap--panel.case-group-wrap--re {
+  border-color: rgba(210, 153, 34, 0.35);
+}
+
+.case-group-wrap--re .case-group-head {
+  --cp-head-tint: rgba(210, 153, 34, 0.1);
+  border-bottom-color: rgba(210, 153, 34, 0.35);
+}
+
+.case-group-wrap--re button.case-group-disclose:hover:not(:disabled) {
+  background: rgba(210, 153, 34, 0.14);
   filter: none;
 }
 
@@ -650,15 +666,23 @@ input.case-group-rename {
   white-space: nowrap;
 }
 
-/* Same chip as the verdicts it sums up; the fill comes with the verdict, so a header with no
-   count keeps the slot but shows nothing. */
+/* Slot for the per-verdict counts; a header with no result keeps the slot but shows nothing. */
 .case-group-passed {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
+  gap: var(--cp-space-1);
   flex: 0 0 auto;
   min-width: 34px;
   margin-left: auto;
+  min-height: var(--cp-chip-height);
+}
+
+/* Same chip as the verdicts it counts. */
+.case-group-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: var(--cp-chip-height);
   padding: 0 var(--cp-space-2);
   border: 1px solid transparent;
@@ -667,7 +691,31 @@ input.case-group-rename {
   font-weight: 600;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  white-space: nowrap;
+}
+
+.case-group-count--ac {
+  color: var(--vscode-testing-iconPassed, #3fb950);
+  background: rgba(46, 160, 67, 0.15);
+  border-color: rgba(46, 160, 67, 0.3);
+}
+
+.case-group-count--wa {
+  color: var(--vscode-errorForeground, #f85149);
+  background: rgba(248, 81, 73, 0.12);
+  border-color: rgba(248, 81, 73, 0.3);
+}
+
+.case-group-count--tle {
+  color: var(--vscode-textLink-foreground, #58a6ff);
+  background: rgba(88, 166, 255, 0.12);
+  border-color: rgba(88, 166, 255, 0.3);
+}
+
+.case-group-count--re {
+  color: var(--vscode-editorWarning-foreground, #d29922);
+  background: rgba(210, 153, 34, 0.12);
+  border-color: rgba(210, 153, 34, 0.3);
 }
 
 /**
@@ -750,7 +798,7 @@ input.case-group-rename {
   border-color: var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
 }
 
-.case-group-wrap--stale .case-group-passed:not(:empty) {
+.case-group-wrap--stale .case-group-count {
   color: var(--vscode-descriptionForeground, var(--vscode-foreground));
   background: rgba(128, 128, 128, 0.1);
   border-color: rgba(128, 128, 128, 0.18);
@@ -1241,6 +1289,14 @@ button.btn-icon--on {
 
 .case-group-wrap--wa .case-group-head {
   box-shadow: 0 1px 0 rgba(248, 81, 73, 0.2);
+}
+
+.case-group-wrap--tle .case-group-head {
+  box-shadow: 0 1px 0 rgba(88, 166, 255, 0.2);
+}
+
+.case-group-wrap--re .case-group-head {
+  box-shadow: 0 1px 0 rgba(210, 153, 34, 0.2);
 }
 
 .case-group-wrap--stale .case-group-head {

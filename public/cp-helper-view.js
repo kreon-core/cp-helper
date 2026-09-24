@@ -10,9 +10,20 @@
   /**
    * Per-group Run all summary: key = group index string. `file` is the source that produced it,
    * which is not necessarily the one a run would compile now.
-   * @type {Record<string, { passed: number; total: number; file: string } | undefined>}
+   * @type {Record<string, { passed: number; total: number; file: string; verdict?: string; counts?: Record<string, number> } | undefined>}
    */
   const lastRunAllSummaryByGroup = {};
+
+  /** Header verdict of a problem is its most severe sample verdict, in this order. */
+  const GROUP_VERDICT_ORDER = ["RE", "TLE", "WA", "AC"];
+
+  /** Order of the per-verdict count chips in a problem header. */
+  const GROUP_COUNT_ORDER = ["AC", "WA", "TLE", "RE"];
+
+  /** Header tint class per group verdict. */
+  const GROUP_VERDICT_CLASSES = GROUP_VERDICT_ORDER.map(
+    (v) => `case-group-wrap--${v.toLowerCase()}`,
+  );
 
   /** Stamp of the run a result came from; seeded past the stamps restored from an earlier session. */
   let runStampSeq = Date.now();
@@ -58,7 +69,7 @@
    */
   const staleResultGroups = new Set();
 
-  const NEEDS_CPP_HINT = "Open a C++ file in the editor first";
+  const NEEDS_CPP_HINT = "Open a C++ file first";
 
   /**
    * Whether the active editor is a C++ file the host would accept. Run and Debug compile that
@@ -245,8 +256,8 @@
     const limitMs = runInfo && runInfo.timeLimitMs != null ? runInfo.timeLimitMs : null;
     const timeHint =
       limitMs != null
-        ? `Execution time (judge limit${formatElapsed(limitMs)})`
-        : "Execution time";
+        ? `Time (limit${formatElapsed(limitMs)})`
+        : "Time";
     if (running) {
       const slot = document.createElement("span");
       slot.className = "case-status case-verdict case-verdict--running";
@@ -261,7 +272,7 @@
       mk("verdict", runInfo ? runInfo.verdict : "");
     }
     mk("time", elapsed, timeHint);
-    mk("overhead", overhead, "Overhead outside the program: process spawn and output drain");
+    mk("overhead", overhead, "Overhead");
   }
 
   /** @returns {number} */
@@ -629,15 +640,61 @@
     paintSourcePathInto(label, fullPath);
     chip.appendChild(label);
     chip.classList.toggle("case-group-src--current", current);
-    chip.title = current
-      ? `This problem is bound to ${fullPath}, the file in the editor - click to open it, right-click to unlink it`
-      : `This problem is bound to ${fullPath}, not the file in the editor - click to open it, right-click to unlink it`;
+    chip.title = `${fullPath}\nClick to open, right-click to unlink`;
     chip.setAttribute(
       "aria-label",
       current
         ? `Open ${fullPath}, the open file this problem is bound to`
         : `Open ${fullPath}, the file this problem is bound to`,
     );
+  }
+
+  /**
+   * Most severe verdict among a problem's samples (RE, then TLE, then WA). A sample without a
+   * result counts as WA, since it did not pass.
+   * @param {(string | undefined)[]} verdicts
+   * @returns {string}
+   */
+  function worstVerdict(verdicts) {
+    let worst = GROUP_VERDICT_ORDER.length - 1;
+    for (const v of verdicts) {
+      const at = GROUP_VERDICT_ORDER.indexOf(v ?? "WA");
+      worst = Math.min(worst, at === -1 ? GROUP_VERDICT_ORDER.indexOf("WA") : at);
+    }
+    return GROUP_VERDICT_ORDER[worst];
+  }
+
+  /**
+   * Samples per verdict. A sample without a result, or with a verdict the header does not tint,
+   * counts as WA.
+   * @param {(string | undefined)[]} verdicts
+   * @returns {Record<string, number>}
+   */
+  function countVerdicts(verdicts) {
+    /** @type {Record<string, number>} */
+    const counts = {};
+    for (const v of verdicts) {
+      const key = v !== undefined && GROUP_COUNT_ORDER.includes(v) ? v : "WA";
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  /**
+   * Fill a problem's summary slot with one chip per verdict that occurred ("2 AC", "1 TLE").
+   * @param {HTMLElement} sumEl
+   * @param {Record<string, number>} counts
+   */
+  function paintVerdictCounts(sumEl, counts) {
+    sumEl.replaceChildren();
+    for (const v of GROUP_COUNT_ORDER) {
+      const n = counts[v] ?? 0;
+      if (n <= 0) continue;
+      const chip = document.createElement("span");
+      chip.className = `case-group-count case-group-count--${v.toLowerCase()}`;
+      chip.textContent = `${n} ${v}`;
+      sumEl.appendChild(chip);
+    }
   }
 
   /**
@@ -662,21 +719,32 @@
     sumEl.textContent = "";
     if (!gs || gs.total <= 0) {
       sumEl.removeAttribute("title");
-      wrap.classList.remove("case-group-wrap--ac", "case-group-wrap--wa");
+      wrap.classList.remove(...GROUP_VERDICT_CLASSES);
       return;
     }
-    wrap.classList.toggle("case-group-wrap--ac", gs.passed === gs.total);
-    wrap.classList.toggle("case-group-wrap--wa", gs.passed !== gs.total);
+    const verdict =
+      typeof gs.verdict === "string" && GROUP_VERDICT_ORDER.includes(gs.verdict)
+        ? gs.verdict
+        : gs.passed === gs.total
+          ? "AC"
+          : "WA";
+    const tint = `case-group-wrap--${verdict.toLowerCase()}`;
+    GROUP_VERDICT_CLASSES.forEach((c) => wrap.classList.toggle(c, c === tint));
     if (gs.partial) {
       sumEl.removeAttribute("title");
       return;
     }
-    sumEl.textContent = `${gs.passed}/${gs.total}`;
+    paintVerdictCounts(
+      sumEl,
+      gs.counts && typeof gs.counts === "object"
+        ? gs.counts
+        : { AC: gs.passed, WA: gs.total - gs.passed },
+    );
     const ran =
-      gs.file !== "" ? ` running ${pathToParentAndName(gs.file)}` : "";
+      gs.file !== "" ? ` - ${pathToParentAndName(gs.file)}` : "";
     sumEl.title = stale
-      ? `${gs.passed} of ${gs.total} passed${ran} - not the file a run would compile now`
-      : `${gs.passed} of ${gs.total} passed in this problem${ran}`;
+      ? `${gs.passed}/${gs.total} passed${ran} (not the current file)`
+      : `${gs.passed}/${gs.total} passed${ran}`;
   }
 
   /**
@@ -713,9 +781,7 @@
     const cpp = m.cpp !== false;
     if (p) {
       paintActiveSourceLabel(p);
-      activeSourceLabelEl.title = running
-        ? `Run in progress (this file only; tab switches are OK):\n${p}`
-        : `Run target - active C++ editor, or the last one you opened:\n${p}`;
+      activeSourceLabelEl.title = running ? `Running: ${p}` : `Run target: ${p}`;
       activeSourceLabelEl.setAttribute(
         "aria-label",
         running ? `Running: ${p}` : `Run target: ${p}`,
@@ -723,7 +789,7 @@
       activeSourceLabelEl.classList.remove("active-source-label--empty");
     } else {
       activeSourceLabelEl.textContent = "No file";
-      activeSourceLabelEl.title = "Open a C++ file in the editor to Run";
+      activeSourceLabelEl.title = "No C++ file open";
       activeSourceLabelEl.setAttribute(
         "aria-label",
         "No C++ file for Run",
@@ -1609,7 +1675,7 @@
     el.textContent = text;
     el.hidden = text === "";
     el.dataset.cpUrl = url;
-    el.title = url !== "" ? `${full} - click to open the submission` : full;
+    el.title = url !== "" ? `${full} - click to open` : full;
     el.disabled = url === "";
     el.setAttribute("aria-label", full);
     el.classList.toggle("submit-status--ok", st?.tone === "ok");
@@ -1667,27 +1733,27 @@
    */
   function submitBlockedReason(gi) {
     if (typeof submitTargets[gi] !== "string" || submitTargets[gi] === "") {
-      return "Only Codeforces and AtCoder problems imported by OJ Sync can be submitted";
+      return "Submit supports Codeforces and AtCoder only";
     }
     if (!submitBridgeConnected) {
-      return 'OJ Sync is not connected - run "CP Helper: Copy Submit Bridge URL" and paste it into the OJ Sync options page';
+      return "OJ Sync not connected";
     }
     if (submitBusyGroups.has(gi)) {
-      return "A submit for this problem is already in progress";
+      return "Submitting";
     }
     const linked = groups[gi]?.source ?? "";
     if (linked === "") {
-      return "No file is linked to this problem - press Run in its header to link the file in the editor";
+      return "No linked file";
     }
     const gs = lastRunAllSummaryByGroup[gi];
     if (!gs || gs.total <= 0 || gs.partial) {
-      return "Run all samples of this problem first - only a full pass can be submitted";
+      return "Run all samples first";
     }
     if ((gs.file ?? "") !== "" && gs.file !== linked) {
-      return `The last run compiled ${pathToParentAndName(gs.file)}, not the linked file - run all samples again`;
+      return "Last run used another file";
     }
     if (gs.passed !== gs.total) {
-      return `${gs.passed} of ${gs.total} samples passed - fix them, then run all again`;
+      return `${gs.passed}/${gs.total} samples passed`;
     }
     return null;
   }
@@ -1698,8 +1764,7 @@
       const i = Number(btn.dataset.cpGi);
       const r = submitBlockedReason(i);
       btn.disabled = r !== null;
-      const linked = pathToParentAndName(groups[i]?.source ?? "");
-      btn.title = r ?? `Submit ${linked} to ${submitTargets[i]}`;
+      btn.title = r ?? `Submit to ${submitTargets[i]}`;
     });
   }
 
@@ -2010,14 +2075,14 @@
         const limitChip = document.createElement("span");
         limitChip.className = "case-group-limit";
         limitChip.textContent = formatElapsed(group.timeLimitMs).trim();
-        limitChip.title = "Judge time limit for this problem";
+        limitChip.title = "Time limit";
         disclose.appendChild(limitChip);
       }
       if (typeof group.memoryLimitMb === "number") {
         const memChip = document.createElement("span");
         memChip.className = "case-group-limit";
         memChip.textContent = formatMemoryLimit(group.memoryLimitMb);
-        memChip.title = "Judge memory limit for this problem";
+        memChip.title = "Memory limit";
         disclose.appendChild(memChip);
       }
       disclose.addEventListener("click", () => {
@@ -2087,7 +2152,7 @@
         const btnRenameG = document.createElement("button");
         btnRenameG.type = "button";
         btnRenameG.className = "case-group__rename btn-icon";
-        btnRenameG.title = "Rename this problem";
+        btnRenameG.title = "Rename";
         btnRenameG.setAttribute("aria-label", `Rename ${labelText}`);
         btnRenameG.appendChild(mkIcon("edit"));
         btnRenameG.disabled = busy;
@@ -2145,8 +2210,8 @@
           ? "case-group__run-all needs-cpp btn-secondary btn-icon btn-run-local"
           : "case-group__run-all needs-cpp btn-icon";
         btnRunG.title = local
-          ? "Run all cases in this group with the LOCAL build (localCompileCommand)"
-          : "Run all cases in this group";
+          ? "Run all (LOCAL)"
+          : "Run all";
         btnRunG.dataset.cpTitle = btnRunG.title;
         btnRunG.setAttribute(
           "aria-label",
@@ -2167,7 +2232,7 @@
       const btnAddCaseG = document.createElement("button");
       btnAddCaseG.type = "button";
       btnAddCaseG.className = "btn-secondary case-group__add-case btn-icon";
-      btnAddCaseG.title = "Add empty testcase to this problem";
+      btnAddCaseG.title = "Add testcase";
       btnAddCaseG.appendChild(mkIcon("add"));
       btnAddCaseG.setAttribute(
         "aria-label",
@@ -2191,7 +2256,7 @@
       btnClrG.type = "button";
       btnClrG.className = "btn-secondary case-group__clear btn-icon";
       btnClrG.disabled = busy;
-      btnClrG.title = "Remove this problem group";
+      btnClrG.title = "Remove problem";
       btnClrG.setAttribute("aria-label", "Remove this problem group");
       btnClrG.appendChild(mkIcon("trash"));
       btnClrG.addEventListener("click", () => {
@@ -2256,7 +2321,7 @@
             ? "needs-cpp btn-secondary btn-icon btn-run-local"
             : "needs-cpp btn-icon";
           runOne.title = local
-            ? `Run sample ${c.sample} with the LOCAL build (localCompileCommand)`
+            ? `Run sample ${c.sample} (LOCAL)`
             : `Run sample ${c.sample}`;
           runOne.dataset.cpTitle = runOne.title;
           runOne.setAttribute(
@@ -2291,7 +2356,7 @@
         const debugOne = document.createElement("button");
         debugOne.type = "button";
         debugOne.className = "needs-cpp btn-secondary btn-icon";
-        debugOne.title = `Debug sample ${c.sample} (input piped to stdin)`;
+        debugOne.title = `Debug sample ${c.sample}`;
         debugOne.dataset.cpTitle = debugOne.title;
         debugOne.setAttribute("aria-label", `Debug sample ${c.sample}`);
         debugOne.appendChild(mkIcon("debug"));
@@ -2310,7 +2375,7 @@
         const remove = document.createElement("button");
         remove.type = "button";
         remove.className = "btn-secondary btn-icon";
-        remove.title = "Remove this testcase";
+        remove.title = "Remove testcase";
         remove.setAttribute("aria-label", "Remove this testcase");
         remove.appendChild(mkIcon("close"));
         remove.disabled = false;
@@ -2948,6 +3013,7 @@
         lastRunAllSummaryByGroup[gi] = {
           passed: lastRun[key].verdict === "AC" ? 1 : 0,
           total: 1,
+          verdict: worstVerdict([lastRun[key].verdict]),
           file: typeof m.file === "string" ? m.file : "",
           partial: true,
         };
@@ -2970,12 +3036,21 @@
       const gr = groups[gi];
       let passed = 0;
       const n = gr?.cases.length ?? 0;
+      const verdicts = [];
       for (let i = 0; i < n; i++) {
-        if (lastRun[rk(gi, i)]?.verdict === "AC") passed++;
+        const v = lastRun[rk(gi, i)]?.verdict;
+        verdicts.push(v);
+        if (v === "AC") passed++;
       }
       lastRunAllSummaryByGroup[gi] =
         n > 0
-          ? { passed, total: n, file: typeof m.file === "string" ? m.file : "" }
+          ? {
+              passed,
+              total: n,
+              file: typeof m.file === "string" ? m.file : "",
+              verdict: worstVerdict(verdicts),
+              counts: countVerdicts(verdicts),
+            }
           : undefined;
       persistRunResults();
       if (incrementalDomReady()) {
@@ -3042,7 +3117,7 @@
     if (m.type === "exportDone") {
       const count = typeof m.count === "number" ? m.count : 0;
       const prevTitle = btnExport.title;
-      btnExport.title = `Exported ${count} case${count === 1 ? "" : "s"} ✓`;
+      btnExport.title = `Exported ${count} case${count === 1 ? "" : "s"}`;
       btnExport.classList.add("btn--export-done");
       setTimeout(() => {
         btnExport.title = prevTitle;
@@ -3061,7 +3136,7 @@
     btnLoad.hidden = !open;
     btnToggleJson.setAttribute("aria-expanded", String(open));
     btnToggleJson.classList.toggle("btn-icon--on", open);
-    btnToggleJson.title = open ? "Hide the JSON paste box" : "Show the JSON paste box";
+    btnToggleJson.title = open ? "Hide JSON" : "Paste JSON";
     syncSeparators();
     if (open) {
       fitJsonTextarea(jsonEl);
