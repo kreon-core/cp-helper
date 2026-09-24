@@ -30,6 +30,7 @@
   --cp-space-1: 4px;
   --cp-space-2: 6px;
   --cp-space-3: 8px;
+  --cp-fg: var(--vscode-foreground);
   /** Inset of row content from the list edge: `.case` 1px border + `.case-head` padding. */
   --cp-gutter: 7px;
 }
@@ -48,6 +49,11 @@
  * to the list rather than to the whole view.
  * Workbench chrome *outside* the webview iframe cannot be styled by the extension.
  */
+/* Dark themes ship a grey foreground (#ccc); the view's small text reads crisper a step brighter. */
+body.vscode-dark {
+  --cp-fg: color-mix(in srgb, var(--vscode-foreground) 50%, #ffffff);
+}
+
 html {
   height: 100%;
   overflow: hidden;
@@ -58,7 +64,7 @@ body {
   padding: 0 var(--cp-space-2);
   font-family: var(--vscode-font-family);
   font-size: var(--vscode-font-size);
-  color: var(--vscode-foreground);
+  color: var(--cp-fg);
   background: var(--vscode-sideBar-background, var(--vscode-editor-background));
   line-height: 1.4;
   height: 100%;
@@ -155,7 +161,7 @@ body {
   border: 1px solid transparent;
   border-radius: var(--cp-chip-radius);
   background: transparent;
-  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  color: var(--cp-fg);
   transition: background-color 80ms ease-out;
 }
 
@@ -163,10 +169,18 @@ body {
   background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.16));
 }
 
+/* In a problem header the codicons sit a pixel low against the UI font's capitals. */
+.case-group-src .meta-chip__icon.codicon[class*="codicon-"],
+.case-group-limit .codicon[class*="codicon-"],
+button.submit-status::before {
+  position: relative;
+  top: -1px;
+}
+
 .meta-chip__icon.codicon[class*="codicon-"] {
   flex: 0 0 auto;
   font-size: var(--cp-icon-sm);
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 .meta-chip--running .meta-chip__icon.codicon[class*="codicon-"] {
@@ -203,7 +217,7 @@ button.btn-run-local {
 }
 
 .active-source-label__dir {
-  opacity: 0.55;
+  opacity: 0.75;
 }
 
 .runner-hint__std {
@@ -239,7 +253,7 @@ button.btn-run-local {
   font-size: var(--cp-text-title);
   font-weight: 700;
   line-height: 1.2;
-  color: var(--vscode-foreground);
+  color: var(--cp-fg);
 }
 
 /** Right-edge fade as the only affordance for the scroll: the scrollbar is hidden document-wide. */
@@ -367,7 +381,7 @@ button.btn-stop:not([hidden]) {
 
 .hint {
   font-size: var(--cp-text-body);
-  opacity: 0.72;
+  opacity: 0.9;
   flex: 1;
   min-width: 140px;
   line-height: 1.35;
@@ -414,7 +428,7 @@ button.btn-add-case {
   flex: 0 0 auto;
   font-size: var(--cp-text-body);
   line-height: 1.6;
-  opacity: 0.7;
+  opacity: 0.9;
   text-align: center;
   padding: 20px var(--cp-space-2);
   margin: 0 0 var(--cp-space-1);
@@ -424,7 +438,7 @@ button.btn-add-case {
 
 .list-empty strong {
   font-weight: 600;
-  color: var(--vscode-foreground);
+  color: var(--cp-fg);
 }
 
 .cases-section {
@@ -497,7 +511,7 @@ button.case-group-disclose {
   border: none;
   border-radius: var(--cp-radius-sm);
   background: transparent;
-  color: var(--vscode-foreground);
+  color: var(--cp-fg);
   font: inherit;
   font-size: var(--cp-text-title);
   font-weight: 700;
@@ -524,15 +538,9 @@ button.case-group-disclose:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.8;
+  opacity: 1;
   font-size: var(--cp-icon);
   line-height: 1;
-  transition: transform 0.1s ease-out;
-}
-
-/* One glyph for both states, turned when open, so the label never moves. */
-.disclose-chev--open {
-  transform: rotate(90deg);
 }
 
 .case-group-disclose__label {
@@ -551,7 +559,7 @@ button.case-group__rename {
   flex: 0 0 auto;
   border: none;
   background: transparent;
-  color: var(--vscode-foreground);
+  color: var(--cp-fg);
   opacity: 0;
   transition: opacity 0.1s ease-out;
 }
@@ -596,7 +604,7 @@ input.case-group-rename {
   gap: 3px;
   flex: 0 0 auto;
   margin-left: var(--cp-space-1);
-  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  color: var(--cp-fg);
   font-size: var(--cp-chip-font-size);
   font-weight: 500;
   letter-spacing: 0;
@@ -606,7 +614,7 @@ input.case-group-rename {
 
 .case-group-limit .codicon[class*="codicon-"] {
   font-size: var(--cp-icon-sm);
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 /**
@@ -637,7 +645,7 @@ input.case-group-rename {
   border-radius: var(--cp-radius-md);
   background: var(--cp-chip-neutral-bg);
   box-shadow: inset 0 0 0 1px var(--cp-chip-neutral-border);
-  color: var(--vscode-foreground);
+  color: var(--cp-fg);
   transition: background-color 80ms ease-out, color 80ms ease-out;
 }
 
@@ -758,7 +766,7 @@ input.case-group-rename {
   min-height: 22px;
   font-size: var(--cp-text-body);
   font-weight: 500;
-  color: var(--vscode-foreground);
+  color: var(--cp-fg);
 }
 
 .case-group-run-status .run-status-label {
@@ -983,7 +991,7 @@ button.case-disclose {
   border: none;
   border-radius: var(--cp-radius-sm);
   background: transparent;
-  color: var(--vscode-foreground);
+  color: var(--cp-fg);
   font: inherit;
   font-size: var(--cp-text-title);
   font-weight: 600;
@@ -1008,10 +1016,9 @@ button.case-disclose:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.8;
+  opacity: 1;
   font-size: var(--cp-icon);
   line-height: 1;
-  transition: transform 0.1s ease-out;
 }
 
 .case-num {
@@ -1021,7 +1028,7 @@ button.case-disclose:focus-visible {
   font-size: inherit;
   font-weight: inherit;
   font-variant-numeric: tabular-nums;
-  color: var(--vscode-foreground);
+  color: var(--cp-fg);
   line-height: 1;
 }
 
@@ -1056,7 +1063,7 @@ button.case-disclose:focus-visible {
 .case-time {
   min-width: 50px;
   font-variant-numeric: tabular-nums;
-  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  color: var(--cp-fg);
   background: var(--cp-chip-neutral-bg);
   border-color: var(--cp-chip-neutral-border);
 }
@@ -1064,7 +1071,7 @@ button.case-disclose:focus-visible {
 .case-overhead {
   min-width: 50px;
   font-variant-numeric: tabular-nums;
-  opacity: 0.65;
+  opacity: 0.9;
   color: var(--vscode-descriptionForeground, var(--vscode-foreground));
   background: transparent;
   border-color: var(--cp-chip-neutral-border);
@@ -1190,7 +1197,7 @@ button.case-disclose:focus-visible {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  color: var(--cp-fg);
 }
 
 /**
@@ -1300,7 +1307,7 @@ pre.input-area:focus-visible {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  color: var(--cp-fg);
   margin: 0 0 var(--cp-space-2);
 }
 
@@ -1366,7 +1373,7 @@ button.btn-icon--on {
   border-radius: 3px;
   background: transparent;
   color: var(--vscode-icon-foreground, var(--vscode-descriptionForeground));
-  opacity: 0.55;
+  opacity: 0.8;
   cursor: pointer;
   transition: opacity 0.1s, background 0.1s, color 0.2s;
 }
@@ -1503,7 +1510,7 @@ button.submit-status {
   border: 1px solid var(--cp-chip-neutral-border);
   border-radius: var(--cp-chip-radius);
   background: var(--cp-chip-neutral-bg);
-  color: var(--vscode-foreground);
+  color: var(--cp-fg);
   font: inherit;
   font-size: var(--cp-chip-font-size);
   font-weight: var(--cp-chip-font-weight);

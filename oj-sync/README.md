@@ -1,6 +1,6 @@
 # OJ Sync (Chrome)
 
-**Version 1.2.22** - aligned with **CP Helper 1.2.22**.
+**Version 1.2.23** - aligned with **CP Helper 1.2.23**.
 
 Chrome extension that reads **sample test cases** from **AtCoder**, **Codeforces**, and **LeetCode** problem pages and sends them to **CP Helper** in VS Code, and submits solutions to **Codeforces** and **AtCoder** on CP Helper's behalf.
 
