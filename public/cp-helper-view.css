@@ -277,7 +277,7 @@ button.btn-run-local {
   margin: var(--cp-space-2) var(--cp-gutter) 0;
   min-height: 48px;
   font-family: var(--vscode-editor-font-family);
-  font-size: 12px;
+  font-size: var(--vscode-editor-font-size, 12px);
   line-height: 1.4;
   padding: var(--cp-space-1) var(--cp-space-2);
   border: 1px solid var(--vscode-input-border, #444);
@@ -517,14 +517,22 @@ button.case-group-disclose:focus-visible {
   outline-offset: 2px;
 }
 
-.case-group-disclose__chev {
+.case-group-disclose__chev.codicon[class*="codicon-"] {
   flex-shrink: 0;
-  width: 1em;
+  width: var(--cp-icon);
+  height: var(--cp-icon);
   display: inline-flex;
+  align-items: center;
   justify-content: center;
-  opacity: 0.88;
-  font-size: 10px;
+  opacity: 0.8;
+  font-size: var(--cp-icon);
   line-height: 1;
+  transition: transform 0.1s ease-out;
+}
+
+/* One glyph for both states, turned when open, so the label never moves. */
+.disclose-chev--open {
+  transform: rotate(90deg);
 }
 
 .case-group-disclose__label {
@@ -679,8 +687,8 @@ input.case-group-rename {
   background: rgba(248, 81, 73, 0.12);
 }
 
-.case-group-wrap--collapsed .case-group-head {
-  border-bottom: none;
+.case-group-wrap.case-group-wrap--collapsed .case-group-head {
+  border-bottom-color: transparent;
 }
 
 /* After Run all: group header tint (same palette as the per-sample verdicts). */
@@ -993,14 +1001,17 @@ button.case-disclose:focus-visible {
   outline-offset: 2px;
 }
 
-.case-disclose__chev {
+.case-disclose__chev.codicon[class*="codicon-"] {
   flex-shrink: 0;
-  width: 1em;
+  width: var(--cp-icon);
+  height: var(--cp-icon);
   display: inline-flex;
+  align-items: center;
   justify-content: center;
-  opacity: 0.88;
-  font-size: 10px;
+  opacity: 0.8;
+  font-size: var(--cp-icon);
   line-height: 1;
+  transition: transform 0.1s ease-out;
 }
 
 .case-num {
@@ -1129,7 +1140,7 @@ button.case-disclose:focus-visible {
 }
 
 .case--collapsed .case-head {
-  border-bottom: none;
+  border-bottom-color: transparent;
   border-radius: 0 var(--cp-radius-md) var(--cp-radius-md) 0;
 }
 
@@ -1190,7 +1201,7 @@ button.case-disclose:focus-visible {
   width: 100%;
   min-height: 28px;
   font-family: var(--vscode-editor-font-family);
-  font-size: 12px;
+  font-size: var(--vscode-editor-font-size, 12px);
   line-height: 1.45;
   padding: 6px var(--cp-space-3);
   border: 1px solid var(--cp-surface-border);

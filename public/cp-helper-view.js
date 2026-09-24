@@ -1352,7 +1352,8 @@
     inner.setAttribute("aria-hidden", collapsed ? "true" : "false");
     inner.classList.toggle("case-group-cases--expanding", animate && !collapsed);
     disclose.setAttribute("aria-expanded", collapsed ? "false" : "true");
-    chev.textContent = collapsed ? "▸" : "▾";
+    chev.classList.add("codicon", "codicon-chevron-right");
+    chev.classList.toggle("disclose-chev--open", !collapsed);
     const hint = collapsed ? `Expand ${labelText}` : `Collapse ${labelText}`;
     disclose.title = hint;
     disclose.setAttribute("aria-label", hint);
@@ -1392,7 +1393,8 @@
     body.hidden = collapsed;
     body.setAttribute("aria-hidden", collapsed ? "true" : "false");
     btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
-    chev.textContent = collapsed ? "▸" : "▾";
+    chev.classList.add("codicon", "codicon-chevron-right");
+    chev.classList.toggle("disclose-chev--open", !collapsed);
     const hint = collapsed
       ? `Expand sample ${sample}`
       : `Collapse sample ${sample}`;
