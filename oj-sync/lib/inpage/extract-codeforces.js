@@ -18,6 +18,15 @@
   }
 
   /**
+   * @param {ParentNode} root problem holder, or the document for a single-problem page
+   * @returns {number | null}
+   */
+  function cfMemoryLimitFromRoot(root) {
+    const el = root.querySelector("div.memory-limit");
+    return el ? ns.parseMemoryLimitMb(el.textContent ?? "") : null;
+  }
+
+  /**
    * @param {Element} root
    * @returns {{ id: string; text: string }[]}
    */
@@ -116,7 +125,7 @@
 
   /**
    * @param {string} pageUrl
-   * @returns {{ kind: string; items?: unknown[]; timeLimitMs?: number | null; contestId?: string; problems?: unknown[]; labels?: string[] }}
+   * @returns {{ kind: string; items?: unknown[]; timeLimitMs?: number | null; memoryLimitMb?: number | null; contestId?: string; problems?: unknown[]; labels?: string[] }}
    */
   ns.extractCodeforces = function extractCodeforces(pageUrl) {
     const url = pageUrl && pageUrl.length > 0 ? pageUrl : window.location.href;
@@ -134,7 +143,7 @@
     ).filter((h) => h.querySelector("div.sample-test"));
 
     if (holders.length >= 2) {
-      /** @type { { letter: string; timeLimitMs: number | null; items: { id: string; text: string }[] }[] } */
+      /** @type { { letter: string; timeLimitMs: number | null; memoryLimitMb: number | null; items: { id: string; text: string }[] }[] } */
       const problems = [];
       for (const holder of holders) {
         const items = cfCollectSamplePresFromRoot(holder);
@@ -142,6 +151,7 @@
         problems.push({
           letter: cfProblemLetterFromHolder(holder),
           timeLimitMs: cfTimeLimitFromRoot(holder),
+          memoryLimitMb: cfMemoryLimitFromRoot(holder),
           items,
         });
       }
@@ -152,6 +162,7 @@
         return {
           kind: "single",
           timeLimitMs: problems[0].timeLimitMs,
+          memoryLimitMb: problems[0].memoryLimitMb,
           items: problems[0].items,
         };
       }
@@ -163,6 +174,7 @@
         return {
           kind: "single",
           timeLimitMs: cfTimeLimitFromRoot(holders[0]),
+          memoryLimitMb: cfMemoryLimitFromRoot(holders[0]),
           items: one,
         };
       }
@@ -184,6 +196,7 @@
     return {
       kind: "single",
       timeLimitMs: cfTimeLimitFromRoot(document),
+      memoryLimitMb: cfMemoryLimitFromRoot(document),
       items: results,
     };
   };

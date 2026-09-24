@@ -22,6 +22,22 @@
   }
 
   /**
+   * Second half of the same header line: "Memory Limit: 1024 MB".
+   * @returns {number | null}
+   */
+  function atcoderMemoryLimitMb() {
+    for (const p of document.querySelectorAll("#main-container p, #main-div p")) {
+      const t = (p.textContent ?? "").trim();
+      for (const part of t.split("/")) {
+        if (!/memory limit|\u30E1\u30E2\u30EA\u5236\u9650/iu.test(part)) continue;
+        const mb = ns.parseMemoryLimitMb(part);
+        if (mb !== null) return mb;
+      }
+    }
+    return null;
+  }
+
+  /**
    * @param {string} urlStr
    * @returns {string}
    */
@@ -112,7 +128,7 @@
 
   /**
    * @param {string} pageUrl
-   * @returns {{ kind: string; timeLimitMs: number | null; items: { id: string; text: string }[] } | Promise<{ kind: string; contestId: string; labels: string[] }>}
+   * @returns {{ kind: string; timeLimitMs: number | null; memoryLimitMb: number | null; items: { id: string; text: string }[] } | Promise<{ kind: string; contestId: string; labels: string[] }>}
    */
   ns.extractAtcoder = function extractAtcoder(pageUrl) {
     const url = pageUrl && pageUrl.length > 0 ? pageUrl : window.location.href;
@@ -138,6 +154,7 @@
     return {
       kind: "single",
       timeLimitMs: atcoderTimeLimitMs(),
+      memoryLimitMb: atcoderMemoryLimitMb(),
       items: results,
     };
   };

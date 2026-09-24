@@ -77,6 +77,26 @@
   };
 
   /**
+   * Judge memory limit in MB from statement text ("memory limit per test256 megabytes",
+   * "Memory Limit: 1024 MB", "1024 MiB"). Out-of-range values are rejected as a mis-parse.
+   * @param {string} text
+   * @returns {number | null}
+   */
+  ns.parseMemoryLimitMb = function parseMemoryLimitMb(text) {
+    const m = (text || "").match(
+      /(\d+(?:\.\d+)?)\s*(gigabytes?|gib|gb|megabytes?|mib|mb|kilobytes?|kib|kb)\b/iu,
+    );
+    if (!m) return null;
+    const value = Number(m[1]);
+    if (!Number.isFinite(value) || value <= 0) return null;
+    const unit = m[2].toLowerCase().charAt(0);
+    const mb = Math.round(
+      unit === "g" ? value * 1024 : unit === "k" ? value / 1024 : value,
+    );
+    return mb >= 1 && mb <= 65536 ? mb : null;
+  };
+
+  /**
    * Sample block text with one line per source line.
    * @param {Element} pre
    * @returns {string}
