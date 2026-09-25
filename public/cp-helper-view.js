@@ -4,7 +4,7 @@
   /** @type {{ id: string; label: string; timeLimitMs?: number; memoryLimitMb?: number; cases: { sample: number; input: string; output: string }[] }[]} */
   let groups = [];
 
-  /** @type {Record<string, { verdict: string; badge: string; stdout: string; stderr: string; elapsedMs?: number; execMs?: number; overheadMs?: number; timeLimitMs?: number; run?: number }>} */
+  /** @type {Record<string, { verdict: string; badge: string; stdout: string; stderr: string; broken?: boolean; elapsedMs?: number; execMs?: number; overheadMs?: number; timeLimitMs?: number; run?: number }>} */
   const lastRun = {};
 
   /**
@@ -15,10 +15,10 @@
   const lastRunAllSummaryByGroup = {};
 
   /** Header verdict of a problem is its most severe sample verdict, in this order. */
-  const GROUP_VERDICT_ORDER = ["RE", "TLE", "WA", "AC"];
+  const GROUP_VERDICT_ORDER = ["CE", "RE", "TLE", "WA", "AC"];
 
   /** Order of the per-verdict count chips in a problem header. */
-  const GROUP_COUNT_ORDER = ["AC", "WA", "TLE", "RE"];
+  const GROUP_COUNT_ORDER = ["AC", "WA", "TLE", "RE", "CE"];
 
   /** Header tint class per group verdict. */
   const GROUP_VERDICT_CLASSES = GROUP_VERDICT_ORDER.map(
@@ -652,7 +652,7 @@
   }
 
   /**
-   * Most severe verdict among a problem's samples (RE, then TLE, then WA). A sample without a
+   * Most severe verdict among a problem's samples (CE, then RE, then TLE, then WA). A sample without a
    * result counts as WA, since it did not pass.
    * @param {(string | undefined)[]} verdicts
    * @returns {string}
@@ -1758,7 +1758,17 @@
     if ((gs.file ?? "") !== "" && gs.file !== linked) {
       return "Last run used another file";
     }
-    if (gs.passed !== gs.total) {
+    if (gs.broken === true) {
+      return "Last run failed to start";
+    }
+    const counts = gs.counts ?? {};
+    const crashed = ["CE", "TLE", "RE"]
+      .filter((v) => (counts[v] ?? 0) > 0)
+      .map((v) => `${counts[v]} ${v}`);
+    if (crashed.length > 0) {
+      return `${crashed.join(", ")} on samples`;
+    }
+    if (gs.counts === undefined && gs.passed !== gs.total) {
       return `${gs.passed}/${gs.total} samples passed`;
     }
     return null;
@@ -2954,7 +2964,8 @@
       const verdictNorm =
         verdictRaw === "AC" ||
         verdictRaw === "TLE" ||
-        verdictRaw === "RE"
+        verdictRaw === "RE" ||
+        verdictRaw === "CE"
           ? verdictRaw
           : "WA";
       const badgeNorm = verdictNorm.toLowerCase();
@@ -2967,7 +2978,7 @@
           verdict: "WA",
           badge: "wa",
           stdout: "",
-          stderr: disp(String(m.error)),
+          stderr: disp(String(m.error)),          broken: true,
         };
       } else if (verdictNorm === "TLE") {
         const compileHint = m.compileStderr
@@ -3002,12 +3013,12 @@
           execMs,
           overheadMs,
         };
-      } else if (m.compileStderr) {
+      } else if (verdictNorm === "CE" || m.compileStderr) {
         lastRun[key] = {
-          verdict: "WA",
-          badge: "wa",
+          verdict: "CE",
+          badge: "ce",
           stdout: "",
-          stderr: disp("Compile failed:\n" + String(m.compileStderr)),
+          stderr: disp("Compile failed:\n" + String(m.compileStderr ?? "")),
         };
       } else {
         lastRun[key] = {
@@ -3051,11 +3062,14 @@
       const gr = groups[gi];
       let passed = 0;
       const n = gr?.cases.length ?? 0;
+      let broken = false;
       const verdicts = [];
       for (let i = 0; i < n; i++) {
-        const v = lastRun[rk(gi, i)]?.verdict;
+        const r = lastRun[rk(gi, i)];
+        const v = r?.verdict;
         verdicts.push(v);
         if (v === "AC") passed++;
+        if (!r || r.broken === true) broken = true;
       }
       lastRunAllSummaryByGroup[gi] =
         n > 0
@@ -3065,6 +3079,7 @@
               file: typeof m.file === "string" ? m.file : "",
               verdict: worstVerdict(verdicts),
               counts: countVerdicts(verdicts),
+              broken,
             }
           : undefined;
       persistRunResults();

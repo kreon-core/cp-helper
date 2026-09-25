@@ -188,7 +188,7 @@ async function compileOnce(
   } catch (e) {
     const err = e instanceof Error ? e.message : String(e);
     compileLog.error(`failed to read source: ${err}`);
-    return { ok: false, verdict: "RE", compileStderr: err };
+    return { ok: false, verdict: "CE", compileStderr: err };
   }
 
   if (await cachedBinaryUsable(binPath)) {
@@ -231,7 +231,7 @@ async function compileOnce(
     await dropStaging();
     return {
       ok: false,
-      verdict: "WA",
+      verdict: "CE",
       compileStderr: truncateForLog(errText, MAX_COMPILE_STDERR_WEBVIEW),
     };
   }

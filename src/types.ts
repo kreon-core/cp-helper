@@ -44,7 +44,7 @@ export interface ShellRunOutcome {
 }
 
 /** Verdict for UI: stderr alone never changes AC vs WA; RE = non-zero exit or abnormal end (not TLE). */
-export type RunVerdict = "AC" | "WA" | "TLE" | "RE";
+export type RunVerdict = "AC" | "WA" | "TLE" | "RE" | "CE";
 
 export interface RunSampleResult {
   ok: boolean;

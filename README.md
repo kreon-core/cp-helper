@@ -2,7 +2,7 @@
 
 CP Helper is a Visual Studio Code extension for competitive programming workflows.
 
-It runs C++ code against imported sample cases and reports AC, WA, TLE, or RE.
+It runs C++ code against imported sample cases and reports AC, WA, TLE, RE, or CE.
 
 C++ is the only supported language. Run and Debug target the active C++ editor, or the last one
 you visited when the active tab is not C++, and are disabled until one has been opened
@@ -107,7 +107,7 @@ the buttons in its own header, which is how you point it at a different file.
   the others, whose passed counts also drop their green/red tint, so results left over from another
   source are not mistaken for the current ones. Any run sets the binding, not just Run all.
 - A sample's header carries a coloured cap: neutral grey until it runs, then green AC, red WA,
-  blue TLE, or amber RE.
+  blue TLE, amber RE, or purple CE.
 - A verdict shows the program's own execution time and, separately, the overhead outside it
   (process spawn and output drain).
 - The `+` strip at the foot of the list adds a problem of your own, named `custom/N` and opened on
