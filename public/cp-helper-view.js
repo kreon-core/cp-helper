@@ -1661,7 +1661,7 @@
       [/^hacked/iu, "HACKED"],
       [/^skipped/iu, "SKIPPED"],
       [/^in queue/iu, "QUEUED"],
-      [/^running/iu, "RUN"],
+      [/^running/iu, "RUNNING"],
     ];
     for (const [re, short] of table) {
       if (re.test(v)) {
@@ -1798,7 +1798,7 @@
     }
     hideErr();
     submitBusyGroups.add(gi);
-    setSubmitStatus(gi, "...", "", "Submitting");
+    setSubmitStatus(gi, "SENDING", "", "Submitting");
     applySubmitButtonsState();
     vscode.postMessage({ type: "submit", groupIndex: gi });
   }
@@ -3118,13 +3118,19 @@
       }
       if (m.phase === "start") {
         submitBusyGroups.add(gi);
-        setSubmitStatus(gi, "...", "", "Submitting");
+        setSubmitStatus(gi, "SENDING", "", "Submitting");
       } else if (m.phase === "progress") {
         const live = typeof m.message === "string" ? m.message.trim() : "";
         if (live !== "") {
           setSubmitStatus(gi, shortVerdict(live), "", live);
         } else {
-          setSubmitStatus(gi, "...", "", String(m.stage ?? "working"));
+          const stage = String(m.stage ?? "working");
+          setSubmitStatus(
+            gi,
+            stage === "judging" ? "SUBMITTED" : "SENDING",
+            "",
+            stage,
+          );
         }
       } else if (m.phase === "done") {
         submitBusyGroups.delete(gi);
