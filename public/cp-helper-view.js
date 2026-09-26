@@ -1649,6 +1649,7 @@
     const v = verdict.trim().replace(/^\d+\s*\/\s*\d+\s+/u, "");
     const table = [
       [/^accepted|^happy new year|^ok\b/iu, "AC"],
+      [/^pretests passed/iu, "PP"],
       [/^wrong answer/iu, "WA"],
       [/^time limit exceeded/iu, "TLE"],
       [/^memory limit exceeded/iu, "MLE"],
@@ -1686,13 +1687,17 @@
     el.setAttribute("aria-label", full);
     el.classList.toggle("submit-status--ok", st?.tone === "ok");
     el.classList.toggle("submit-status--bad", st?.tone === "bad");
+    el.classList.toggle(
+      "submit-status--provisional",
+      st?.tone === "provisional",
+    );
   }
 
   /**
    * Record and show one problem's submit stage or verdict. Empty `text` clears it.
    * @param {number} gi
    * @param {string} text
-   * @param {string} [tone] "ok" | "bad"
+   * @param {string} [tone] "ok" | "bad" | "provisional"
    * @param {string} [title] long form for the tooltip
    * @param {string} [url] submission page, when the judge gave one
    */
@@ -3128,11 +3133,14 @@
         } else if (typeof m.error === "string" && m.error !== "") {
           setSubmitStatus(gi, "ERROR", "bad", m.error, m.submissionUrl);
         } else if (typeof m.verdict === "string" && m.verdict !== "") {
+          const provisional = m.accepted !== true && m.provisional === true;
           setSubmitStatus(
             gi,
             shortVerdict(m.verdict),
-            m.accepted === true ? "ok" : "bad",
-            m.verdict,
+            m.accepted === true ? "ok" : provisional ? "provisional" : "bad",
+            provisional
+              ? `${m.verdict} - provisional until system testing`
+              : m.verdict,
             m.submissionUrl,
           );
         } else if (m.submitted === true) {

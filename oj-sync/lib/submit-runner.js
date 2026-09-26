@@ -453,6 +453,15 @@ function isAccepted(judge, verdict) {
 }
 
 /**
+ * @param {string} judge
+ * @param {string} verdict
+ * @returns {boolean}
+ */
+function isProvisional(judge, verdict) {
+  return judge === "codeforces" && /^pretests passed/iu.test(verdict.trim());
+}
+
+/**
  * @param {number} elapsed ms this poller has been running
  * @returns {number}
  */
@@ -513,7 +522,7 @@ async function pollLoop(statusUrl, poller) {
  * @param {number} tabId this job's tab, offered to the poller to read the status page in
  * @param {number} pollFor how long to wait for the verdict to settle
  * @param {(stage: string, message?: string) => void} onProgress
- * @returns {Promise<{ verdict?: string; accepted?: boolean; submissionId?: string; submissionUrl?: string; error?: string }>}
+ * @returns {Promise<{ verdict?: string; accepted?: boolean; provisional?: boolean; submissionId?: string; submissionUrl?: string; error?: string }>}
  */
 function watchVerdict(job, tabId, pollFor, onProgress) {
   const statusUrl = String(job.statusUrl);
@@ -562,6 +571,7 @@ function watchVerdict(job, tabId, pollFor, onProgress) {
           finish({
             verdict: row.verdict,
             accepted: isAccepted(String(job.judge), row.verdict),
+            provisional: isProvisional(String(job.judge), row.verdict),
             submissionId: row.submissionId,
             submissionUrl: row.submissionUrl,
           });
@@ -589,7 +599,7 @@ function watchVerdict(job, tabId, pollFor, onProgress) {
  * @param {number} tabId tab already sitting on the job's submit page
  * @param {Record<string, any>} job from CP Helper
  * @param {(stage: string, message?: string) => void} onProgress
- * @returns {Promise<{ submitted: boolean; verdict?: string; accepted?: boolean; submissionId?: string; submissionUrl?: string; error?: string }>}
+ * @returns {Promise<{ submitted: boolean; verdict?: string; accepted?: boolean; provisional?: boolean; submissionId?: string; submissionUrl?: string; error?: string }>}
  */
 async function submitInTab(tabId, job, onProgress) {
   await inTab(
@@ -664,7 +674,7 @@ async function submitInTab(tabId, job, onProgress) {
 /**
  * @param {Record<string, any>} job from CP Helper
  * @param {(stage: string, message?: string) => void} onProgress
- * @returns {Promise<{ submitted: boolean; verdict?: string; accepted?: boolean; submissionId?: string; submissionUrl?: string; error?: string }>}
+ * @returns {Promise<{ submitted: boolean; verdict?: string; accepted?: boolean; provisional?: boolean; submissionId?: string; submissionUrl?: string; error?: string }>}
  */
 export async function runSubmitJob(job, onProgress) {
   onProgress("opening judge");

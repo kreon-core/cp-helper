@@ -1582,6 +1582,12 @@ button.submit-status--bad {
   border-color: rgba(248, 81, 73, 0.3);
 }
 
+button.submit-status--provisional {
+  color: var(--vscode-editorInfo-foreground, #58a6ff);
+  background: rgba(56, 139, 253, 0.12);
+  border-color: rgba(56, 139, 253, 0.3);
+}
+
 .case-group-actions button.btn-submit:not(:disabled) {
   background: rgba(88, 166, 255, 0.22);
   box-shadow: inset 0 0 0 1px rgba(88, 166, 255, 0.5);

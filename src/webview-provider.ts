@@ -638,12 +638,13 @@ export class CpHelperViewProvider
               submitted: result.submitted,
               verdict: result.verdict,
               accepted: result.accepted,
+              provisional: result.provisional,
               submissionUrl: result.submissionUrl,
               title: result.title,
             });
             if (result.verdict) {
               notify(
-                result.accepted ? "info" : "warn",
+                result.accepted || result.provisional ? "info" : "warn",
                 `${result.title} - ${result.verdict}`,
                 "submitNotifications",
               );

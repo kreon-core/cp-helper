@@ -41,6 +41,8 @@ export interface SubmitOutcome {
   verdict?: string;
   /** True when `verdict` is a passing one. */
   accepted?: boolean;
+  /** True when `verdict` passed pretests only and still awaits system testing. */
+  provisional?: boolean;
   submissionId?: string;
   submissionUrl?: string;
   error?: string;
@@ -198,6 +200,7 @@ export class SubmitBridge {
           language: msg.language,
           verdict: msg.verdict,
           accepted: msg.accepted,
+          provisional: msg.provisional,
           submissionId: msg.submissionId,
           submissionUrl: msg.submissionUrl,
           error: msg.error,
