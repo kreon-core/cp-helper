@@ -1679,7 +1679,10 @@
     const text = st?.text ?? "";
     const url = st?.url ?? "";
     const full = st?.title ?? text;
-    el.textContent = text;
+    const label = document.createElement("span");
+    label.className = "submit-status__text";
+    label.textContent = text;
+    el.replaceChildren(label);
     el.hidden = text === "";
     el.dataset.cpUrl = url;
     el.title = url !== "" ? `${full} - click to open` : full;

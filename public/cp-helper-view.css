@@ -1539,7 +1539,6 @@ button.submit-status {
   align-items: center;
   flex: 0 0 auto;
   min-height: var(--cp-chip-height);
-  max-width: 14ch;
   padding: 0 var(--cp-space-2);
   border: 1px solid var(--cp-chip-neutral-border);
   border-radius: var(--cp-chip-radius);
@@ -1550,10 +1549,15 @@ button.submit-status {
   font-weight: var(--cp-chip-font-weight);
   letter-spacing: var(--cp-chip-letter-spacing);
   line-height: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   user-select: text;
+}
+
+.submit-status__text {
+  min-width: 0;
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 button.submit-status:disabled {
