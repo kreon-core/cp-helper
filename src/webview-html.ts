@@ -58,7 +58,6 @@ export function buildSamplesWebviewHtml(
         <span class="btn-sep" aria-hidden="true"></span>
         <button id="btnStopRun" type="button" class="btn-stop btn-icon" hidden title="Stop" aria-label="Stop"><span class="codicon codicon-debug-stop" aria-hidden="true"></span></button>
         <button id="btnClear" type="button" class="btn-icon" title="Clear all" aria-label="Clear"><span class="codicon codicon-clear-all" aria-hidden="true"></span></button>
-        <button id="btnExport" type="button" class="btn-icon" title="Export to testcases/" aria-label="Export"><span class="codicon codicon-export" aria-hidden="true"></span></button>
         <button id="btnCollapseAll" type="button" class="btn-icon" title="Collapse all" aria-label="Collapse all"><span class="codicon codicon-collapse-all" aria-hidden="true"></span></button>
       </div>
       <div id="runnerHint" class="runner-hint meta-chip" hidden role="status" aria-live="polite">

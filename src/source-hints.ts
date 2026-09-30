@@ -113,18 +113,18 @@ export function postActiveSourceHint(webview: vscode.Webview): void {
  * Pin webview label to the file path snapshotted for an in-flight run (tab switches do not change the run).
  * @param webview
  * @param file absolute path
- * @param groupIndex group being run; the view binds it to `file` so the keybindings can route to it
+ * @param target group being run; the view binds it to `file` so the keybindings can route to it
  */
 export function postRunSourceSnapshot(
   webview: vscode.Webview,
   file: string,
-  groupIndex: number,
+  target: { groupIndex: number; groupId?: string },
 ): void {
   webview.postMessage({
     type: "sourceFile",
     path: file,
     running: true,
     cpp: true,
-    groupIndex,
+    ...target,
   });
 }

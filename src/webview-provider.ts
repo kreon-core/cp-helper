@@ -681,6 +681,10 @@ export class CpHelperViewProvider
           }
           const groupIndex =
             typeof msg.groupIndex === "number" ? msg.groupIndex : 0;
+          const target = {
+            groupIndex,
+            groupId: typeof msg.groupId === "string" ? msg.groupId : undefined,
+          };
           if (!tookOver) {
             postRunState(false);
             break;
@@ -692,7 +696,7 @@ export class CpHelperViewProvider
             postRunState(false);
             webviewView.webview.postMessage({
               type: "runResult",
-              groupIndex,
+              ...target,
               index: msg.index,
               verdict: "WA",
               error: resolved.error,
@@ -710,7 +714,7 @@ export class CpHelperViewProvider
             postRunState(false);
             webviewView.webview.postMessage({
               type: "runResult",
-              groupIndex,
+              ...target,
               index: msg.index,
               verdict: "WA",
               error: saveFirst.error,
@@ -721,10 +725,10 @@ export class CpHelperViewProvider
           maybeShowOutputOnRun();
           runState.runLocked = true;
           runState.cancelRequested = false;
-          postRunSourceSnapshot(webviewView.webview, file, groupIndex);
+          postRunSourceSnapshot(webviewView.webview, file, target);
           postRunState(true, {
             mode: "one",
-            groupIndex,
+            ...target,
             index: msg.index as number,
           });
           try {
@@ -737,7 +741,7 @@ export class CpHelperViewProvider
             if (isCurrentRun()) {
               webviewView.webview.postMessage({
                 type: "runResult",
-                groupIndex,
+                ...target,
                 index: msg.index,
                 ...r,
               });
@@ -748,7 +752,7 @@ export class CpHelperViewProvider
             if (isCurrentRun()) {
               webviewView.webview.postMessage({
                 type: "runResult",
-                groupIndex,
+                ...target,
                 index: msg.index,
                 verdict: "WA",
                 error: err,
@@ -804,6 +808,10 @@ export class CpHelperViewProvider
           }
           const groupIndex =
             typeof msg.groupIndex === "number" ? msg.groupIndex : 0;
+          const target = {
+            groupIndex,
+            groupId: typeof msg.groupId === "string" ? msg.groupId : undefined,
+          };
           if (!tookOver) {
             postRunState(false);
             break;
@@ -818,7 +826,7 @@ export class CpHelperViewProvider
             postRunState(false);
             webviewView.webview.postMessage({
               type: "runAllDone",
-              groupIndex,
+              ...target,
               error: resolvedAll.error,
             });
             break;
@@ -834,7 +842,7 @@ export class CpHelperViewProvider
             postRunState(false);
             webviewView.webview.postMessage({
               type: "runAllDone",
-              groupIndex,
+              ...target,
               error: saveAllFirst.error,
             });
             break;
@@ -845,10 +853,10 @@ export class CpHelperViewProvider
           maybeShowOutputOnRun();
           runState.runLocked = true;
           runState.cancelRequested = false;
-          postRunSourceSnapshot(webviewView.webview, file, groupIndex);
+          postRunSourceSnapshot(webviewView.webview, file, target);
           postRunState(true, {
             mode: "all",
-            groupIndex,
+            ...target,
             phase: "compile",
             total: cases.length,
           });
@@ -862,7 +870,7 @@ export class CpHelperViewProvider
                 }
                 webviewView.webview.postMessage({
                   type: "runResult",
-                  groupIndex,
+                  ...target,
                   index: i,
                   ...r,
                 });
@@ -873,7 +881,7 @@ export class CpHelperViewProvider
                 }
                 postRunState(true, {
                   mode: "all",
-                  groupIndex,
+                  ...target,
                   phase: "run",
                   index: i,
                   total,
@@ -886,7 +894,7 @@ export class CpHelperViewProvider
                 }
                 webviewView.webview.postMessage({
                   type: "sampleStart",
-                  groupIndex,
+                  ...target,
                   index: i,
                 });
               },
@@ -898,7 +906,7 @@ export class CpHelperViewProvider
             for (let i = 0; i < cases.length && isCurrentRun(); i++) {
               webviewView.webview.postMessage({
                 type: "runResult",
-                groupIndex,
+                ...target,
                 index: i,
                 ok: false,
                 verdict: "WA",
@@ -918,7 +926,7 @@ export class CpHelperViewProvider
             if (current) {
               webviewView.webview.postMessage({
                 type: "runAllDone",
-                groupIndex,
+                ...target,
                 file,
               });
               postActiveSourceHint(webviewView.webview);

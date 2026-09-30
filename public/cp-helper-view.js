@@ -123,6 +123,7 @@
     debug: "debug-alt",
     local: "beaker",
     submit: "cloud-upload",
+    export: "export",
     file: "file-code",
     edit: "edit",
     timeLimit: "watch",
@@ -140,12 +141,74 @@
     return el;
   }
 
+  const SVG_NS = "http://www.w3.org/2000/svg";
+
+  const JUDGE_LABEL = /^(codeforces|atcoder)\/(.+)$/iu;
+
+  const _JUDGE_ICONS = {
+    codeforces: {
+      title: "Codeforces",
+      shapes: [
+        ["rect", { x: "2", y: "9", width: "6", height: "13", rx: "1", fill: "#fdc62f" }],
+        ["rect", { x: "9", y: "3", width: "6", height: "19", rx: "1", fill: "#1e88e5" }],
+        ["rect", { x: "16", y: "12", width: "6", height: "10", rx: "1", fill: "#e53935" }],
+      ],
+    },
+    atcoder: {
+      title: "AtCoder",
+      shapes: [
+        ["path", { d: "M12 2 21.5 22h-4.6L12 11.2 7.1 22H2.5Z", fill: "currentColor" }],
+        ["rect", { x: "8.5", y: "16", width: "7", height: "2.4", fill: "currentColor" }],
+      ],
+    },
+  };
+
+  /**
+   * @param {keyof typeof _JUDGE_ICONS} judge
+   * @returns {SVGSVGElement}
+   */
+  function mkJudgeIcon(judge) {
+    const spec = _JUDGE_ICONS[judge];
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("class", `judge-icon judge-icon--${judge}`);
+    svg.setAttribute("aria-hidden", "true");
+    const title = document.createElementNS(SVG_NS, "title");
+    title.textContent = spec.title;
+    svg.appendChild(title);
+    for (const [tag, attrs] of spec.shapes) {
+      const el = document.createElementNS(SVG_NS, tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        el.setAttribute(k, v);
+      }
+      svg.appendChild(el);
+    }
+    return svg;
+  }
+
+  /**
+   * Writes a problem label into `el`, drawing a judge's logo in place of its `codeforces/` or
+   * `atcoder/` prefix.
+   * @param {HTMLElement} el
+   * @param {string} label
+   */
+  function fillProblemLabel(el, label) {
+    const m = label.match(JUDGE_LABEL);
+    if (!m) {
+      el.textContent = label;
+      return;
+    }
+    el.replaceChildren(
+      mkJudgeIcon(/** @type {keyof typeof _JUDGE_ICONS} */ (m[1].toLowerCase())),
+      document.createTextNode(m[2]),
+    );
+  }
+
   const jsonEl = $("import-json");
   const btnToggleJson = $("btnToggleJson");
   const btnLoad = $("btnLoad");
   const btnAddProblem = $("btnAddProblem");
   const btnClear = $("btnClear");
-  const btnExport = $("btnExport");
   const btnCollapseAll = $("btnCollapseAll");
   const btnStopRun = $("btnStopRun");
   const errEl = $("err");
@@ -806,14 +869,16 @@
     activeSourceWrapEl.classList.toggle("meta-chip--running", running && !!p);
     sourceRunnable = !!p && cpp;
     activeSourcePath = p ?? "";
+    const runGi = msgGroupIndex(m);
     if (
       running &&
       p &&
-      typeof m.groupIndex === "number" &&
-      explicitRunGroup === m.groupIndex
+      runGi >= 0 &&
+      (typeof m.groupId === "string" || typeof m.groupIndex === "number") &&
+      explicitRunGroup === runGi
     ) {
       explicitRunGroup = null;
-      bindGroupSource(m.groupIndex, p);
+      bindGroupSource(runGi, p);
     }
     applyToolbarAndImportState();
     syncRunAffordances();
@@ -857,6 +922,39 @@
 
   function rk(gi, ci) {
     return `${gi}-${ci}`;
+  }
+
+  /**
+   * @param {number} gi
+   * @returns {string}
+   */
+  function groupIdAt(gi) {
+    return String(groups[gi]?.id ?? gi);
+  }
+
+  /**
+   * Current position of the group a host run message is about. The host echoes the id the run
+   * started with, so a group removed above it mid-run still receives its own results; -1 when
+   * that group is gone.
+   * @param {{ groupId?: unknown; groupIndex?: unknown }} m
+   * @returns {number}
+   */
+  function msgGroupIndex(m) {
+    if (typeof m.groupId === "string") {
+      return groups.findIndex((_, gi) => groupIdAt(gi) === m.groupId);
+    }
+    return typeof m.groupIndex === "number" ? m.groupIndex : 0;
+  }
+
+  /**
+   * @param {number} gi
+   * @returns {boolean}
+   */
+  function groupRunLocked(gi) {
+    return (
+      runState.active &&
+      (runState.groupIndex === null || runState.groupIndex === gi)
+    );
   }
 
   /**
@@ -993,7 +1091,6 @@
   }
 
   function addCustomProblemGroup() {
-    if (runState.active) return;
     const newId = `manual-${Date.now()}`;
     const group = {
       id: newId,
@@ -1025,7 +1122,7 @@
    * @param {number} gi
    */
   function startGroupRename(gi) {
-    if (runState.active) return;
+    if (groupRunLocked(gi)) return;
     const wrap = listEl.querySelector(
       `li.case-group-wrap[data-cp-gi="${gi}"]`,
     );
@@ -1534,7 +1631,7 @@
       importProblemTitleEl.removeAttribute("title");
       importProblemTitleEl.setAttribute("aria-label", "Active problem");
     } else {
-      importProblemTitleEl.textContent = t;
+      fillProblemLabel(importProblemTitleEl, t);
       importProblemTitleEl.title = t;
       importProblemTitleEl.setAttribute("aria-label", `Active problem: ${t}`);
     }
@@ -1833,11 +1930,8 @@
    */
   function applyToolbarAndImportState() {
     const busy = runState.active;
-    btnToggleJson.disabled = busy;
     btnLoad.disabled = busy;
-    btnAddProblem.disabled = busy;
     btnClear.disabled = busy;
-    btnExport.disabled = busy || totalCaseCount() === 0;
     btnCollapseAll.disabled = totalCaseCount() === 0;
     applySubmitButtonsState();
     btnStopRun.hidden = !busy;
@@ -1901,7 +1995,6 @@
   }
 
   function syncMultiGroupHeadersFromState() {
-    const busy = runState.active;
     const activeGi = shortcutTargetGroup();
     groups.forEach((group, gi) => {
       const wrap = listEl.querySelector(
@@ -1950,13 +2043,18 @@
       wrap.querySelectorAll(".case-group__run-all").forEach((runAllBtn) => {
         runAllBtn.disabled = group.cases.length === 0 || !sourceRunnable;
       });
+      const locked = groupRunLocked(gi);
+      const exportBtn = wrap.querySelector(".case-group__export");
+      if (exportBtn) {
+        exportBtn.disabled = locked || group.cases.length === 0;
+      }
       const clearBtn = wrap.querySelector(".case-group__clear");
       if (clearBtn) {
-        clearBtn.disabled = busy;
+        clearBtn.disabled = locked;
       }
       const renameBtn = wrap.querySelector(".case-group__rename");
       if (renameBtn) {
-        renameBtn.disabled = busy;
+        renameBtn.disabled = locked;
       }
     });
   }
@@ -2066,7 +2164,10 @@
         ".btn-add-case, .case-group__add-case",
       )
       .forEach((btn) => {
-        btn.disabled = runState.active;
+        const wrap = btn.closest("li.case-group-wrap[data-cp-gi]");
+        btn.disabled = groupRunLocked(
+          wrap ? Number(wrap.getAttribute("data-cp-gi")) : NaN,
+        );
       });
     requestAnimationFrame(() => refitAll());
   }
@@ -2075,7 +2176,6 @@
     listEl.innerHTML = "";
     ensureDefaultGroup();
     pruneGroupCollapseState();
-    const busy = runState.active;
     applyToolbarAndImportState();
     syncActiveProblemTitle();
     listEmptyEl.hidden = totalCaseCount() > 0;
@@ -2100,6 +2200,7 @@
 
       wrap.classList.add("case-group-wrap--panel");
       const gid = String(group.id ?? gi);
+      const locked = groupRunLocked(gi);
       const panelId = `case-group-panel-${gi}`;
 
       const ghead = document.createElement("div");
@@ -2115,7 +2216,7 @@
       chev.setAttribute("aria-hidden", "true");
       const lbl = document.createElement("span");
       lbl.className = "case-group-disclose__label";
-      lbl.textContent = labelText;
+      fillProblemLabel(lbl, labelText);
       disclose.appendChild(chev);
       disclose.appendChild(lbl);
       const addLimit = (icon, text, title) => {
@@ -2166,7 +2267,7 @@
         btnRenameG.title = "Rename";
         btnRenameG.setAttribute("aria-label", `Rename ${labelText}`);
         btnRenameG.appendChild(mkIcon("edit"));
-        btnRenameG.disabled = busy;
+        btnRenameG.disabled = locked;
         btnRenameG.addEventListener("click", () => {
           startGroupRename(gi);
         });
@@ -2223,7 +2324,7 @@
       });
       srcEl.addEventListener("contextmenu", (e) => {
         e.preventDefault();
-        if (runState.active) return;
+        if (groupRunLocked(gi)) return;
         unbindGroupSource(gi);
       });
       paintGroupResults(wrap, sumEl, srcEl, gi);
@@ -2294,9 +2395,9 @@
         "aria-label",
         `Add testcase to ${(group.label ?? "").trim() || `group ${gi + 1}`}`,
       );
-      btnAddCaseG.disabled = busy;
+      btnAddCaseG.disabled = locked;
       btnAddCaseG.addEventListener("click", () => {
-        if (busy) return;
+        if (groupRunLocked(gi)) return;
         groups[gi].cases.push({
           sample: nextSampleInGroup(gi),
           input: "",
@@ -2308,15 +2409,36 @@
       });
       actions.appendChild(btnAddCaseG);
 
+      const btnExportG = document.createElement("button");
+      btnExportG.type = "button";
+      btnExportG.className = "case-group__export btn-icon";
+      btnExportG.title = "Export to testcases/";
+      btnExportG.setAttribute(
+        "aria-label",
+        `Export ${(group.label ?? "").trim() || `group ${gi + 1}`} to testcases/`,
+      );
+      btnExportG.appendChild(mkIcon("export"));
+      btnExportG.disabled = locked || group.cases.length === 0;
+      btnExportG.addEventListener("click", () => {
+        hideErr();
+        if (groupRunLocked(gi) || groups[gi].cases.length === 0) return;
+        vscode.postMessage({
+          type: "exportCases",
+          groupIndex: gi,
+          cases: groups[gi].cases,
+        });
+      });
+      actions.appendChild(btnExportG);
+
       const btnClrG = document.createElement("button");
       btnClrG.type = "button";
       btnClrG.className = "case-group__clear btn-icon";
-      btnClrG.disabled = busy;
+      btnClrG.disabled = locked;
       btnClrG.title = "Remove problem";
       btnClrG.setAttribute("aria-label", "Remove this problem group");
       btnClrG.appendChild(mkIcon("trash"));
       btnClrG.addEventListener("click", () => {
-        if (busy) return;
+        if (groupRunLocked(gi)) return;
         groups.splice(gi, 1);
         reindexLastRunAfterGroupRemove(gi);
         ensureDefaultGroup();
@@ -2400,6 +2522,7 @@
             vscode.postMessage({
               type: "runOne",
               groupIndex: gi,
+              groupId: groupIdAt(gi),
               index,
               case: group.cases[index],
               defineLocal: local,
@@ -2534,6 +2657,34 @@
       busyNext.add(g > removedGi ? g - 1 : g);
     });
     submitBusyGroups = busyNext;
+    const shiftGi = (g) => (g > removedGi ? g - 1 : g);
+    const rowsNext = [];
+    runningRows.forEach((k) => {
+      const m = k.match(/^(\d+)-(\d+)$/u);
+      if (!m || Number(m[1]) === removedGi) return;
+      rowsNext.push(rk(shiftGi(Number(m[1])), Number(m[2])));
+    });
+    runningRows.clear();
+    rowsNext.forEach((k) => runningRows.add(k));
+    const staleNext = [...staleResultGroups]
+      .filter((g) => g !== removedGi)
+      .map(shiftGi);
+    staleResultGroups.clear();
+    staleNext.forEach((g) => staleResultGroups.add(g));
+    const stampNext = {};
+    Object.keys(runStampByGroup).forEach((k) => {
+      const g = Number(k);
+      if (g !== removedGi) stampNext[shiftGi(g)] = runStampByGroup[k];
+    });
+    Object.keys(runStampByGroup).forEach((k) => delete runStampByGroup[k]);
+    Object.assign(runStampByGroup, stampNext);
+    if (typeof explicitRunGroup === "number") {
+      explicitRunGroup =
+        explicitRunGroup === removedGi ? null : shiftGi(explicitRunGroup);
+    }
+    if (typeof runState.groupIndex === "number") {
+      runState.groupIndex = shiftGi(runState.groupIndex);
+    }
   }
 
   function reindexLastRunAfterCaseRemove(gi, removedCi) {
@@ -2757,6 +2908,7 @@
     vscode.postMessage({
       type: "runAll",
       groupIndex: gi,
+      groupId: groupIdAt(gi),
       cases: g.cases,
       defineLocal: defineLocal === true,
       timeLimitMs: g.timeLimitMs,
@@ -2812,6 +2964,7 @@
     vscode.postMessage({
       type: "runOne",
       groupIndex: gi,
+      groupId: groupIdAt(gi),
       index: 0,
       case: g.cases[0],
       defineLocal: defineLocal === true,
@@ -2852,8 +3005,8 @@
       return;
     }
     if (m.type === "sampleStart") {
-      const gi = typeof m.groupIndex === "number" ? m.groupIndex : 0;
-      if (staleResultGroups.has(gi) || typeof m.index !== "number") {
+      const gi = msgGroupIndex(m);
+      if (gi < 0 || staleResultGroups.has(gi) || typeof m.index !== "number") {
         return;
       }
       runningRows.add(rk(gi, m.index));
@@ -2871,9 +3024,7 @@
     }
     if (m.type === "runState") {
       if (m.running) {
-        staleResultGroups.delete(
-          typeof m.groupIndex === "number" ? m.groupIndex : 0,
-        );
+        staleResultGroups.delete(msgGroupIndex(m));
         if (m.phase === "compile") {
           runningRows.clear();
         }
@@ -2886,7 +3037,9 @@
         phase:
           m.phase === "compile" || m.phase === "run" ? m.phase : null,
         groupIndex:
-          typeof m.groupIndex === "number" ? m.groupIndex : null,
+          typeof m.groupId === "string" || typeof m.groupIndex === "number"
+            ? msgGroupIndex(m)
+            : null,
         index: typeof m.index === "number" ? m.index : null,
         total: typeof m.total === "number" ? m.total : null,
       };
@@ -2982,8 +3135,8 @@
       return;
     }
     if (m.type === "runResult") {
-      const gi = typeof m.groupIndex === "number" ? m.groupIndex : 0;
-      if (staleResultGroups.has(gi)) {
+      const gi = msgGroupIndex(m);
+      if (gi < 0 || staleResultGroups.has(gi)) {
         return;
       }
       const i = m.index;
@@ -3085,8 +3238,8 @@
     }
     if (m.type === "runAllDone") {
       if (m.error) showErr(m.error);
-      const gi = typeof m.groupIndex === "number" ? m.groupIndex : 0;
-      if (staleResultGroups.has(gi)) {
+      const gi = msgGroupIndex(m);
+      if (gi < 0 || staleResultGroups.has(gi)) {
         return;
       }
       dropRowsFromEarlierRuns(gi);
@@ -3186,12 +3339,17 @@
     }
     if (m.type === "exportDone") {
       const count = typeof m.count === "number" ? m.count : 0;
-      const prevTitle = btnExport.title;
-      btnExport.title = `Exported ${count} case${count === 1 ? "" : "s"}`;
-      btnExport.classList.add("btn--export-done");
+      const gi = typeof m.groupIndex === "number" ? m.groupIndex : 0;
+      const exportBtn = listEl
+        .querySelector(`li.case-group-wrap[data-cp-gi="${gi}"]`)
+        ?.querySelector(".case-group__export");
+      if (!(exportBtn instanceof HTMLElement)) return;
+      const prevTitle = exportBtn.title;
+      exportBtn.title = `Exported ${count} case${count === 1 ? "" : "s"}`;
+      exportBtn.classList.add("btn--export-done");
       setTimeout(() => {
-        btnExport.title = prevTitle;
-        btnExport.classList.remove("btn--export-done");
+        exportBtn.title = prevTitle;
+        exportBtn.classList.remove("btn--export-done");
       }, 2500);
       return;
     }
@@ -3236,16 +3394,6 @@
 
   btnStopRun.addEventListener("click", () => {
     vscode.postMessage({ type: "stopRun" });
-  });
-
-  btnExport.addEventListener("click", () => {
-    hideErr();
-    if (groups.length === 0) return;
-    vscode.postMessage({
-      type: "exportCases",
-      groupIndex: 0,
-      cases: groups.flatMap((g) => g.cases),
-    });
   });
 
   btnCollapseAll.addEventListener("click", () => {
