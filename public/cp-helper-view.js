@@ -1685,7 +1685,7 @@
     el.replaceChildren(label);
     el.hidden = text === "";
     el.dataset.cpUrl = url;
-    el.title = url !== "" ? `${full} - click to open` : full;
+    el.title = url !== "" ? `${full}` : full;
     el.disabled = url === "";
     el.setAttribute("aria-label", full);
     el.classList.toggle("submit-status--ok", st?.tone === "ok");
