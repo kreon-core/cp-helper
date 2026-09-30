@@ -1,11 +1,9 @@
 import * as vscode from "vscode";
 import type { TestCase } from "./types";
 
-const EXPORTED_FILE = /^sample_\d+\.(in|out)(\.txt)?$/u;
-
 /**
- * Write cases as testcases/sample_N.in.txt + sample_N.out.txt, removing previously
- * exported sample files first so a shorter export does not leave stale ones behind.
+ * Write cases as testcases/sample_N.in.txt + sample_N.out.txt, clearing everything already in
+ * testcases/ first so the folder holds only this export.
  * Returns the number of cases written.
  */
 export async function exportCasesToTestcasesDir(
@@ -19,12 +17,10 @@ export async function exportCasesToTestcasesDir(
   } catch {
     await vscode.workspace.fs.createDirectory(testcasesDir);
   }
-  for (const [name, type] of existing) {
-    if (type === vscode.FileType.File && EXPORTED_FILE.test(name)) {
-      await vscode.workspace.fs.delete(
-        vscode.Uri.joinPath(testcasesDir, name),
-      );
-    }
+  for (const [name] of existing) {
+    await vscode.workspace.fs.delete(vscode.Uri.joinPath(testcasesDir, name), {
+      recursive: true,
+    });
   }
   for (const [i, tc] of cases.entries()) {
     const n = tc.sample > 0 ? tc.sample : i + 1;
