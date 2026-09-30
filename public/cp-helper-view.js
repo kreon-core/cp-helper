@@ -146,6 +146,7 @@
   const btnAddProblem = $("btnAddProblem");
   const btnClear = $("btnClear");
   const btnExport = $("btnExport");
+  const btnCollapseAll = $("btnCollapseAll");
   const btnStopRun = $("btnStopRun");
   const errEl = $("err");
   const listEl = $("list");
@@ -1816,6 +1817,7 @@
     btnAddProblem.disabled = busy;
     btnClear.disabled = busy;
     btnExport.disabled = busy || totalCaseCount() === 0;
+    btnCollapseAll.disabled = totalCaseCount() === 0;
     applySubmitButtonsState();
     btnStopRun.hidden = !busy;
     syncSeparators();
@@ -3223,6 +3225,13 @@
       groupIndex: 0,
       cases: groups.flatMap((g) => g.cases),
     });
+  });
+
+  btnCollapseAll.addEventListener("click", () => {
+    groupCollapsed = defaultCollapsedAllHeaders(groups);
+    caseCollapsed = defaultCollapsedAllCases(groups);
+    persistWebviewNavState();
+    render();
   });
 
   btnClear.addEventListener("click", () => {
