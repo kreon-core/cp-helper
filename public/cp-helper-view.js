@@ -1640,14 +1640,35 @@
 
   /**
    * Codeforces spells its verdicts out in full ("Memory limit exceeded on test 4"), which does not
-   * fit a toolbar. The short form matches the sample chips; the full text stays in the tooltip.
-   * Anything unrecognised passes through, which is what keeps AtCoder's own `WJ` and `19/33`
-   * readouts intact while a submission is still being judged.
+   * fit a toolbar. The short form matches the sample chips and keeps the test number
+   * (`MLE.#4`, `R.#72` while running); the full text stays in the tooltip. AtCoder's in-flight
+   * `19/33` becomes `R.#19/33` and `19/33 WA` becomes `WA.#19`. Anything unrecognised passes
+   * through, which is what keeps AtCoder's own `WJ` intact.
    * @param {string} verdict
    * @returns {string}
    */
   function shortVerdict(verdict) {
-    const v = verdict.trim().replace(/^\d+\s*\/\s*\d+\s+/u, "");
+    const v = verdict.trim();
+    const judged = v.match(/^(\d+)\s*\/\s*(\d+)(?:\s+(\S+))?$/u);
+    if (judged) {
+      return judged[3]
+        ? `${judged[3].toUpperCase()}.#${judged[1]}`
+        : `R.#${judged[1]}/${judged[2]}`;
+    }
+    const onTest = v.match(/\s+on\s+(?:pre)?test\s+(\d+)$/iu);
+    const head = onTest ? v.slice(0, onTest.index) : v;
+    const short = shortVerdictHead(head);
+    if (!onTest) {
+      return short;
+    }
+    return `${short === "RUNNING" ? "R" : short}.#${onTest[1]}`;
+  }
+
+  /**
+   * @param {string} v verdict with any "on test N" suffix removed
+   * @returns {string}
+   */
+  function shortVerdictHead(v) {
     const table = [
       [/^accepted|^happy new year|^ok\b/iu, "AC"],
       [/^pretests passed/iu, "PP"],
