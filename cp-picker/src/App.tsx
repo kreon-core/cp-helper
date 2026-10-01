@@ -21,7 +21,7 @@ export function App() {
   return (
     <div className={IN_TAB ? "app app-tab" : "app"}>
       <header className="header">
-        <h1>CP Topic Picker</h1>
+        <h1>CP Picker</h1>
         <div className="row">
           <span className="mono muted">{today}</span>
           {canPopOut && (

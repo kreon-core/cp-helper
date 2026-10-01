@@ -28,7 +28,7 @@ const chromeArea: StorageArea = {
   clear: () => chrome.storage.local.clear(),
 };
 
-const LOCAL_PREFIX = "cp-topic-picker:";
+const LOCAL_PREFIX = "cp-picker:";
 
 const localArea: StorageArea = {
   async get(keys) {

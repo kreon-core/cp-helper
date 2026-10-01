@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "CP Topic Picker",
+  "name": "CP Picker",
   "version": "1.0.0",
   "description": "Randomly pick one competitive programming topic to practice each day.",
   "icons": {
@@ -10,7 +10,7 @@
     "128": "icons/icon-128.png"
   },
   "action": {
-    "default_title": "CP Topic Picker",
+    "default_title": "CP Picker",
     "default_popup": "index.html",
     "default_icon": {
       "16": "icons/icon-16.png",

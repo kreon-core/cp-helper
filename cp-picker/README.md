@@ -1,4 +1,4 @@
-# CP Topic Picker
+# CP Picker
 
 Chrome extension (Manifest V3) that picks one competitive programming topic to practice each day.
 
@@ -26,8 +26,8 @@ npm run build      # typecheck + bundle into dist/
 1. Run `npm run build`.
 2. Open `chrome://extensions`.
 3. Turn on **Developer mode** (top right).
-4. Click **Load unpacked** and select the `topic-picker/dist` folder.
-5. Pin **CP Topic Picker** from the extensions menu.
+4. Click **Load unpacked** and select the `cp-picker/dist` folder.
+5. Pin **CP Picker** from the extensions menu.
 
 After rebuilding, press the reload icon on the extension card.
 
