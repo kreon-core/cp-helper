@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "fetch:youkn0wwho": "node scripts/fetch-youkn0wwho.mjs",
+    "fetch:cses": "node scripts/fetch-cses.mjs",
+    "fetch:sources": "npm run fetch:youkn0wwho && npm run fetch:cses"
   },
   "dependencies": {
     "react": "^19.3.0",

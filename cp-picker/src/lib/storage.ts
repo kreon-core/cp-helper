@@ -1,30 +1,33 @@
-import seedTopics from "../data/topics.json";
 import {
+  DEFAULT_FILTERS,
   DEFAULT_SETTINGS,
-  filtersFromSettings,
+  EMPTY_CATALOG,
+  RATING_BOUNDS,
   type AppData,
   type Filters,
-  type PracticeRecord,
+  type PickRecord,
+  type Profile,
   type Settings,
-  type Topic,
 } from "../types";
+import { readCatalog } from "./custom";
 import { isDateString } from "./date";
-import { asDifficulty, asStatus, asStringList, isRecord } from "./guards";
-import { newId } from "./id";
-import { normalizeTopic, parseTopicsJson } from "./topics";
+import { asPlatform, asString, asStringList, isRecord } from "./guards";
 
 type StorageKey = keyof AppData;
-const KEYS: StorageKey[] = ["topics", "history", "settings", "filters"];
+const KEYS: StorageKey[] = ["custom", "solved", "history", "settings", "filters", "profile"];
+const LEGACY_KEYS = ["topics"];
 
 interface StorageArea {
   get(keys: string[]): Promise<Record<string, unknown>>;
   set(items: Record<string, unknown>): Promise<void>;
+  remove(keys: string[]): Promise<void>;
   clear(): Promise<void>;
 }
 
 const chromeArea: StorageArea = {
   get: (keys) => chrome.storage.local.get(keys),
   set: (items) => chrome.storage.local.set(items),
+  remove: (keys) => chrome.storage.local.remove(keys),
   clear: () => chrome.storage.local.clear(),
 };
 
@@ -44,6 +47,9 @@ const localArea: StorageArea = {
       localStorage.setItem(LOCAL_PREFIX + key, JSON.stringify(value));
     }
   },
+  async remove(keys) {
+    for (const key of keys) localStorage.removeItem(LOCAL_PREFIX + key);
+  },
   async clear() {
     Object.keys(localStorage)
       .filter((key) => key.startsWith(LOCAL_PREFIX))
@@ -55,38 +61,24 @@ function area(): StorageArea {
   return typeof chrome !== "undefined" && chrome.storage?.local ? chromeArea : localArea;
 }
 
-export function seedData(): Topic[] {
-  const result = parseTopicsJson(JSON.stringify(seedTopics), newId);
-  return result.ok ? result.topics : [];
-}
-
-function readTopics(value: unknown): Topic[] {
-  if (!Array.isArray(value)) return seedData();
-  const topics: Topic[] = [];
-  for (const item of value) {
-    const result = normalizeTopic(item, newId);
-    if (result.ok) topics.push(result.topic);
-  }
-  return topics;
-}
-
-function readHistory(value: unknown): PracticeRecord[] {
+export function readHistory(value: unknown): PickRecord[] {
   if (!Array.isArray(value)) return [];
-  const records: PracticeRecord[] = [];
+  const records: PickRecord[] = [];
   for (const item of value) {
     if (!isRecord(item)) continue;
-    const { date, topicId, topicName, category } = item;
-    const difficulty = asDifficulty(item.difficulty);
-    if (
-      typeof date === "string" &&
-      isDateString(date) &&
-      typeof topicId === "string" &&
-      typeof topicName === "string" &&
-      typeof category === "string" &&
-      difficulty
-    ) {
-      records.push({ date, topicId, topicName, category, difficulty });
-    }
+    const date = asString(item.date);
+    const fields = {
+      categoryId: asString(item.categoryId),
+      categoryName: asString(item.categoryName),
+      typeId: asString(item.typeId),
+      typeName: asString(item.typeName),
+      problemId: asString(item.problemId),
+      problemTitle: asString(item.problemTitle),
+      problemUrl: asString(item.problemUrl),
+    };
+    if (!date || !isDateString(date) || Object.values(fields).some((v) => v === undefined)) continue;
+    if (records.some((r) => r.date === date)) continue;
+    records.push({ date, ...(fields as Omit<PickRecord, "date">) });
   }
   return records.sort((a, b) => b.date.localeCompare(a.date));
 }
@@ -99,34 +91,56 @@ function readSettings(value: unknown): Settings {
       typeof days === "number" && Number.isFinite(days) && days >= 0
         ? Math.floor(days)
         : DEFAULT_SETTINGS.historyWindowDays,
-    allowMastered:
-      typeof value.allowMastered === "boolean" ? value.allowMastered : DEFAULT_SETTINGS.allowMastered,
-    defaultCategories: asStringList(value.defaultCategories),
-    defaultDifficulties: asStringList(value.defaultDifficulties).flatMap((d) => asDifficulty(d) ?? []),
+    followRating: typeof value.followRating === "boolean" ? value.followRating : DEFAULT_SETTINGS.followRating,
   };
 }
 
-function readFilters(value: unknown, settings: Settings): Filters {
-  if (!isRecord(value)) return filtersFromSettings(settings);
+function readProfile(value: unknown): Profile | null {
+  if (!isRecord(value)) return null;
+  const handle = asString(value.handle);
+  const syncedAt = asString(value.syncedAt);
+  if (!handle || !syncedAt) return null;
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+  const rating = num(value.rating);
+  const maxRating = num(value.maxRating);
+  const rank = asString(value.rank);
+  const lastSubmissionId = num(value.lastSubmissionId);
+  return {
+    handle,
+    syncedAt,
+    ...(rating !== undefined ? { rating } : {}),
+    ...(maxRating !== undefined ? { maxRating } : {}),
+    ...(rank ? { rank } : {}),
+    ...(lastSubmissionId !== undefined ? { lastSubmissionId } : {}),
+  };
+}
+
+export function clampRating(value: unknown, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.max(RATING_BOUNDS.min, Math.min(RATING_BOUNDS.max, Math.round(value)));
+}
+
+function readFilters(value: unknown): Filters {
+  if (!isRecord(value)) return { ...DEFAULT_FILTERS };
   return {
     categories: asStringList(value.categories),
-    difficulties: asStringList(value.difficulties).flatMap((d) => asDifficulty(d) ?? []),
-    tags: asStringList(value.tags),
-    statuses: asStringList(value.statuses).flatMap((s) => asStatus(s) ?? []),
+    platforms: asStringList(value.platforms).flatMap((p) => asPlatform(p) ?? []),
+    minRating: clampRating(value.minRating, DEFAULT_FILTERS.minRating),
+    maxRating: clampRating(value.maxRating, DEFAULT_FILTERS.maxRating),
   };
 }
 
 export async function loadData(): Promise<AppData> {
-  const stored = await area().get(KEYS);
-  const settings = readSettings(stored.settings);
-  const data: AppData = {
-    topics: readTopics(stored.topics),
+  const stored = await area().get([...KEYS, ...LEGACY_KEYS]);
+  if (LEGACY_KEYS.some((key) => key in stored)) await area().remove(LEGACY_KEYS);
+  return {
+    custom: stored.custom === undefined ? EMPTY_CATALOG : readCatalog(stored.custom),
+    solved: asStringList(stored.solved),
     history: readHistory(stored.history),
-    settings,
-    filters: readFilters(stored.filters, settings),
+    settings: readSettings(stored.settings),
+    filters: readFilters(stored.filters),
+    profile: readProfile(stored.profile),
   };
-  if (!Array.isArray(stored.topics)) await saveData({ topics: data.topics });
-  return data;
 }
 
 export async function saveData(patch: Partial<AppData>): Promise<void> {
@@ -136,4 +150,43 @@ export async function saveData(patch: Partial<AppData>): Promise<void> {
 export async function resetData(): Promise<AppData> {
   await area().clear();
   return loadData();
+}
+
+export interface Backup {
+  custom: AppData["custom"];
+  solved: string[];
+  history: PickRecord[];
+}
+
+export function serializeBackup(data: AppData): string {
+  const backup: Backup & { app: string; version: number } = {
+    app: "cp-picker",
+    version: 2,
+    custom: data.custom,
+    solved: data.solved,
+    history: data.history,
+  };
+  return JSON.stringify(backup, null, 2);
+}
+
+export type BackupResult = { ok: true; backup: Backup } | { ok: false; error: string };
+
+export function parseBackup(text: string): BackupResult {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch (err) {
+    return { ok: false, error: `File is not valid JSON: ${err instanceof Error ? err.message : String(err)}` };
+  }
+  if (!isRecord(parsed) || parsed.app !== "cp-picker") {
+    return { ok: false, error: "Not a CP Picker backup file." };
+  }
+  return {
+    ok: true,
+    backup: {
+      custom: readCatalog(parsed.custom),
+      solved: asStringList(parsed.solved),
+      history: readHistory(parsed.history),
+    },
+  };
 }

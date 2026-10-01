@@ -1,10 +1,10 @@
-import type { AppData } from "../types";
-import type { UpdateData } from "../useAppData";
-import { DifficultyBadge } from "./Badges";
+import type { ViewProps } from "../useAppData";
+import { Dot } from "./Badges";
 import { EmptyState } from "./EmptyState";
 
-export function HistoryView({ data, update }: { data: AppData; update: UpdateData }) {
+export function HistoryView({ data, update }: ViewProps) {
   const remove = (date: string) => update({ history: data.history.filter((r) => r.date !== date) });
+  const solved = new Set(data.solved);
 
   if (data.history.length === 0) {
     return (
@@ -22,11 +22,21 @@ export function HistoryView({ data, update }: { data: AppData; update: UpdateDat
         {data.history.map((r) => (
           <li key={r.date} className="history-row">
             <span className="mono muted">{r.date}</span>
-            <span className="history-name" title={r.topicName}>
-              {r.topicName}
+            <span className="list-main">
+              <span className="history-name" title={r.typeName}>
+                {r.typeName}
+              </span>
+              <span className="list-sub history-sub">
+                {r.categoryName}
+                <Dot />
+                <a href={r.problemUrl} target="_blank" rel="noreferrer" title={r.problemTitle}>
+                  {r.problemTitle}
+                </a>
+              </span>
             </span>
-            <span className="muted history-cat">{r.category}</span>
-            <DifficultyBadge difficulty={r.difficulty} />
+            <span className="solved-mark" title={solved.has(r.problemId) ? "Solved" : "Not solved"}>
+              {solved.has(r.problemId) ? "\u2713" : ""}
+            </span>
             <button
               type="button"
               className="icon-btn"

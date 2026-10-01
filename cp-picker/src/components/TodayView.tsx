@@ -1,108 +1,120 @@
 import { useState } from "react";
-import { STATUSES, type AppData, type TopicStatus } from "../types";
-import { findRecord, shuffleDailyTopic } from "../lib/daily";
-import { selectionBlocker } from "../lib/picker";
-import type { UpdateData } from "../useAppData";
-import { DifficultyBadge, Dot } from "./Badges";
+import { findRecord, pickInType, shuffleDailyPick } from "../lib/daily";
+import { toggleItem } from "../lib/format";
+import { selectionBlocker, typeProblems } from "../lib/picker";
+import type { ViewProps } from "../useAppData";
+import { Dot, LevelBadge, ProblemMeta } from "./Badges";
 import { EmptyState } from "./EmptyState";
 import { FilterPanel } from "./FilterPanel";
 import { Notice, type NoticeState } from "./Notice";
 
 const RECENT_COUNT = 5;
 
-interface TodayViewProps {
-  data: AppData;
-  today: string;
-  update: UpdateData;
-}
-
-export function TodayView({ data, today, update }: TodayViewProps) {
+export function TodayView({ data, library, today, update }: ViewProps & { today: string }) {
   const [notice, setNotice] = useState<NoticeState | null>(null);
+  const solved = new Set(data.solved);
   const record = findRecord(data.history, today);
-  const topic = record ? data.topics.find((t) => t.id === record.topicId) : undefined;
+  const type = record ? library.typeById.get(record.typeId) : undefined;
+  const entries = record ? typeProblems(library, record.typeId, data.filters) : [];
+  const entry = record ? (library.problemsByType.get(record.typeId) ?? []).find((e) => e.problem.id === record.problemId) : undefined;
+  const solvedCount = entries.filter((e) => solved.has(e.problem.id)).length;
+  const isSolved = record ? solved.has(record.problemId) : false;
   const recent = data.history.filter((r) => r.date < today).slice(0, RECENT_COUNT);
 
   const shuffle = () => {
-    const result = shuffleDailyTopic(data, today);
+    const result = shuffleDailyPick(data, library, today);
     if (result.kind === "empty") {
       setNotice({ tone: "error", text: result.reason });
       return;
     }
     if (result.kind !== "picked") return;
     update({ history: result.history });
-    if (record && result.record.topicId === record.topicId) {
-      setNotice({ tone: "info", text: "This is the only topic that matches the current filters." });
+    if (record && result.record.typeId === record.typeId) {
+      setNotice({ tone: "info", text: "This is the only type with unsolved problems that matches the filters." });
     } else if (result.usedFallback) {
       setNotice({
         tone: "info",
-        text: "Every matching topic was practiced recently, so this pick ignores the history window.",
+        text: "Every matching type was picked recently, so this pick ignores the history window.",
       });
     } else {
       setNotice(null);
     }
   };
 
-  const setStatus = (status: TopicStatus) => {
-    if (!topic) return;
-    update({ topics: data.topics.map((t) => (t.id === topic.id ? { ...t, status } : t)) });
+  const next = () => {
+    if (!record) return;
+    const result = pickInType(data, library, today, record.typeId, record.problemId);
+    if (result.kind === "picked") {
+      update({ history: result.history });
+      setNotice(null);
+    } else if (result.kind === "empty") {
+      setNotice({ tone: "info", text: result.reason });
+    }
+  };
+
+  const toggleSolved = () => {
+    if (record) update({ solved: toggleItem(data.solved, record.problemId) });
   };
 
   return (
     <div className="view">
       <section className="panel today-card">
-        <p className="eyebrow">Today's Topic</p>
+        <p className="eyebrow">Today's Pick</p>
         {record ? (
           <>
-            <h2 className="topic-name">{record.topicName}</h2>
-            <p className="topic-meta">
-              {record.category} <Dot /> <DifficultyBadge difficulty={record.difficulty} />
-            </p>
-            {topic && topic.tags.length > 0 && (
-              <p className="tags">
-                {topic.tags.map((tag) => (
-                  <span key={tag} className="tag">
-                    #{tag}
-                  </span>
-                ))}
+            <p className="topic-meta">{record.categoryName}</p>
+            <h2 className="topic-name">{record.typeName}</h2>
+            {type?.group && <p className="hint">{type.group}</p>}
+            <a
+              className={isSolved ? "problem-card problem-done" : "problem-card"}
+              href={record.problemUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <span className="problem-title">{record.problemTitle}</span>
+              {entry && (
+                <span className="problem-sub">
+                  <ProblemMeta problem={entry.problem} />
+                  <Dot />
+                  <LevelBadge level={entry.level} />
+                </span>
+              )}
+            </a>
+            {entries.length > 0 && (
+              <p className="hint">
+                {solvedCount} / {entries.length} solved in this type
               </p>
             )}
-            {topic?.note && <p className="note">{topic.note}</p>}
-            {topic ? (
-              <label className="status-select">
-                <span className="muted">Status</span>
-                <select value={topic.status} onChange={(e) => setStatus(e.target.value as TopicStatus)}>
-                  {STATUSES.map((s) => (
-                    <option key={s}>{s}</option>
-                  ))}
-                </select>
-              </label>
-            ) : (
-              <p className="hint">This topic was deleted from your list.</p>
-            )}
+            <div className="row">
+              <button type="button" className={isSolved ? "btn btn-success" : "btn"} onClick={toggleSolved}>
+                {isSolved ? "Solved \u2713" : "Mark solved"}
+              </button>
+              <button type="button" className="btn" onClick={next}>
+                Next problem
+              </button>
+            </div>
           </>
         ) : (
-          <EmptyState title="No topic picked yet">
-            <p className="hint">
-              {selectionBlocker(data.topics, data.filters, data.settings) ?? "Press the button to pick one."}
-            </p>
+          <EmptyState title="No problem picked yet">
+            <p className="hint">{selectionBlocker(library, solved, data.filters) ?? "Press the button to pick one."}</p>
           </EmptyState>
         )}
         <button type="button" className="btn btn-primary btn-wide" onClick={shuffle}>
-          {record ? "Shuffle" : "Pick a topic"}
+          {record ? "Shuffle" : "Pick a problem"}
         </button>
         <Notice notice={notice} onClose={() => setNotice(null)} />
       </section>
 
-      <FilterPanel data={data} update={update} />
+      <FilterPanel data={data} library={library} update={update} />
 
       <section className="recent">
         <p className="eyebrow">Recently practiced</p>
         {recent.length > 0 ? (
           <p className="recent-list">
             {recent.map((r, i) => (
-              <span key={r.date} title={r.date}>
+              <span key={r.date} title={`${r.date}: ${r.problemTitle}`}>
                 {i > 0 && <Dot />}
-                {r.topicName}
+                {r.typeName}
               </span>
             ))}
           </p>

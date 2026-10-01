@@ -1,4 +1,4 @@
-export const TABS = ["Today", "Topics", "History", "Settings"] as const;
+export const TABS = ["Today", "Browse", "Add", "History", "Settings"] as const;
 export type Tab = (typeof TABS)[number];
 
 export function NavBar({ active, onSelect }: { active: Tab; onSelect: (tab: Tab) => void }) {

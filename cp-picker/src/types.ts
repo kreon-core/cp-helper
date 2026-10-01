@@ -1,62 +1,101 @@
-export const DIFFICULTIES = ["Easy", "Medium", "Hard"] as const;
-export type Difficulty = (typeof DIFFICULTIES)[number];
+export const PLATFORMS = ["Codeforces", "AtCoder", "CSES"] as const;
+export type Platform = (typeof PLATFORMS)[number];
 
-export const STATUSES = ["Not practiced", "Practicing", "Mastered"] as const;
-export type TopicStatus = (typeof STATUSES)[number];
+export const LEVELS = [1, 2, 3, 4] as const;
+export type Level = (typeof LEVELS)[number];
 
-export const DEFAULT_CATEGORIES = ["String", "Graph", "DP", "Geometry", "Data Structure", "Math"];
+export const LEVEL_NAMES: Record<Level, string> = {
+  1: "Easy",
+  2: "Medium",
+  3: "Hard",
+  4: "Very Hard",
+};
 
-export interface Topic {
+export interface Category {
   id: string;
   name: string;
-  category: string;
-  difficulty: Difficulty;
-  tags: string[];
-  note?: string;
-  status: TopicStatus;
 }
 
-export interface PracticeRecord {
-  date: string;
-  topicId: string;
-  topicName: string;
-  category: string;
-  difficulty: Difficulty;
+export interface ProblemType {
+  id: string;
+  name: string;
+  categoryId: string;
+  group?: string;
 }
+
+export interface Problem {
+  id: string;
+  url: string;
+  title: string;
+  platform: Platform;
+  rating?: number;
+  ratingEstimated?: boolean;
+  types: Record<string, Level>;
+}
+
+export interface Catalog {
+  categories: Category[];
+  types: ProblemType[];
+  problems: Problem[];
+}
+
+export interface PickRecord {
+  date: string;
+  categoryId: string;
+  categoryName: string;
+  typeId: string;
+  typeName: string;
+  problemId: string;
+  problemTitle: string;
+  problemUrl: string;
+}
+
+export const RATING_BOUNDS = { min: 800, max: 3500 } as const;
 
 export interface Filters {
   categories: string[];
-  difficulties: Difficulty[];
-  tags: string[];
-  statuses: TopicStatus[];
+  platforms: Platform[];
+  minRating: number;
+  maxRating: number;
 }
 
 export interface Settings {
   historyWindowDays: number;
-  allowMastered: boolean;
-  defaultCategories: string[];
-  defaultDifficulties: Difficulty[];
+  followRating: boolean;
+}
+
+export interface Profile {
+  handle: string;
+  syncedAt: string;
+  rating?: number;
+  maxRating?: number;
+  rank?: string;
+  lastSubmissionId?: number;
 }
 
 export interface AppData {
-  topics: Topic[];
-  history: PracticeRecord[];
+  custom: Catalog;
+  solved: string[];
+  history: PickRecord[];
   settings: Settings;
   filters: Filters;
+  profile: Profile | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   historyWindowDays: 7,
-  allowMastered: false,
-  defaultCategories: [],
-  defaultDifficulties: [],
+  followRating: true,
 };
 
-export function filtersFromSettings(settings: Settings): Filters {
-  return {
-    categories: [...settings.defaultCategories],
-    difficulties: [...settings.defaultDifficulties],
-    tags: [],
-    statuses: [],
-  };
-}
+export const DEFAULT_FILTERS: Filters = {
+  categories: [],
+  platforms: [],
+  minRating: 1600,
+  maxRating: RATING_BOUNDS.max,
+};
+
+export const EMPTY_CATALOG: Catalog = {
+  categories: [],
+  types: [],
+  problems: [],
+};

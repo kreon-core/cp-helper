@@ -1,43 +1,64 @@
-import type { Filters, Settings, Topic, PracticeRecord } from "../types";
+import type { Category, Filters, PickRecord, ProblemType, Settings } from "../types";
 import { daysBetween } from "./date";
+import { estimatedRating, type Library, type TypeProblem } from "./library";
 
 export type Rng = () => number;
 
-export type SelectionResult =
-  | { ok: true; topic: Topic; usedFallback: boolean }
-  | { ok: false; reason: string };
+export interface Pick {
+  category: Category;
+  type: ProblemType;
+  entry: TypeProblem;
+}
+
+export type SelectionResult = { ok: true; pick: Pick; usedFallback: boolean } | { ok: false; reason: string };
 
 export interface SelectionInput {
-  topics: readonly Topic[];
-  history: readonly PracticeRecord[];
+  library: Library;
+  solved: ReadonlySet<string>;
+  history: readonly PickRecord[];
   filters: Filters;
   settings: Settings;
   today: string;
-  excludeIds?: ReadonlySet<string>;
+  excludeTypeId?: string;
 }
 
-export function matchesFilters(topic: Topic, filters: Filters, settings: Settings): boolean {
-  if (!settings.allowMastered && topic.status === "Mastered") return false;
-  if (filters.categories.length > 0 && !filters.categories.includes(topic.category)) return false;
-  if (filters.difficulties.length > 0 && !filters.difficulties.includes(topic.difficulty)) return false;
-  if (filters.statuses.length > 0 && !filters.statuses.includes(topic.status)) return false;
-  if (filters.tags.length > 0 && !topic.tags.some((tag) => filters.tags.includes(tag))) return false;
-  return true;
+export function inRange(entry: TypeProblem, filters: Filters): boolean {
+  const rating = estimatedRating(entry);
+  return rating >= filters.minRating && rating <= filters.maxRating;
 }
 
-export function applyFilters(topics: readonly Topic[], filters: Filters, settings: Settings): Topic[] {
-  return topics.filter((topic) => matchesFilters(topic, filters, settings));
+export function matchesFilters(entry: TypeProblem, filters: Filters): boolean {
+  if (filters.platforms.length > 0 && !filters.platforms.includes(entry.problem.platform)) return false;
+  return inRange(entry, filters);
 }
 
-export function recentTopicIds(
-  history: readonly PracticeRecord[],
-  today: string,
-  windowDays: number,
-): Set<string> {
+export function typeProblems(library: Library, typeId: string, filters: Filters): TypeProblem[] {
+  return (library.problemsByType.get(typeId) ?? []).filter((e) => matchesFilters(e, filters));
+}
+
+export function nextUnsolved(
+  entries: readonly TypeProblem[],
+  solved: ReadonlySet<string>,
+  afterId?: string,
+): TypeProblem | undefined {
+  const start = afterId ? entries.findIndex((e) => e.problem.id === afterId) + 1 : 0;
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[(start + i) % entries.length];
+    if (entry && !solved.has(entry.problem.id) && entry.problem.id !== afterId) return entry;
+  }
+  return undefined;
+}
+
+function filteredCategories(library: Library, filters: Filters): Category[] {
+  if (filters.categories.length === 0) return library.categories;
+  return library.categories.filter((c) => filters.categories.includes(c.id));
+}
+
+export function recentTypeIds(history: readonly PickRecord[], today: string, windowDays: number): Set<string> {
   const ids = new Set<string>();
   for (const record of history) {
     const age = daysBetween(record.date, today);
-    if (age >= 0 && age <= windowDays) ids.add(record.topicId);
+    if (age >= 0 && age <= windowDays) ids.add(record.typeId);
   }
   return ids;
 }
@@ -48,39 +69,62 @@ export function pickRandom<T>(items: readonly T[], rng: Rng = Math.random): T | 
   return items[index];
 }
 
-export function selectionBlocker(
-  topics: readonly Topic[],
-  filters: Filters,
-  settings: Settings,
-): string | null {
-  if (topics.length === 0) {
-    return "No topics yet. Add some in the Topics tab or import a JSON file.";
+interface Candidate {
+  category: Category;
+  type: ProblemType;
+  entry: TypeProblem;
+}
+
+function candidates(library: Library, solved: ReadonlySet<string>, filters: Filters): Candidate[] {
+  const out: Candidate[] = [];
+  for (const category of filteredCategories(library, filters)) {
+    for (const type of library.typesByCategory.get(category.id) ?? []) {
+      const entry = nextUnsolved(typeProblems(library, type.id, filters), solved);
+      if (entry) out.push({ category, type, entry });
+    }
   }
-  if (applyFilters(topics, filters, settings).length === 0) {
-    const hint = settings.allowMastered ? "" : " Mastered topics are excluded in Settings.";
-    return `No topics match the current filters. Loosen the filters to get a pick.${hint}`;
+  return out;
+}
+
+export function selectionBlocker(library: Library, solved: ReadonlySet<string>, filters: Filters): string | null {
+  if (library.problemById.size === 0) return "No problems yet. Add some links in the Add tab.";
+  const scoped = filteredCategories(library, filters).some((c) =>
+    (library.typesByCategory.get(c.id) ?? []).some((t) => typeProblems(library, t.id, filters).length > 0),
+  );
+  if (!scoped) return "No problems match the current filters. Loosen the filters or the rating range to get a pick.";
+  if (candidates(library, solved, filters).length === 0) {
+    return "Every problem that matches the current filters is solved.";
   }
   return null;
 }
 
-export function selectTopic(input: SelectionInput, rng: Rng = Math.random): SelectionResult {
-  const { topics, history, filters, settings, today } = input;
-  const blocker = selectionBlocker(topics, filters, settings);
+function pickFrom(pool: readonly Candidate[], rng: Rng): Candidate | undefined {
+  const categoryIds = [...new Set(pool.map((c) => c.category.id))];
+  const categoryId = pickRandom(categoryIds, rng);
+  return pickRandom(
+    pool.filter((c) => c.category.id === categoryId),
+    rng,
+  );
+}
+
+export function selectPick(input: SelectionInput, rng: Rng = Math.random): SelectionResult {
+  const { library, solved, history, filters, settings, today, excludeTypeId } = input;
+  const blocker = selectionBlocker(library, solved, filters);
   if (blocker) return { ok: false, reason: blocker };
 
-  const filtered = applyFilters(topics, filters, settings);
-  const exclude = input.excludeIds ?? new Set<string>();
-  const recent = recentTopicIds(history, today, settings.historyWindowDays);
+  const all = candidates(library, solved, filters);
+  const recent = recentTypeIds(history, today, settings.historyWindowDays);
+  const others = all.filter((c) => c.type.id !== excludeTypeId);
 
-  let pool = filtered.filter((t) => !recent.has(t.id) && !exclude.has(t.id));
+  let pool = others.filter((c) => !recent.has(c.type.id));
   let usedFallback = false;
   if (pool.length === 0) {
     usedFallback = true;
-    pool = filtered.filter((t) => !exclude.has(t.id));
+    pool = others;
   }
-  if (pool.length === 0) pool = filtered;
+  if (pool.length === 0) pool = all;
 
-  const topic = pickRandom(pool, rng);
-  if (!topic) return { ok: false, reason: "No eligible topic found." };
-  return { ok: true, topic, usedFallback };
+  const pick = pickFrom(pool, rng);
+  if (!pick) return { ok: false, reason: "No eligible problem found." };
+  return { ok: true, pick, usedFallback };
 }

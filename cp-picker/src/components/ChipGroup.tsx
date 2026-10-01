@@ -5,9 +5,10 @@ interface ChipGroupProps<T extends string> {
   options: readonly T[];
   selected: readonly T[];
   onChange: (next: T[]) => void;
+  format?: (option: T) => string;
 }
 
-export function ChipGroup<T extends string>({ label, options, selected, onChange }: ChipGroupProps<T>) {
+export function ChipGroup<T extends string>({ label, options, selected, onChange, format }: ChipGroupProps<T>) {
   if (options.length === 0) return null;
   return (
     <div className="chip-group">
@@ -20,7 +21,7 @@ export function ChipGroup<T extends string>({ label, options, selected, onChange
             className={selected.includes(option) ? "chip chip-on" : "chip"}
             onClick={() => onChange(toggleItem(selected, option))}
           >
-            {option}
+            {format ? format(option) : option}
           </button>
         ))}
       </div>

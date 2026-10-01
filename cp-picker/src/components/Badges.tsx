@@ -1,17 +1,24 @@
-import type { Difficulty, TopicStatus } from "../types";
+import { LEVEL_NAMES, type Level, type Problem } from "../types";
 
-export function DifficultyBadge({ difficulty }: { difficulty: Difficulty }) {
-  return <span className={`badge diff-${difficulty.toLowerCase()}`}>{difficulty}</span>;
+export function LevelBadge({ level }: { level: Level }) {
+  return <span className={`badge level-${level}`}>{LEVEL_NAMES[level]}</span>;
 }
 
-const STATUS_CLASS: Record<TopicStatus, string> = {
-  "Not practiced": "status-new",
-  Practicing: "status-practicing",
-  Mastered: "status-mastered",
-};
-
-export function StatusBadge({ status }: { status: TopicStatus }) {
-  return <span className={`badge ${STATUS_CLASS[status]}`}>{status}</span>;
+export function ProblemMeta({ problem }: { problem: Problem }) {
+  return (
+    <span className="muted">
+      {problem.platform}
+      {problem.rating !== undefined && (
+        <>
+          <Dot />
+          <span className="mono" title={problem.ratingEstimated ? "Estimated from solver count" : "Rating"}>
+            {problem.ratingEstimated ? "~" : ""}
+            {problem.rating}
+          </span>
+        </>
+      )}
+    </span>
+  );
 }
 
 export function Dot() {

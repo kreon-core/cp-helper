@@ -1,19 +1,23 @@
-import { DIFFICULTIES, STATUSES, type Difficulty, type TopicStatus } from "../types";
+import { LEVELS, PLATFORMS, type Level, type Platform } from "../types";
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function asDifficulty(value: unknown): Difficulty | undefined {
-  if (typeof value !== "string") return undefined;
-  const lower = value.trim().toLowerCase();
-  return DIFFICULTIES.find((d) => d.toLowerCase() === lower);
+export function asLevel(value: unknown): Level | undefined {
+  return LEVELS.find((l) => l === value);
 }
 
-export function asStatus(value: unknown): TopicStatus | undefined {
+export function asPlatform(value: unknown): Platform | undefined {
   if (typeof value !== "string") return undefined;
   const lower = value.trim().toLowerCase();
-  return STATUSES.find((s) => s.toLowerCase() === lower);
+  return PLATFORMS.find((p) => p.toLowerCase() === lower);
+}
+
+export function asString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed || undefined;
 }
 
 export function asStringList(value: unknown): string[] {

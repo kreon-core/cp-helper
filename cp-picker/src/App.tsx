@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { AddView, type AddPreset } from "./components/AddView";
+import { BrowseView } from "./components/BrowseView";
 import { HistoryView } from "./components/HistoryView";
 import { NavBar, type Tab } from "./components/NavBar";
 import { SettingsView } from "./components/SettingsView";
 import { TodayView } from "./components/TodayView";
-import { TopicsView } from "./components/TopicsView";
 import { useAppData } from "./useAppData";
 
 const IN_TAB = new URLSearchParams(location.search).has("tab");
@@ -14,9 +15,20 @@ function openInTab() {
 }
 
 export function App() {
-  const { today, data, error, update, reset } = useAppData();
+  const { today, data, library, error, sync, update, reset, syncCodeforces } = useAppData();
   const [tab, setTab] = useState<Tab>("Today");
+  const [addPreset, setAddPreset] = useState<AddPreset | null>(null);
   const canPopOut = !IN_TAB && typeof chrome !== "undefined" && Boolean(chrome.tabs);
+
+  const selectTab = (next: Tab) => {
+    if (next === "Add") setAddPreset(null);
+    setTab(next);
+  };
+
+  const addLinks = (categoryName: string, typeName: string) => {
+    setAddPreset({ categoryName, typeName });
+    setTab("Add");
+  };
 
   return (
     <div className={IN_TAB ? "app app-tab" : "app"}>
@@ -31,19 +43,41 @@ export function App() {
           )}
         </div>
       </header>
-      <NavBar active={tab} onSelect={setTab} />
+      <NavBar active={tab} onSelect={selectTab} />
       <main className="main">
         {error && <p className="notice notice-error">{error}</p>}
-        {!data ? (
+        {!data || !library ? (
           !error && <p className="hint center">Loading...</p>
         ) : tab === "Today" ? (
-          <TodayView data={data} today={today} update={update} />
-        ) : tab === "Topics" ? (
-          <TopicsView data={data} update={update} />
+          <TodayView data={data} library={library} today={today} update={update} />
+        ) : tab === "Browse" ? (
+          <BrowseView
+            data={data}
+            library={library}
+            update={update}
+            today={today}
+            onPracticed={() => setTab("Today")}
+            onAddLinks={addLinks}
+          />
+        ) : tab === "Add" ? (
+          <AddView
+            key={addPreset ? `${addPreset.categoryName}/${addPreset.typeName}` : "blank"}
+            data={data}
+            library={library}
+            update={update}
+            preset={addPreset}
+          />
         ) : tab === "History" ? (
-          <HistoryView data={data} update={update} />
+          <HistoryView data={data} library={library} update={update} />
         ) : (
-          <SettingsView data={data} update={update} onReset={() => void reset()} />
+          <SettingsView
+            data={data}
+            library={library}
+            update={update}
+            sync={sync}
+            onSync={syncCodeforces}
+            onReset={() => void reset()}
+          />
         )}
       </main>
     </div>
