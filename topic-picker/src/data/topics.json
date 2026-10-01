@@ -1,0 +1,275 @@
+[
+  {
+    "name": "KMP",
+    "category": "String",
+    "difficulty": "Medium",
+    "tags": [
+      "prefix-function",
+      "pattern-matching"
+    ],
+    "note": "Prefix function; failure links."
+  },
+  {
+    "name": "Z Algorithm",
+    "category": "String",
+    "difficulty": "Medium",
+    "tags": [
+      "pattern-matching"
+    ]
+  },
+  {
+    "name": "Aho-Corasick",
+    "category": "String",
+    "difficulty": "Hard",
+    "tags": [
+      "trie",
+      "automaton",
+      "pattern-matching"
+    ],
+    "note": "Multi-pattern matching with failure links."
+  },
+  {
+    "name": "Suffix Array",
+    "category": "String",
+    "difficulty": "Hard",
+    "tags": [
+      "suffix-structures",
+      "lcp"
+    ],
+    "note": "O(n log n) build plus Kasai LCP."
+  },
+  {
+    "name": "DSU",
+    "category": "Graph",
+    "difficulty": "Easy",
+    "tags": [
+      "union-find"
+    ],
+    "note": "Path compression plus union by size."
+  },
+  {
+    "name": "SCC",
+    "category": "Graph",
+    "difficulty": "Medium",
+    "tags": [
+      "tarjan",
+      "kosaraju",
+      "dfs"
+    ]
+  },
+  {
+    "name": "2-SAT",
+    "category": "Graph",
+    "difficulty": "Hard",
+    "tags": [
+      "scc",
+      "implication-graph"
+    ]
+  },
+  {
+    "name": "Dijkstra",
+    "category": "Graph",
+    "difficulty": "Easy",
+    "tags": [
+      "shortest-path"
+    ]
+  },
+  {
+    "name": "Floyd-Warshall",
+    "category": "Graph",
+    "difficulty": "Easy",
+    "tags": [
+      "shortest-path",
+      "all-pairs"
+    ]
+  },
+  {
+    "name": "Max Flow",
+    "category": "Graph",
+    "difficulty": "Hard",
+    "tags": [
+      "flow",
+      "dinic"
+    ],
+    "note": "Dinic; min-cut duality."
+  },
+  {
+    "name": "Min-Cost Max-Flow",
+    "category": "Graph",
+    "difficulty": "Hard",
+    "tags": [
+      "flow",
+      "shortest-path"
+    ]
+  },
+  {
+    "name": "Bipartite Matching",
+    "category": "Graph",
+    "difficulty": "Medium",
+    "tags": [
+      "flow",
+      "hopcroft-karp",
+      "matching"
+    ]
+  },
+  {
+    "name": "Segment Tree",
+    "category": "Data Structure",
+    "difficulty": "Medium",
+    "tags": [
+      "range-query"
+    ]
+  },
+  {
+    "name": "Lazy Segment Tree",
+    "category": "Data Structure",
+    "difficulty": "Hard",
+    "tags": [
+      "range-query",
+      "range-update"
+    ]
+  },
+  {
+    "name": "Segment Tree Beats",
+    "category": "Data Structure",
+    "difficulty": "Hard",
+    "tags": [
+      "range-query",
+      "amortized"
+    ],
+    "note": "Range chmin/chmax with sums."
+  },
+  {
+    "name": "Fenwick Tree",
+    "category": "Data Structure",
+    "difficulty": "Easy",
+    "tags": [
+      "range-query",
+      "bit"
+    ]
+  },
+  {
+    "name": "Sparse Table",
+    "category": "Data Structure",
+    "difficulty": "Easy",
+    "tags": [
+      "range-query",
+      "rmq"
+    ]
+  },
+  {
+    "name": "HLD",
+    "category": "Data Structure",
+    "difficulty": "Hard",
+    "tags": [
+      "tree",
+      "path-query"
+    ],
+    "note": "Heavy-light decomposition."
+  },
+  {
+    "name": "Knapsack DP",
+    "category": "DP",
+    "difficulty": "Easy",
+    "tags": [
+      "classic"
+    ]
+  },
+  {
+    "name": "Digit DP",
+    "category": "DP",
+    "difficulty": "Medium",
+    "tags": [
+      "counting"
+    ]
+  },
+  {
+    "name": "Bitmask DP",
+    "category": "DP",
+    "difficulty": "Medium",
+    "tags": [
+      "subsets"
+    ]
+  },
+  {
+    "name": "Tree DP",
+    "category": "DP",
+    "difficulty": "Medium",
+    "tags": [
+      "tree",
+      "rerooting"
+    ]
+  },
+  {
+    "name": "FFT",
+    "category": "Math",
+    "difficulty": "Hard",
+    "tags": [
+      "polynomial",
+      "convolution"
+    ]
+  },
+  {
+    "name": "NTT",
+    "category": "Math",
+    "difficulty": "Hard",
+    "tags": [
+      "polynomial",
+      "convolution",
+      "modular"
+    ]
+  },
+  {
+    "name": "Convex Hull",
+    "category": "Geometry",
+    "difficulty": "Medium",
+    "tags": [
+      "monotone-chain"
+    ]
+  },
+  {
+    "name": "Sweep Line",
+    "category": "Geometry",
+    "difficulty": "Hard",
+    "tags": [
+      "events"
+    ]
+  },
+  {
+    "name": "Modular Arithmetic",
+    "category": "Math",
+    "difficulty": "Easy",
+    "tags": [
+      "modular",
+      "inverse"
+    ]
+  },
+  {
+    "name": "Chinese Remainder Theorem",
+    "category": "Math",
+    "difficulty": "Medium",
+    "tags": [
+      "modular",
+      "number-theory"
+    ]
+  },
+  {
+    "name": "Combinatorics",
+    "category": "Math",
+    "difficulty": "Medium",
+    "tags": [
+      "counting",
+      "binomial"
+    ]
+  },
+  {
+    "name": "Probability / Expected Value",
+    "category": "Math",
+    "difficulty": "Hard",
+    "tags": [
+      "probability",
+      "expected-value"
+    ],
+    "note": "Linearity of expectation."
+  }
+]
