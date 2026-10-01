@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { findRecord, pickInType, shuffleDailyPick } from "../lib/daily";
+import { findRecord, shuffleDailyPick } from "../lib/daily";
 import { toggleItem } from "../lib/format";
 import { selectionBlocker, typeProblems } from "../lib/picker";
 import type { ViewProps } from "../useAppData";
@@ -41,17 +41,6 @@ export function TodayView({ data, library, today, update }: ViewProps & { today:
     }
   };
 
-  const next = () => {
-    if (!record) return;
-    const result = pickInType(data, library, today, record.typeId, record.problemId);
-    if (result.kind === "picked") {
-      update({ history: result.history });
-      setNotice(null);
-    } else if (result.kind === "empty") {
-      setNotice({ tone: "info", text: result.reason });
-    }
-  };
-
   const toggleSolved = () => {
     if (record) update({ solved: toggleItem(data.solved, record.problemId) });
   };
@@ -85,14 +74,9 @@ export function TodayView({ data, library, today, update }: ViewProps & { today:
                 {solvedCount} / {entries.length} solved in this type
               </p>
             )}
-            <div className="row">
-              <button type="button" className={isSolved ? "btn btn-success" : "btn"} onClick={toggleSolved}>
-                {isSolved ? "Solved \u2713" : "Mark solved"}
-              </button>
-              <button type="button" className="btn" onClick={next}>
-                Next problem
-              </button>
-            </div>
+            <button type="button" className={isSolved ? "btn btn-success" : "btn"} onClick={toggleSolved}>
+              {isSolved ? "Solved \u2713" : "Mark solved"}
+            </button>
           </>
         ) : (
           <EmptyState title="No problem picked yet">

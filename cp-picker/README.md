@@ -6,10 +6,10 @@ Problems are organized as **category** (Graph Theory, Number Theory, Strings, ..
 
 - One pick per local calendar day; reopening the popup shows the same pick.
 - A pick chooses a random category, then a random problem type in it, then the easiest unsolved problem of that type.
-- `Shuffle` replaces today's pick with a different problem type. `Next problem` moves to the next unsolved problem of the same type.
+- `Shuffle` replaces today's pick with a different problem type. A type always serves its lowest unsolved problem, so a harder one only comes up after the easier ones are solved.
 - Skips problem types picked within the last N days (default 7). If every matching type is recent, it picks from all of them.
 - Connect a Codeforces handle in Settings: problems you solved on Codeforces are marked solved automatically (synced when the popup opens, at most every 10 minutes), and the rating range can follow your rating (+100 to +500).
-- Filters by rating range (default 1600 to 3500, roughly Div. 2 D and up), category and platform. Picks, `Next problem`, Browse counts and progress all stay inside the range.
+- Filters by rating range (default 1600 to 3500, roughly Div. 2 D and up), category and platform. Picks, Browse counts and progress all stay inside the range.
 - Browse tab lists every type with its problems easy to hard; tick problems as solved there or from the Today card.
 - Add tab takes many problem links at once and files them under a category and problem type (existing or new).
 - History of daily picks; entries can be deleted.
@@ -102,7 +102,7 @@ src/types.ts                  data model and defaults
 src/data/sources/             bundled problem catalogs
 src/lib/library.ts            merges catalogs, orders problems by rating
 src/lib/picker.ts             category -> type -> problem selection (pure)
-src/lib/daily.ts              today's pick, shuffle and next-problem logic (pure)
+src/lib/daily.ts              today's pick and shuffle logic (pure)
 src/lib/links.ts              Codeforces / AtCoder link parsing
 src/lib/lookup.ts             title and rating lookup for added links
 src/lib/codeforces.ts         Codeforces handle sync and rating-based range

@@ -63,12 +63,11 @@ export function pickInType(
   library: Library,
   today: string,
   typeId: string,
-  afterProblemId?: string,
 ): DailyResult {
   const type = library.typeById.get(typeId);
   const category = type ? library.categoryById.get(type.categoryId) : undefined;
   if (!type || !category) return { kind: "empty", reason: "This problem type no longer exists." };
-  const entry = nextUnsolved(typeProblems(library, typeId, data.filters), new Set(data.solved), afterProblemId);
+  const entry = nextUnsolved(typeProblems(library, typeId, data.filters), new Set(data.solved));
   if (!entry) return { kind: "empty", reason: `Every problem in ${type.name} is solved. Shuffle for a new type.` };
   const record = makeRecord(category, type, entry.problem, today);
   return { kind: "picked", record, history: upsertRecord(data.history, record), usedFallback: false };

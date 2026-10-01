@@ -36,17 +36,8 @@ export function typeProblems(library: Library, typeId: string, filters: Filters)
   return (library.problemsByType.get(typeId) ?? []).filter((e) => matchesFilters(e, filters));
 }
 
-export function nextUnsolved(
-  entries: readonly TypeProblem[],
-  solved: ReadonlySet<string>,
-  afterId?: string,
-): TypeProblem | undefined {
-  const start = afterId ? entries.findIndex((e) => e.problem.id === afterId) + 1 : 0;
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[(start + i) % entries.length];
-    if (entry && !solved.has(entry.problem.id) && entry.problem.id !== afterId) return entry;
-  }
-  return undefined;
+export function nextUnsolved(entries: readonly TypeProblem[], solved: ReadonlySet<string>): TypeProblem | undefined {
+  return entries.find((e) => !solved.has(e.problem.id));
 }
 
 function filteredCategories(library: Library, filters: Filters): Category[] {
