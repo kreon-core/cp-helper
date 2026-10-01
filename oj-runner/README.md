@@ -23,7 +23,7 @@ you visited when the active tab is not C++, and are disabled until one has been 
 - VSIX install: run npm run vsix, then use Extensions: Install from VSIX.
 - Local install: npm run vsix:local:run packages and installs into the "Problem Solving [ C++ ]" profile. Set OJ_RUNNER_PROFILE to target a different one, for example OJ_RUNNER_PROFILE="Default" npm run vsix:local:run.
 - Development: npm install, npm run compile, then press F5 (Run Extension).
-- Version bump: npm run bump raises the patch version in package.json, ../oj-loader/manifest.json, and the oj-loader README version line. Pass minor, major, or an explicit x.y.z to override (npm run bump -- minor).
+- Version bump: npm run bump raises the patch version in package.json, ../oj-loader/package.json, ../oj-loader/public/manifest.json, and the oj-loader README version line. Pass minor, major, or an explicit x.y.z to override (npm run bump -- minor).
 
 ## Quick start
 
@@ -202,7 +202,7 @@ One sample produces one record. Expected/actual dumps appear as indented detail 
 ## Publishing checklist
 
 1. Bump package.json version.
-2. Bump ../oj-loader/manifest.json version.
+2. Bump ../oj-loader/package.json and ../oj-loader/public/manifest.json versions.
 3. Ensure package-lock.json matches.
 4. Run npm run compile.
 5. Build package with npm run vsix.

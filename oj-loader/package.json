@@ -1,0 +1,16 @@
+{
+  "name": "oj-loader",
+  "private": true,
+  "version": "1.2.28",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.3.4",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  }
+}

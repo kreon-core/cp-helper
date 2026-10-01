@@ -5,11 +5,11 @@
  * this WebSocket open to `127.0.0.1` instead. Chrome suspends an idle worker after ~30s but
  * WebSocket traffic resets that timer, which is what OJ Runner's `ping` frames are for.
  */
-import { getSubmitSettings } from "./settings.js";
-import { runSubmitJob } from "./submit-runner.js";
+import type { SubmitJob } from "../types";
+import { getSubmitSettings } from "./settings";
+import { runSubmitJob } from "./submit-runner";
 
-/** @type {WebSocket | undefined} */
-let socket;
+let socket: WebSocket | undefined;
 
 /** Backoff between reconnects, in ms. */
 let retryMs = 1000;
@@ -27,10 +27,7 @@ const DORMANT_KEY = "submitBridgeDormant";
 
 let consecutiveFailures = 0;
 
-/**
- * @returns {Promise<boolean>}
- */
-async function isDormant() {
+async function isDormant(): Promise<boolean> {
   try {
     const got = await chrome.storage.session.get(DORMANT_KEY);
     return got[DORMANT_KEY] === true;
@@ -39,39 +36,24 @@ async function isDormant() {
   }
 }
 
-/**
- * @param {boolean} value
- */
-function setDormant(value) {
+function setDormant(value: boolean): void {
   void chrome.storage.session.set({ [DORMANT_KEY]: value });
 }
 
-/** @type {ReturnType<typeof setTimeout> | undefined} */
-let retryTimer;
+let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
-/**
- * @param {Record<string, unknown>} obj
- */
-function send(obj) {
+function send(obj: Record<string, unknown>): void {
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(obj));
   }
 }
 
-/**
- * @param {string} id
- * @param {string} stage
- * @param {string} [message]
- */
-function reportProgress(id, stage, message) {
+function reportProgress(id: string, stage: string, message?: string): void {
   send({ t: "progress", id, stage, message });
 }
 
-/**
- * @param {unknown} raw
- */
-async function onJob(raw) {
-  const job = /** @type {Record<string, any>} */ (raw);
+async function onJob(raw: unknown): Promise<void> {
+  const job = raw as SubmitJob;
   const id = String(job.id ?? "");
   if (id === "") return;
   try {
@@ -89,7 +71,7 @@ async function onJob(raw) {
   }
 }
 
-function scheduleRetry() {
+function scheduleRetry(): void {
   clearTimeout(retryTimer);
   consecutiveFailures += 1;
   if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
@@ -104,11 +86,10 @@ function scheduleRetry() {
 
 /**
  * Open the socket if it is not already open. Safe to call repeatedly - the keepalive alarm does.
- * @param {{ force?: boolean }} [opts] `force` wakes a dormant client; pass it for user-driven
- * actions (toolbar click, settings change, startup), not for the keepalive alarm.
- * @returns {Promise<void>}
+ * @param opts `force` wakes a dormant client; pass it for user-driven actions (toolbar click,
+ * settings change, startup), not for the keepalive alarm.
  */
-export async function connectBridge(opts) {
+export async function connectBridge(opts?: { force?: boolean }): Promise<void> {
   if (
     socket &&
     (socket.readyState === WebSocket.OPEN ||
@@ -129,7 +110,7 @@ export async function connectBridge(opts) {
   if (!s.submitBridgeEnabled || s.submitBridgeUrl === "") {
     return;
   }
-  let ws;
+  let ws: WebSocket;
   try {
     ws = new WebSocket(s.submitBridgeUrl);
   } catch {
@@ -146,7 +127,7 @@ export async function connectBridge(opts) {
   });
 
   ws.addEventListener("message", (ev) => {
-    let msg;
+    let msg: { t?: unknown };
     try {
       msg = JSON.parse(String(ev.data));
     } catch {

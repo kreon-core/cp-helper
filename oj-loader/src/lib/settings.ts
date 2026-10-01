@@ -1,17 +1,18 @@
-import {
-  DEFAULT_FOCUS_URI,
-  DEFAULT_LOCAL_IMPORT_URL,
-} from "./constants.js";
+import { DEFAULT_FOCUS_URI, DEFAULT_LOCAL_IMPORT_URL } from "./constants";
 
-/**
- * @returns {Promise<{
- *   useLocalHttpImport: boolean;
- *   localImportUrl: string;
- *   fallbackUriIfLocalhostFails: boolean;
- *   focusUri: string;
- * }>}
- */
-export async function getImportSettings() {
+export interface ImportSettings {
+  useLocalHttpImport: boolean;
+  localImportUrl: string;
+  fallbackUriIfLocalhostFails: boolean;
+  focusUri: string;
+}
+
+export interface SubmitSettings {
+  submitBridgeEnabled: boolean;
+  submitBridgeUrl: string;
+}
+
+export async function getImportSettings(): Promise<ImportSettings> {
   const raw = await chrome.storage.sync.get({
     useLocalHttpImport: true,
     localImportUrl: DEFAULT_LOCAL_IMPORT_URL,
@@ -37,9 +38,8 @@ export async function getImportSettings() {
 /**
  * Submit bridge pairing. The URL carries OJ Runner's per-installation token, so it is the
  * secret that keeps other pages and local processes off the socket - treat it as one.
- * @returns {Promise<{ submitBridgeEnabled: boolean; submitBridgeUrl: string }>}
  */
-export async function getSubmitSettings() {
+export async function getSubmitSettings(): Promise<SubmitSettings> {
   const raw = await chrome.storage.sync.get({
     submitBridgeEnabled: true,
     submitBridgeUrl: "",

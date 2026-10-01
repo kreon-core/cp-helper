@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PACKAGE_JSON = join(repo, "package.json");
-const MANIFEST_JSON = join(repo, "..", "oj-loader", "manifest.json");
+const LOADER_PACKAGE_JSON = join(repo, "..", "oj-loader", "package.json");
+const MANIFEST_JSON = join(repo, "..", "oj-loader", "public", "manifest.json");
 const OJ_LOADER_README = join(repo, "..", "oj-loader", "README.md");
 
 const VERSION_FIELD = /("version"\s*:\s*")(\d+\.\d+\.\d+)(")/u;
@@ -55,6 +56,7 @@ function writeReadmeLine(file, version) {
 const current = readVersion(PACKAGE_JSON);
 const version = nextVersion(current, process.argv[2] ?? "patch");
 writeVersionField(PACKAGE_JSON, version);
+writeVersionField(LOADER_PACKAGE_JSON, version);
 writeVersionField(MANIFEST_JSON, version);
 writeReadmeLine(OJ_LOADER_README, version);
-console.log(`${current} -> ${version} (oj-runner/package.json, oj-loader/manifest.json, oj-loader/README.md)`);
+console.log(`${current} -> ${version} (oj-runner/package.json, oj-loader/package.json, oj-loader/public/manifest.json, oj-loader/README.md)`);

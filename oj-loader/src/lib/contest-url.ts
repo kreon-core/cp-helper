@@ -1,12 +1,10 @@
 /**
  * AtCoder / Codeforces / LeetCode problem id for OJ Runner header (e.g. atcoder/abc451_a).
  * LeetCode: numeric labels (`leetcode/3901`) come only from in-page scrape; **no** URL slug here.
- * @param {string | undefined} pageUrl
- * @returns {string}
  */
-export function problemLabelFromContestUrl(pageUrl) {
+export function problemLabelFromContestUrl(pageUrl: string | undefined): string {
   if (!pageUrl) return "";
-  const cfProblemLetter = (s) =>
+  const cfProblemLetter = (s: string) =>
     /^[a-z]$/iu.test(s) ? s.toUpperCase() : s;
   try {
     const u = new URL(pageUrl);
@@ -52,11 +50,7 @@ export function problemLabelFromContestUrl(pageUrl) {
   return "";
 }
 
-/**
- * @param {string | undefined} url
- * @returns {boolean}
- */
-export function isSupportedContestUrl(url) {
+export function isSupportedContestUrl(url: string | undefined): boolean {
   if (!url) return false;
   try {
     const { protocol, hostname } = new URL(url);

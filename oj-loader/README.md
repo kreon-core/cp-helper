@@ -78,43 +78,63 @@ Pairing: in VS Code run **OJ Runner: Copy Submit Bridge URL** and paste the resu
 page. The URL carries a token; WebSocket connections are not subject to CORS, so that token is the
 only thing keeping other pages and local programs off the socket. Treat it as a password.
 
-Chrome suspends an idle service worker after ~30s. Traffic on the socket resets that timer (CP
-Helper sends a `ping` every 20s), and an `alarms` keepalive wakes the worker once a minute to
+Chrome suspends an idle service worker after ~30s. Traffic on the socket resets that timer (OJ
+Runner sends a `ping` every 20s), and an `alarms` keepalive wakes the worker once a minute to
 reconnect after a suspend.
 
 ## Source layout
 
-| File                               | Role                                                                                                   |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `background.js`                    | Service worker: injects `lib/inpage/*.js`, then calls `__ojLoaderExtractSamplesInPage`; POST / fallback. |
-| `lib/inpage/inject-manifest.js`    | **ES module** (SW only): ordered list of classic scripts to inject.                                    |
-| `lib/inpage/shared-dom.js`         | Injected: `prePlainText` (AtCoder + Codeforces).                                                       |
-| `lib/inpage/extract-atcoder.js`    | Injected: AtCoder scrape + contest task labels. Remove + drop `dispatch.js` branch to disable.          |
-| `lib/inpage/extract-codeforces.js` | Injected: Codeforces scrape + contest problem labels. Remove + drop `dispatch.js` branch to disable.   |
-| `lib/inpage/extract-leetcode.js`   | Injected: LeetCode scrape + clipboard + contest labels. Remove + drop `dispatch.js` branch to disable.  |
-| `lib/inpage/dispatch.js`           | Injected: hostname -> `extractAtcoder` / `extractCodeforces` / `extractLeetcode`.                      |
-| `lib/inpage/submit-shared.js`      | Injected: language picking and same-origin page reads for the submit drivers.                          |
-| `lib/inpage/submit-atcoder.js`     | Injected: AtCoder submit + verdict. Remove + drop `submit-dispatch.js` branch to disable.              |
-| `lib/inpage/submit-codeforces.js`  | Injected: Codeforces submit + verdict. Remove + drop `submit-dispatch.js` branch to disable.           |
-| `lib/inpage/submit-dispatch.js`    | Injected: judge -> `submitAtcoder` / `submitCodeforces` and their verdict readers.                     |
-| `lib/bridge.js`                    | WebSocket client for OJ Runner's submit bridge (reconnect + keepalive).                                |
-| `lib/submit-runner.js`             | Runs one job: park a judge tab, call the in-page driver, poll for the verdict.                         |
-| `lib/build-import-payload.js`      | Normalize scrape result -> JSON string for OJ Runner.                                                  |
-| `lib/pair-samples.js`              | Pair input/output `<pre>` blocks into sample objects.                                                  |
-| `lib/contest-url.js`               | Problem labels + supported-host check.                                                                 |
-| `lib/oj-runner-client.js`          | `fetch` POST to localhost; optional `vscode://` tab.                                                   |
-| `lib/settings.js`                  | `chrome.storage.sync` defaults for import/focus URIs.                                                  |
-| `lib/constants.js`                 | Default URIs and badge glyph.                                                                          |
-| `lib/badge.js`                     | Toolbar badge flash success / error.                                                                   |
-| `options.js` / `options.html`      | Options page (separate from the service worker).                                                       |
-| `icons/icon-256.png`              | Master artwork: white outlined documents with a check badge inside a dashed sync ring, on a transparent background. `icons/icon-*.png` are downscaled from it and are what the manifest loads; 16 is the check badge alone, cropped out of the master, since the full drawing turns to mush at that size. |
+TypeScript under **`src/`**, static files under **`public/`**. **`npm run build`** type-checks with
+`tsc`, bundles with esbuild, and writes the loadable extension to **`dist/`**.
 
-The manifest uses **`"type": "module"`** so the service worker can `import` ES modules under **`lib/`**. **Site scrapers** under **`lib/inpage/`** are plain classic scripts (no `import`); Chrome loads them in order via **`scripting.executeScript({ files })`** so each OJ stays in its own file.
+| File                              | Role                                                                                                   |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `src/background.ts`               | Service worker: injects `inpage/extract.js`, then calls `__ojLoaderExtractSamplesInPage`; POST / fallback. |
+| `src/types.ts`                    | Shapes shared by the worker and the in-page bundles, and the `__ojLoader*` globals they meet on.       |
+| `src/lib/inject-manifest.ts`      | Paths of the in-page bundles the worker injects.                                                       |
+| `src/inpage/dispatch.ts`          | Entry of `inpage/extract.js`: hostname -> `extractAtcoder` / `extractCodeforces` / `extractLeetcode`.  |
+| `src/inpage/shared-dom.ts`        | `prePlainText` and limit parsing (AtCoder + Codeforces).                                               |
+| `src/inpage/extract-atcoder.ts`   | AtCoder scrape + contest task labels. Remove + drop its `dispatch.ts` branch to disable.               |
+| `src/inpage/extract-codeforces.ts`| Codeforces scrape + contest problem labels. Remove + drop its `dispatch.ts` branch to disable.         |
+| `src/inpage/extract-leetcode.ts`  | LeetCode scrape + clipboard + contest labels. Remove + drop its `dispatch.ts` branch to disable.       |
+| `src/inpage/submit-dispatch.ts`   | Entry of `inpage/submit.js`: judge -> `submitAtcoder` / `submitCodeforces` and their verdict readers.  |
+| `src/inpage/submit-shared.ts`     | Language picking and same-origin page reads for the submit drivers.                                    |
+| `src/inpage/submit-atcoder.ts`    | AtCoder submit + verdict. Remove + drop its `submit-dispatch.ts` branch to disable.                    |
+| `src/inpage/submit-codeforces.ts` | Codeforces submit + verdict. Remove + drop its `submit-dispatch.ts` branch to disable.                 |
+| `src/lib/bridge.ts`               | WebSocket client for OJ Runner's submit bridge (reconnect + keepalive).                                |
+| `src/lib/submit-runner.ts`        | Runs one job: park a judge tab, call the in-page driver, poll for the verdict.                         |
+| `src/lib/build-import-payload.ts` | Normalize scrape result -> JSON string for OJ Runner.                                                  |
+| `src/lib/pair-samples.ts`         | Pair input/output `<pre>` blocks into sample objects.                                                  |
+| `src/lib/contest-url.ts`          | Problem labels + supported-host check.                                                                 |
+| `src/lib/oj-runner-client.ts`     | `fetch` POST to localhost; optional `vscode://` tab.                                                   |
+| `src/lib/settings.ts`             | `chrome.storage.sync` defaults for import/focus URIs.                                                  |
+| `src/lib/constants.ts`            | Default URIs and badge glyph.                                                                          |
+| `src/lib/badge.ts`                | Toolbar badge flash success / error.                                                                   |
+| `src/tab-title.ts`                | Content script: short tab titles on Codeforces and AtCoder problem pages.                              |
+| `src/options.ts` / `public/options.html` | Options page (separate from the service worker).                                                |
+| `public/manifest.json`            | Extension manifest, copied to `dist/` as is.                                                           |
+| `public/icons/icon-256.png`       | Master artwork: white outlined documents with a check badge inside a dashed sync ring, on a transparent background. `icons/icon-*.png` are downscaled from it and are what the manifest loads; 16 is the check badge alone, cropped out of the master, since the full drawing turns to mush at that size. |
+
+The service worker is bundled as an ES module (**`"type": "module"`** in the manifest). The site
+scrapers and submit drivers are bundled into two classic IIFE scripts, **`inpage/extract.js`** and
+**`inpage/submit.js`**, which Chrome injects via **`scripting.executeScript({ files })`**; each
+registers its entry points on `globalThis` for the worker's serialized `func` calls.
+
+## Build
+
+```sh
+npm install
+npm run build      # tsc --noEmit, then esbuild -> dist/
+npm run watch      # rebuild dist/ on change (no type-check)
+npm run typecheck
+```
 
 ## Load in Chrome
 
-1. Open **Chrome** -> **Extensions** -> enable **Developer mode**.
-2. **Load unpacked** -> select this **`oj-loader`** folder (the one containing `manifest.json`).
+1. Run **`npm run build`**.
+2. Open **Chrome** -> **Extensions** -> enable **Developer mode**.
+3. **Load unpacked** -> select the **`oj-loader/dist`** folder (the one containing `manifest.json`).
+   After a rebuild, click the reload button on the extension card.
 
 ## Options
 
@@ -143,6 +163,6 @@ OJ Runner's **instant Run all** after import applies only when that payload reso
 
 ## Version
 
-See **`manifest.json`** -> **`version`**. Bump it whenever you change this extension (see repo rule **`oj-loader-release.mdc`**).
+See **`public/manifest.json`** -> **`version`**. Bump it whenever you change this extension (see repo rule **`oj-loader-release.mdc`**).
 
-Run **`npm run bump`** in **`oj-runner/`**: it raises the patch version in **`oj-runner/package.json`**, **`oj-loader/manifest.json`** and the version line above, all to the same number. Pass **`minor`**, **`major`** or an explicit **`x.y.z`** to override (**`npm run bump -- minor`**).
+Run **`npm run bump`** in **`oj-runner/`**: it raises the patch version in **`oj-runner/package.json`**, **`oj-loader/package.json`**, **`oj-loader/public/manifest.json`** and the version line above, all to the same number. Pass **`minor`**, **`major`** or an explicit **`x.y.z`** to override (**`npm run bump -- minor`**).

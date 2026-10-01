@@ -1,9 +1,8 @@
-/**
- * @param {number} tabId
- * @param {string} text
- * @param {number} clearMs
- */
-export async function flashBadgeSuccess(tabId, text, clearMs = 2200) {
+export async function flashBadgeSuccess(
+  tabId: number,
+  text: string,
+  clearMs = 2200,
+): Promise<void> {
   await chrome.action.setBadgeText({ tabId, text });
   await chrome.action.setBadgeBackgroundColor({ tabId, color: "#1a7f37" });
   setTimeout(() => {
@@ -11,12 +10,11 @@ export async function flashBadgeSuccess(tabId, text, clearMs = 2200) {
   }, clearMs);
 }
 
-/**
- * @param {number} tabId
- * @param {string} text
- * @param {number} clearMs
- */
-export async function flashBadgeError(tabId, text, clearMs = 2500) {
+export async function flashBadgeError(
+  tabId: number,
+  text: string,
+  clearMs = 2500,
+): Promise<void> {
   await chrome.action.setBadgeText({ tabId, text });
   await chrome.action.setBadgeBackgroundColor({ tabId, color: "#b3261e" });
   setTimeout(() => {

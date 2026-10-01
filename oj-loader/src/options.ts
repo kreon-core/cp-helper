@@ -1,8 +1,4 @@
-/** @type {string} */
-const DEFAULT_FOCUS_URI = "vscode://from-cero.oj-runner/focusSamples";
-
-/** @type {string} */
-const DEFAULT_LOCAL_IMPORT_URL = "http://127.0.0.1:17337/import";
+import { DEFAULT_FOCUS_URI, DEFAULT_LOCAL_IMPORT_URL } from "./lib/constants";
 
 const useLocalEl = document.getElementById("useLocalHttp");
 const localUrlEl = document.getElementById("localImportUrl");

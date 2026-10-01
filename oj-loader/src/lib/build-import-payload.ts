@@ -1,15 +1,27 @@
-import { pairSamples } from "./pair-samples.js";
-import { problemLabelFromContestUrl } from "./contest-url.js";
+import type { Sample, SampleItem } from "../types";
+import { pairSamples } from "./pair-samples";
+import { problemLabelFromContestUrl } from "./contest-url";
+
+interface ImportProblem {
+  problem: string;
+  url?: string;
+  timeLimitMs?: number;
+  memoryLimitMb?: number;
+  samples: Sample[];
+}
+
+type BuildResult = { ok: true; json: string } | { ok: false };
 
 /**
  * Problem page URL per Codeforces problem in a contest-wide dump. OJ Runner needs it to know
  * whether a submit goes through `/contest/` or `/gym/`; the contest id alone does not say.
- * @param {string | undefined} tabUrl the `/problems` page the dump came from
- * @param {string} contestId
- * @param {string} letter
- * @returns {string}
+ * @param tabUrl the `/problems` page the dump came from
  */
-function codeforcesProblemUrl(tabUrl, contestId, letter) {
+function codeforcesProblemUrl(
+  tabUrl: string | undefined,
+  contestId: string,
+  letter: string,
+): string {
   if (!contestId || letter === "?") return "";
   let kind = "contest";
   try {
@@ -21,38 +33,29 @@ function codeforcesProblemUrl(tabUrl, contestId, letter) {
   return `https://codeforces.com/${kind}/${contestId}/problem/${letter}`;
 }
 
-/**
- * @param {unknown} v
- * @returns {number | null}
- */
-function coerceTimeLimitMs(v) {
+function coerceTimeLimitMs(v: unknown): number | null {
   const n = Number(v);
   return Number.isFinite(n) && n >= 100 && n <= 60000 ? Math.round(n) : null;
 }
 
-/**
- * @param {unknown} v
- * @returns {number | null}
- */
-function coerceMemoryLimitMb(v) {
+function coerceMemoryLimitMb(v: unknown): number | null {
   const n = Number(v);
   return Number.isFinite(n) && n >= 1 && n <= 65536 ? Math.round(n) : null;
 }
 
+function isRecord(raw: unknown): raw is Record<string, unknown> {
+  return raw !== null && typeof raw === "object" && !Array.isArray(raw);
+}
+
 /**
- * Turn `executeScript` result from `__ojLoaderExtractSamplesInPage` (see `lib/inpage/`) into POST body JSON.
- * @param {string | undefined} tabUrl
- * @param {unknown} raw
- * @returns {{ ok: true; json: string } | { ok: false }}
+ * Turn `executeScript` result from `__ojLoaderExtractSamplesInPage` (see `inpage/`) into POST body JSON.
  */
-export function buildImportJsonFromExtractResult(tabUrl, raw) {
-  if (
-    raw &&
-    typeof raw === "object" &&
-    !Array.isArray(raw) &&
-    /** @type {{ kind?: string }} */ (raw).kind === "contest-labels"
-  ) {
-    const list = /** @type {{ contestId?: string; labels?: unknown }} */ (raw);
+export function buildImportJsonFromExtractResult(
+  tabUrl: string | undefined,
+  raw: unknown,
+): BuildResult {
+  if (isRecord(raw) && raw.kind === "contest-labels") {
+    const list = raw as { contestId?: string; labels?: unknown };
     const contestId = (list.contestId ?? "").toString();
     const labels = Array.isArray(list.labels)
       ? list.labels.map((x) => String(x)).filter((x) => x.length > 0)
@@ -67,18 +70,18 @@ export function buildImportJsonFromExtractResult(tabUrl, raw) {
     return { ok: true, json: JSON.stringify(payload, null, 2) };
   }
 
-  if (
-    raw &&
-    typeof raw === "object" &&
-    !Array.isArray(raw) &&
-    /** @type {{ kind?: string; problems?: unknown }} */ (raw).kind === "cf-multi" &&
-    Array.isArray(/** @type {{ problems: unknown }} */ (raw).problems)
-  ) {
-    const multi = /** @type {{ kind: string; contestId?: string; problems: { letter?: string; timeLimitMs?: unknown; memoryLimitMb?: unknown; items?: { id: string; text: string }[] }[] }} */ (
-      raw
-    );
-    /** @type {{ problem: string; timeLimitMs?: number; memoryLimitMb?: number; samples: { sample: number; input: string; output: string }[] }[]} */
-    const problemsOut = [];
+  if (isRecord(raw) && raw.kind === "cf-multi" && Array.isArray(raw.problems)) {
+    const multi = raw as {
+      kind: string;
+      contestId?: string;
+      problems: {
+        letter?: string;
+        timeLimitMs?: unknown;
+        memoryLimitMb?: unknown;
+        items?: SampleItem[];
+      }[];
+    };
+    const problemsOut: ImportProblem[] = [];
     for (const pr of multi.problems) {
       const paired = pairSamples(pr.items ?? []);
       if (paired.length === 0) continue;
@@ -87,8 +90,7 @@ export function buildImportJsonFromExtractResult(tabUrl, raw) {
         multi.contestId && letter !== "?"
           ? `codeforces/${multi.contestId}${letter}`
           : "";
-      /** @type {{ problem: string; url?: string; timeLimitMs?: number; memoryLimitMb?: number; samples: { sample: number; input: string; output: string }[] }} */
-      const out = {
+      const out: ImportProblem = {
         problem: pid || `codeforces/${letter}`,
         samples: paired,
       };
@@ -119,16 +121,13 @@ export function buildImportJsonFromExtractResult(tabUrl, raw) {
     return { ok: true, json: JSON.stringify(payload, null, 2) };
   }
 
-  if (
-    raw &&
-    typeof raw === "object" &&
-    !Array.isArray(raw) &&
-    /** @type {{ kind?: string }} */ (raw).kind === "leetcode" &&
-    Array.isArray(/** @type {{ items?: unknown }} */ (raw).items)
-  ) {
-    const wrapped = /** @type {{ kind: string; frontendId?: string | null; starterCode?: string; items: { id: string; text: string }[] }} */ (
-      raw
-    );
+  if (isRecord(raw) && raw.kind === "leetcode" && Array.isArray(raw.items)) {
+    const wrapped = raw as {
+      kind: string;
+      frontendId?: string | null;
+      starterCode?: string;
+      items: SampleItem[];
+    };
     const pairs = pairSamples(wrapped.items);
     if (pairs.length === 0) {
       return { ok: false };
@@ -137,8 +136,7 @@ export function buildImportJsonFromExtractResult(tabUrl, raw) {
     /** Never use URL slug (`leetcode/two-sum`); numeric frontend id only. */
     const problem = /^\d+$/u.test(idPart) ? `leetcode/${idPart}` : "";
     const starterRaw = (wrapped.starterCode ?? "").toString().trim();
-    /** @type {Record<string, unknown>} */
-    const payload =
+    const payload: Record<string, unknown> =
       problem.length > 0 ? { problem, samples: pairs } : { samples: pairs };
     if (starterRaw.length > 0) {
       payload.starterCode = starterRaw;
@@ -146,23 +144,18 @@ export function buildImportJsonFromExtractResult(tabUrl, raw) {
     return { ok: true, json: JSON.stringify(payload, null, 2) };
   }
 
-  if (
-    raw &&
-    typeof raw === "object" &&
-    !Array.isArray(raw) &&
-    /** @type {{ kind?: string }} */ (raw).kind === "single" &&
-    Array.isArray(/** @type {{ items?: unknown }} */ (raw).items)
-  ) {
-    const one = /** @type {{ timeLimitMs?: unknown; memoryLimitMb?: unknown; items: { id: string; text: string }[] }} */ (
-      raw
-    );
+  if (isRecord(raw) && raw.kind === "single" && Array.isArray(raw.items)) {
+    const one = raw as {
+      timeLimitMs?: unknown;
+      memoryLimitMb?: unknown;
+      items: SampleItem[];
+    };
     const pairs = pairSamples(one.items);
     if (pairs.length === 0) {
       return { ok: false };
     }
     const problem = problemLabelFromContestUrl(tabUrl);
-    /** @type {Record<string, unknown>} */
-    const payload = {};
+    const payload: Record<string, unknown> = {};
     if (problem.length > 0) payload.problem = problem;
     if (tabUrl) payload.url = tabUrl;
     payload.samples = pairs;
@@ -173,8 +166,7 @@ export function buildImportJsonFromExtractResult(tabUrl, raw) {
     return { ok: true, json: JSON.stringify(payload, null, 2) };
   }
 
-  /** @type {{ id: string; text: string }[]} */
-  const items = Array.isArray(raw) ? raw : [];
+  const items: SampleItem[] = Array.isArray(raw) ? raw : [];
   const pairs = pairSamples(items);
 
   if (pairs.length === 0) {

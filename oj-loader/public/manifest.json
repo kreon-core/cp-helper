@@ -45,7 +45,7 @@
         "https://*.atcoder.jp/*",
         "http://*.atcoder.jp/*"
       ],
-      "js": ["lib/tab-title.js"],
+      "js": ["tab-title.js"],
       "run_at": "document_end",
       "all_frames": false
     }

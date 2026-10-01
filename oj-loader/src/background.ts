@@ -2,25 +2,23 @@
  * OJ Loader service worker - wires toolbar click -> page scrape -> POST to OJ Runner.
  * Logic lives under `./lib/` for readability.
  */
-import { BADGE_OK } from "./lib/constants.js";
-import { connectBridge } from "./lib/bridge.js";
-import { OJ_LOADER_INPAGE_SCRIPT_PATHS } from "./lib/inpage/inject-manifest.js";
-import { buildImportJsonFromExtractResult } from "./lib/build-import-payload.js";
-import { isSupportedContestUrl } from "./lib/contest-url.js";
-import { flashBadgeSuccess, flashBadgeError } from "./lib/badge.js";
-import { getImportSettings } from "./lib/settings.js";
+import { BADGE_OK } from "./lib/constants";
+import { connectBridge } from "./lib/bridge";
+import { OJ_LOADER_INPAGE_SCRIPT_PATHS } from "./lib/inject-manifest";
+import { buildImportJsonFromExtractResult } from "./lib/build-import-payload";
+import { isSupportedContestUrl } from "./lib/contest-url";
+import { flashBadgeSuccess, flashBadgeError } from "./lib/badge";
+import { getImportSettings } from "./lib/settings";
 import {
   postSamplesToLocalTester,
   openEditorImportTab,
-} from "./lib/oj-runner-client.js";
+} from "./lib/oj-runner-client";
 
 /**
  * Runs in the **tab** (serialized by `executeScript`); calls the dispatcher
- * registered by `lib/inpage/dispatch.js`.
- * @param {string} pageUrl
- * @returns {unknown}
+ * registered by `inpage/dispatch.ts`.
  */
-function runExtractSamplesInPage(pageUrl) {
+function runExtractSamplesInPage(pageUrl: string): unknown {
   const fn = globalThis.__ojLoaderExtractSamplesInPage;
   if (typeof fn !== "function") {
     return [];
@@ -32,11 +30,10 @@ function runExtractSamplesInPage(pageUrl) {
 const BRIDGE_KEEPALIVE_ALARM = "oj-loader-bridge-keepalive";
 
 /**
- * Called for user-driven moments, so it forces a reconnect even after the client gave up on a
+ * Called for user-driven moments, so it forces a reconnect even after the client gave up on an
  * OJ Runner that was not listening.
- * @returns {Promise<void>}
  */
-function ensureBridge() {
+function ensureBridge(): Promise<void> {
   chrome.alarms.create(BRIDGE_KEEPALIVE_ALARM, { periodInMinutes: 1 });
   return connectBridge({ force: true });
 }

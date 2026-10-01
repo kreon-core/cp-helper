@@ -5,7 +5,30 @@
  * Everything that needs the judge's session happens in the tab, never here: an extension `fetch`
  * is cross-site as far as SameSite cookies are concerned, so it would submit as a logged-out user.
  */
-import { OJ_LOADER_SUBMIT_SCRIPT_PATHS } from "./inpage/inject-manifest.js";
+import type {
+  AntiBotState,
+  ProgressReporter,
+  SubmitJob,
+  SubmitOutcome,
+  SubmitResult,
+  VerdictRow,
+  VerdictsQuery,
+} from "../types";
+import { OJ_LOADER_SUBMIT_SCRIPT_PATHS } from "./inject-manifest";
+
+type VerdictOutcome = Omit<SubmitOutcome, "submitted" | "language">;
+
+interface VerdictSubscriber {
+  judge: string;
+  problemId: string;
+  tabId: number;
+  deliver(row: VerdictRow | undefined, err: unknown): void;
+}
+
+interface Poller {
+  subs: Set<VerdictSubscriber>;
+  running: boolean;
+}
 
 /** Session-scoped ids of the tabs reused for submits, so repeat submits do not pile up tabs. */
 const TAB_KEY = "submitTabIds";
@@ -14,10 +37,10 @@ const TAB_KEY = "submitTabIds";
  * Tabs a job is driving right now. Jobs for different problems run at the same time, and a tab
  * being replayed must not be navigated to another problem underneath it.
  */
-const busyTabs = new Set();
+const busyTabs = new Set<number>();
 
 /** Claims are read-modify-write over the pool, so they are taken one at a time. */
-let claimChain = Promise.resolve();
+let claimChain: Promise<void> = Promise.resolve();
 
 /** Give up waiting for the submit page to load. */
 const TAB_LOAD_TIMEOUT_MS = 30000;
@@ -36,14 +59,14 @@ const IN_PAGE_SUBMIT_TIMEOUT_MS = 45000;
 const CLAIM_TIMEOUT_MS = 15000;
 
 /** Tabs that stopped answering. Closed on the spot, and never reused if a claim already had one. */
-const wedgedTabs = new Set();
+const wedgedTabs = new Set<number>();
 
 /**
  * Tabs whose anti-bot token has already been spent by a POST. The widget keeps showing the used
  * token, and the judge rejects a second submission carrying it, so such a tab is reloaded before
  * it is replayed again even when it is already on the right page.
  */
-const spentTabs = new Set();
+const spentTabs = new Set<number>();
 
 /**
  * How long an anti-bot widget gets to clear itself while its tab is still in the background.
@@ -65,27 +88,23 @@ const POLL_SLOW_INTERVAL_MS = 5000;
  * on a single page, so problems submitted together are followed by one read per cycle instead of
  * one each - which is what keeps a contest's worth of concurrent submits off the judge's rate
  * limiter.
- * @type {Map<string, { subs: Set<any>; running: boolean }>}
  */
-const pollers = new Map();
+const pollers = new Map<string, Poller>();
 
-/**
- * @param {number} ms
- * @returns {Promise<void>}
- */
-function delay(ms) {
+function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
 /**
- * @template T
- * @param {Promise<T>} work
- * @param {number} ms
- * @param {string} what subject of the error message, e.g. `The judge's tab`
- * @param {string} [advice] what the user should do about it
- * @returns {Promise<T>}
+ * @param what subject of the error message, e.g. `The judge's tab`
+ * @param advice what the user should do about it
  */
-function withTimeout(work, ms, what, advice = "Check the tab it opened on the judge.") {
+function withTimeout<T>(
+  work: Promise<T>,
+  ms: number,
+  what: string,
+  advice = "Check the tab it opened on the judge.",
+): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       const e = new Error(
@@ -107,11 +126,7 @@ function withTimeout(work, ms, what, advice = "Check the tab it opened on the ju
   });
 }
 
-/**
- * @param {number} tabId
- * @returns {Promise<chrome.tabs.Tab | null>}
- */
-async function getTab(tabId) {
+async function getTab(tabId: number): Promise<chrome.tabs.Tab | null> {
   try {
     return await chrome.tabs.get(tabId);
   } catch {
@@ -120,10 +135,9 @@ async function getTab(tabId) {
 }
 
 /**
- * @param {string} url
- * @returns {string} origin + path, the part that has to match for the tab to be on the right page
+ * @returns origin + path, the part that has to match for the tab to be on the right page
  */
-function pageKey(url) {
+function pageKey(url: string): string {
   try {
     const u = new URL(url);
     return `${u.origin}${u.pathname}`;
@@ -138,15 +152,11 @@ function pageKey(url) {
  * old document as `complete` until the new one arrives - so polling alone would hand the drivers
  * the page that is about to be replaced. What loaded is still `waitForLoad`'s to check: a judge
  * that answered with its login page has to be reported as that, not as a load that never came.
- * @param {number} tabId
- * @param {string} url
- * @returns {Promise<void>}
  */
-function navigateTab(tabId, url) {
+function navigateTab(tabId: number, url: string): Promise<void> {
   return new Promise((resolve, reject) => {
     let settled = false;
-    /** @param {Error} [err] */
-    const finish = (err) => {
+    const finish = (err?: Error) => {
       if (settled) {
         return;
       }
@@ -160,17 +170,12 @@ function navigateTab(tabId, url) {
         resolve();
       }
     };
-    /**
-     * @param {number} id
-     * @param {chrome.tabs.TabChangeInfo} info
-     */
-    const onUpdated = (id, info) => {
+    const onUpdated = (id: number, info: chrome.tabs.OnUpdatedInfo) => {
       if (id === tabId && info.status === "complete") {
         finish();
       }
     };
-    /** @param {number} id */
-    const onRemoved = (id) => {
+    const onRemoved = (id: number) => {
       if (id === tabId) {
         finish(new Error("The submit tab was closed."));
       }
@@ -181,7 +186,7 @@ function navigateTab(tabId, url) {
     );
     chrome.tabs.onUpdated.addListener(onUpdated);
     chrome.tabs.onRemoved.addListener(onRemoved);
-    chrome.tabs.update(tabId, { url }).catch((e) => {
+    chrome.tabs.update(tabId, { url }).catch((e: unknown) => {
       finish(e instanceof Error ? e : new Error(String(e)));
     });
   });
@@ -191,11 +196,8 @@ function navigateTab(tabId, url) {
  * Waits for the tab to finish loading `expectedUrl`. The URL has to be checked as well as the
  * status: right after a navigation is requested the tab still reports the previous page as
  * `complete`, which would let the drivers run against the wrong document.
- * @param {number} tabId
- * @param {string} expectedUrl
- * @returns {Promise<void>}
  */
-async function waitForLoad(tabId, expectedUrl) {
+async function waitForLoad(tabId: number, expectedUrl: string): Promise<void> {
   const want = pageKey(expectedUrl);
   const deadline = Date.now() + TAB_LOAD_TIMEOUT_MS;
   for (;;) {
@@ -223,15 +225,16 @@ async function waitForLoad(tabId, expectedUrl) {
  * Take a tab out of the pool for `submitUrl`, opening one when every pooled tab is either gone or
  * already carrying another job. The navigation itself is left to the caller: claims are
  * serialized, so waiting for a page to load in here would park every later submit behind it.
- * @param {string} submitUrl
- * @returns {Promise<{ tabId: number; navigate: boolean }>} claimed tab, marked busy
+ * @returns claimed tab, marked busy
  */
-async function claimTab(submitUrl) {
+async function claimTab(
+  submitUrl: string,
+): Promise<{ tabId: number; navigate: boolean }> {
   const stored = await chrome.storage.session.get({ [TAB_KEY]: [] });
   const pool = (Array.isArray(stored[TAB_KEY]) ? stored[TAB_KEY] : []).filter(
-    (id) => typeof id === "number",
+    (id: unknown): id is number => typeof id === "number",
   );
-  const alive = [];
+  const alive: number[] = [];
   for (const id of pool) {
     if (!wedgedTabs.has(id) && (await getTab(id))) {
       alive.push(id);
@@ -262,16 +265,14 @@ async function claimTab(submitUrl) {
  * Drop a tab that stopped answering: out of the pool, off the screen. Whatever wedged it is still
  * there, so it is no use to a later submit, and left open it would sit on the judge for the rest
  * of the browser session while every submit after it opens a tab of its own.
- * @param {number} tabId
- * @returns {Promise<void>}
  */
-async function discardTab(tabId) {
+async function discardTab(tabId: number): Promise<void> {
   wedgedTabs.add(tabId);
   const drop = claimChain.then(async () => {
     const stored = await chrome.storage.session.get({ [TAB_KEY]: [] });
     const pool = Array.isArray(stored[TAB_KEY]) ? stored[TAB_KEY] : [];
     await chrome.storage.session.set({
-      [TAB_KEY]: pool.filter((id) => typeof id === "number" && id !== tabId),
+      [TAB_KEY]: pool.filter((id: unknown) => typeof id === "number" && id !== tabId),
     });
     try {
       await chrome.tabs.remove(tabId);
@@ -287,10 +288,9 @@ async function discardTab(tabId) {
 }
 
 /**
- * @param {string} submitUrl
- * @returns {Promise<number>} id of a tab sitting on `submitUrl`
+ * @returns id of a tab sitting on `submitUrl`
  */
-async function acquireTab(submitUrl) {
+async function acquireTab(submitUrl: string): Promise<number> {
   const claim = claimChain.then(() =>
     withTimeout(claimTab(submitUrl), CLAIM_TIMEOUT_MS, "The browser"),
   );
@@ -314,10 +314,8 @@ async function acquireTab(submitUrl) {
 
 /**
  * Runs in the **tab** (serialized by `executeScript`).
- * @param {Record<string, unknown>} job
- * @returns {unknown}
  */
-function callSubmitInPage(job) {
+function callSubmitInPage(job: SubmitJob): SubmitResult | Promise<SubmitResult> {
   const fn = globalThis.__ojLoaderSubmitInPage;
   return typeof fn === "function"
     ? fn(job)
@@ -326,10 +324,10 @@ function callSubmitInPage(job) {
 
 /**
  * Runs in the **tab** (serialized by `executeScript`).
- * @param {Record<string, unknown>} opts
- * @returns {unknown}
  */
-function callAntiBotInPage(opts) {
+function callAntiBotInPage(opts: {
+  waitMs?: number;
+}): AntiBotState | Promise<AntiBotState> {
   const fn = globalThis.__ojLoaderAntiBotInPage;
   return typeof fn === "function"
     ? fn(opts)
@@ -338,20 +336,18 @@ function callAntiBotInPage(opts) {
 
 /**
  * Runs in the **tab** (serialized by `executeScript`).
- * @param {Record<string, unknown>} job
- * @returns {unknown}
  */
-function callVerdictInPage(job) {
+function callVerdictInPage(job: SubmitJob): VerdictRow | Promise<VerdictRow> {
   const fn = globalThis.__ojLoaderVerdictInPage;
   return typeof fn === "function" ? fn(job) : { verdict: "", pending: false };
 }
 
 /**
  * Runs in the **tab** (serialized by `executeScript`).
- * @param {Record<string, unknown>} opts
- * @returns {unknown}
  */
-function callVerdictsInPage(opts) {
+function callVerdictsInPage(
+  opts: VerdictsQuery,
+): Record<string, VerdictRow> | Promise<Record<string, VerdictRow>> {
   const fn = globalThis.__ojLoaderVerdictsInPage;
   return typeof fn === "function" ? fn(opts) : {};
 }
@@ -359,13 +355,8 @@ function callVerdictsInPage(opts) {
 /**
  * Every call into a tab goes through here, so a tab that stops answering is recorded once and
  * kept out of the pool from then on.
- * @template T
- * @param {number} tabId
- * @param {Promise<T>} work
- * @param {number} timeoutMs
- * @returns {Promise<T>}
  */
-async function inTab(tabId, work, timeoutMs) {
+async function inTab<T>(tabId: number, work: Promise<T>, timeoutMs: number): Promise<T> {
   try {
     const out = await withTimeout(
       work,
@@ -383,28 +374,22 @@ async function inTab(tabId, work, timeoutMs) {
   }
 }
 
-/**
- * @param {number} tabId
- * @param {(job: Record<string, unknown>) => unknown} func
- * @param {Record<string, unknown>} job
- * @param {number} [timeoutMs]
- * @returns {Promise<any>}
- */
-async function callInPage(tabId, func, job, timeoutMs = IN_PAGE_TIMEOUT_MS) {
+async function callInPage<A, R>(
+  tabId: number,
+  func: (arg: A) => R | Promise<R>,
+  job: A,
+  timeoutMs = IN_PAGE_TIMEOUT_MS,
+): Promise<R | undefined> {
   const frames = await inTab(
     tabId,
     chrome.scripting.executeScript({ target: { tabId }, func, args: [job] }),
     timeoutMs,
   );
   const first = frames ? frames[0] : undefined;
-  return first ? first.result : undefined;
+  return first ? (first.result as R | undefined) : undefined;
 }
 
-/**
- * @param {number} tabId
- * @returns {Promise<void>}
- */
-async function focusTab(tabId) {
+async function focusTab(tabId: number): Promise<void> {
   try {
     const tab = await inTab(
       tabId,
@@ -421,12 +406,13 @@ async function focusTab(tabId) {
 
 /**
  * Whether a submission newer than `priorId` now exists for this problem.
- * @param {number} tabId
- * @param {Record<string, unknown>} job
- * @param {string} priorId newest submission id seen before the POST
- * @returns {Promise<boolean>}
+ * @param priorId newest submission id seen before the POST
  */
-async function appeared(tabId, job, priorId) {
+async function appeared(
+  tabId: number,
+  job: SubmitJob,
+  priorId: string,
+): Promise<boolean> {
   for (let i = 0; i < 3; i += 1) {
     await delay(1500);
     try {
@@ -442,41 +428,27 @@ async function appeared(tabId, job, priorId) {
   return false;
 }
 
-/**
- * @param {string} judge
- * @param {string} verdict
- * @returns {boolean}
- */
-function isAccepted(judge, verdict) {
+function isAccepted(judge: string, verdict: string): boolean {
   const v = verdict.trim().toLowerCase();
   return judge === "atcoder" ? v === "ac" : v.startsWith("accepted");
 }
 
-/**
- * @param {string} judge
- * @param {string} verdict
- * @returns {boolean}
- */
-function isProvisional(judge, verdict) {
+function isProvisional(judge: string, verdict: string): boolean {
   return judge === "codeforces" && /^pretests passed/iu.test(verdict.trim());
 }
 
 /**
- * @param {number} elapsed ms this poller has been running
- * @returns {number}
+ * @param elapsed ms this poller has been running
  */
-function pollDelay(elapsed) {
+function pollDelay(elapsed: number): number {
   return elapsed >= POLL_SLOW_AFTER_MS ? POLL_SLOW_INTERVAL_MS : POLL_INTERVAL_MS;
 }
 
 /**
  * Read the status page once per cycle and hand each waiting job its own row. The read runs in a
  * subscriber's tab, and falls back to the others if that one cannot answer.
- * @param {string} statusUrl
- * @param {{ subs: Set<any>; running: boolean }} poller
- * @returns {Promise<void>}
  */
-async function pollLoop(statusUrl, poller) {
+async function pollLoop(statusUrl: string, poller: Poller): Promise<void> {
   const started = Date.now();
   try {
     while (poller.subs.size > 0) {
@@ -486,8 +458,8 @@ async function pollLoop(statusUrl, poller) {
         break;
       }
       const problemIds = subs.map((s) => s.problemId);
-      let rows;
-      let failure;
+      let rows: Record<string, VerdictRow> | undefined;
+      let failure: unknown;
       for (const s of subs) {
         try {
           rows = await callInPage(s.tabId, callVerdictsInPage, {
@@ -518,13 +490,15 @@ async function pollLoop(statusUrl, poller) {
 
 /**
  * Follow one problem's verdict on the poller shared by everything on the same status page.
- * @param {Record<string, any>} job
- * @param {number} tabId this job's tab, offered to the poller to read the status page in
- * @param {number} pollFor how long to wait for the verdict to settle
- * @param {(stage: string, message?: string) => void} onProgress
- * @returns {Promise<{ verdict?: string; accepted?: boolean; provisional?: boolean; submissionId?: string; submissionUrl?: string; error?: string }>}
+ * @param tabId this job's tab, offered to the poller to read the status page in
+ * @param pollFor how long to wait for the verdict to settle
  */
-function watchVerdict(job, tabId, pollFor, onProgress) {
+function watchVerdict(
+  job: SubmitJob,
+  tabId: number,
+  pollFor: number,
+  onProgress: ProgressReporter,
+): Promise<VerdictOutcome> {
   const statusUrl = String(job.statusUrl);
   let poller = pollers.get(statusUrl);
   if (!poller) {
@@ -533,24 +507,16 @@ function watchVerdict(job, tabId, pollFor, onProgress) {
   }
   const shared = poller;
   return new Promise((resolve) => {
-    /** @type {{ verdict: string; pending: boolean; submissionId?: string; submissionUrl?: string }} */
-    let last = { verdict: "", pending: true };
-    /**
-     * @param {Record<string, any>} out
-     */
-    const finish = (out) => {
+    let last: VerdictRow = { verdict: "", pending: true };
+    const finish = (out: VerdictOutcome) => {
       clearTimeout(timer);
       shared.subs.delete(sub);
       resolve(out);
     };
-    const sub = {
+    const sub: VerdictSubscriber = {
       judge: String(job.judge),
       problemId: String(job.problemId),
       tabId,
-      /**
-       * @param {{ verdict: string; pending: boolean; submissionId?: string; submissionUrl?: string } | undefined} row
-       * @param {unknown} err
-       */
       deliver(row, err) {
         if (err) {
           finish({
@@ -596,12 +562,14 @@ function watchVerdict(job, tabId, pollFor, onProgress) {
 }
 
 /**
- * @param {number} tabId tab already sitting on the job's submit page
- * @param {Record<string, any>} job from OJ Runner
- * @param {(stage: string, message?: string) => void} onProgress
- * @returns {Promise<{ submitted: boolean; verdict?: string; accepted?: boolean; provisional?: boolean; submissionId?: string; submissionUrl?: string; error?: string }>}
+ * @param tabId tab already sitting on the job's submit page
+ * @param job from OJ Runner
  */
-async function submitInTab(tabId, job, onProgress) {
+async function submitInTab(
+  tabId: number,
+  job: SubmitJob,
+  onProgress: ProgressReporter,
+): Promise<SubmitOutcome> {
   await inTab(
     tabId,
     chrome.scripting.executeScript({
@@ -672,11 +640,12 @@ async function submitInTab(tabId, job, onProgress) {
 }
 
 /**
- * @param {Record<string, any>} job from OJ Runner
- * @param {(stage: string, message?: string) => void} onProgress
- * @returns {Promise<{ submitted: boolean; verdict?: string; accepted?: boolean; provisional?: boolean; submissionId?: string; submissionUrl?: string; error?: string }>}
+ * @param job from OJ Runner
  */
-export async function runSubmitJob(job, onProgress) {
+export async function runSubmitJob(
+  job: SubmitJob,
+  onProgress: ProgressReporter,
+): Promise<SubmitOutcome> {
   onProgress("opening judge");
   const tabId = await acquireTab(String(job.submitUrl));
   try {
