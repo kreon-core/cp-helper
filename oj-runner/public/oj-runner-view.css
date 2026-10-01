@@ -1,0 +1,1636 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --cp-radius-sm: 3px;
+  --cp-radius-md: 4px;
+  --cp-radius-lg: 6px;
+  /** Shared geometry for every status chip: verdict, timings, Run all count, source, time limit. */
+  --cp-chip-radius: 5px;
+  --cp-chip-height: 22px;
+  /** Type scale: titles, everything else in the chrome, uppercase field labels. */
+  --cp-text-title: 12px;
+  --cp-text-body: 11px;
+  --cp-text-label: 10px;
+  /** Icon scale: toolbar buttons, icons inside a chip or next to text. */
+  --cp-icon: 16px;
+  --cp-icon-sm: 12px;
+  --cp-chip-font-size: var(--cp-text-body);
+  --cp-chip-font-weight: 600;
+  --cp-chip-letter-spacing: 0.02em;
+  --cp-chip-neutral-bg: rgba(128, 128, 128, 0.1);
+  --cp-chip-neutral-border: rgba(128, 128, 128, 0.18);
+  --cp-surface-border: var(--vscode-widget-border, rgba(128, 128, 128, 0.22));
+  --cp-surface-raised: rgba(128, 128, 128, 0.06);
+  --cp-ac: var(--vscode-testing-iconPassed, #3fb950);
+  --cp-wa: var(--vscode-errorForeground, #f85149);
+  --cp-tle: var(--vscode-textLink-foreground, #58a6ff);
+  --cp-re: var(--vscode-editorWarning-foreground, #d29922);
+  --cp-space-1: 4px;
+  --cp-space-2: 6px;
+  --cp-space-3: 8px;
+  --cp-fg: var(--vscode-foreground);
+  /** Inset of row content from the list edge: `.case` 1px border + `.case-head` padding. */
+  --cp-gutter: 7px;
+}
+
+/**
+ * Any explicit `display` on a class (e.g. .case-group-run-status { display: inline-flex })
+ * overrides the user-agent [hidden] rule, so hidden nodes stay visible. Restore hide.
+ */
+[hidden] {
+  display: none !important;
+}
+
+/**
+ * The document itself never scrolls: `body` is a fixed-height column whose only flexible track
+ * is the case list, so the toolbar and the Test cases heading stay put and the scrollbar belongs
+ * to the list rather than to the whole view.
+ * Workbench chrome *outside* the webview iframe cannot be styled by the extension.
+ */
+/* Dark themes ship a grey foreground (#ccc); the view's small text reads crisper a step brighter. */
+body.vscode-dark {
+  --cp-fg: color-mix(in srgb, var(--vscode-foreground) 50%, #ffffff);
+}
+
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  padding: 0 var(--cp-space-2);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--cp-fg);
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  line-height: 1.4;
+  height: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+
+/**
+ * Incidental scrollers stay bar-free; the view itself and the sample/output fields opt back in
+ * below, so a bar always means "this box has more content".
+ */
+*,
+*::before,
+*::after {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar,
+*::-webkit-scrollbar-corner {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.import {
+  flex: 0 0 auto;
+  margin-bottom: var(--cp-space-2);
+}
+
+.import__identity {
+  display: flex;
+  align-items: center;
+  gap: 6px 10px;
+  min-width: 0;
+  padding: var(--cp-space-2) var(--cp-gutter);
+}
+
+/**
+ * The bar is outside the scroller, so it needs no sticky offset - only a stacking context, to
+ * keep its bottom shadow above the list. Negative inline margins let the background span the
+ * body's side padding.
+ */
+.import__actions {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-1) var(--cp-space-2);
+  margin: 0 calc(-1 * var(--cp-space-2));
+  padding: var(--cp-space-2) calc(var(--cp-space-2) + var(--cp-gutter));
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  border-top: 1px solid var(--cp-surface-border);
+  border-bottom: 1px solid var(--cp-surface-border);
+}
+
+.import--stuck .import__actions {
+  box-shadow: 0 4px 8px -6px rgba(0, 0, 0, 0.55);
+}
+
+.btn-sep {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 1px;
+  height: 14px;
+  margin: 0 var(--cp-space-1);
+  background: var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
+}
+
+.btn-row__cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-1);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/**
+ * Compiler and run-target readouts. Both are ambient metadata, so they stay quiet: a codicon to
+ * tell them apart at a glance, dim text, and a pill that only appears on hover - the hover is the
+ * affordance for the tooltip each one carries.
+ */
+.meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-1);
+  min-width: 0;
+  min-height: var(--cp-chip-height);
+  padding: 0 var(--cp-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--cp-chip-radius);
+  background: transparent;
+  color: var(--cp-fg);
+  transition: background-color 80ms ease-out;
+}
+
+.meta-chip:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.16));
+}
+
+/* In a problem header the codicons sit a pixel low against the UI font's capitals. */
+.case-group-src .meta-chip__icon.codicon[class*="codicon-"],
+.case-group-limit .codicon[class*="codicon-"],
+button.submit-status::before {
+  position: relative;
+  top: -1px;
+}
+
+.meta-chip__icon.codicon[class*="codicon-"] {
+  flex: 0 0 auto;
+  font-size: var(--cp-icon-sm);
+  opacity: 0.9;
+}
+
+.meta-chip--running .meta-chip__icon.codicon[class*="codicon-"] {
+  opacity: 1;
+  color: var(--vscode-progressBar-background, var(--vscode-textLink-foreground));
+}
+
+.active-source-wrap {
+  margin-left: auto;
+  flex-shrink: 1;
+  max-width: min(240px, 55vw);
+}
+
+.active-source-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  padding: 2px 0;
+  color: inherit;
+  font-size: var(--cp-text-body);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/**
+ * The LOCAL twin of a run button: a secondary button like Debug, tinted so the pair reads as two
+ * builds of one action rather than two unrelated commands.
+ */
+button.btn-run-local {
+  color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+.active-source-label__dir {
+  opacity: 0.75;
+}
+
+.runner-hint__std {
+  margin-left: var(--cp-space-1);
+  padding-left: var(--cp-space-1);
+  border-left: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
+}
+
+.active-source-label--empty {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+.active-source-label--running {
+  opacity: 0.95;
+  color: var(--vscode-progressBar-background, var(--vscode-textLink-foreground));
+}
+
+/**
+ * Fixed track so the toolbar never shifts when a problem is imported: `ch` is sized off the
+ * editor font, and 20 fits the "No problem imported" placeholder. Longer ids scroll (shift+wheel).
+ */
+.import-problem-title {
+  display: block;
+  flex: 0 0 auto;
+  width: 20ch;
+  max-width: 100%;
+  margin: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  white-space: nowrap;
+  font-size: var(--cp-text-title);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--cp-fg);
+}
+
+/** Right-edge fade as the only affordance for the scroll: the scrollbar is hidden document-wide. */
+.import-problem-title--overflow {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 14px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 14px), transparent);
+}
+
+.import-problem-title--empty {
+  font-weight: 500;
+  font-style: italic;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  opacity: 0.6;
+}
+
+.runner-hint {
+  flex: 0 1 auto;
+  margin: 0 0 0 auto;
+  max-width: min(100%, 320px);
+  line-height: 1.3;
+  font-size: var(--cp-text-body);
+  font-weight: 600;
+  overflow: hidden;
+}
+
+.runner-hint__value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#import-json {
+  width: calc(100% - 2 * var(--cp-gutter));
+  margin: var(--cp-space-2) var(--cp-gutter) 0;
+  min-height: 48px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: var(--vscode-editor-font-size, 12px);
+  line-height: 1.4;
+  padding: var(--cp-space-1) var(--cp-space-2);
+  border: 1px solid var(--vscode-input-border, #444);
+  border-radius: var(--cp-radius-md);
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  resize: none;
+  overflow: hidden;
+}
+
+#import-json::placeholder {
+  color: var(--vscode-input-placeholderForeground, var(--vscode-descriptionForeground));
+  opacity: 0.65;
+}
+
+#import-json:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, #007fd4);
+  box-shadow: 0 0 0 1px var(--vscode-focusBorder, #007fd4);
+}
+
+/* A faint track with one leading arc in the theme's own foreground: white on a dark theme. */
+.run-status-spinner,
+.run-row-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  border: 1.5px solid rgba(128, 128, 128, 0.25);
+  border-top-color: var(--vscode-foreground, #ffffff);
+  border-radius: 50%;
+  animation: oj-runner-spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+
+.run-status-label {
+  white-space: nowrap;
+}
+
+@keyframes oj-runner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+button {
+  cursor: pointer;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--cp-radius-sm);
+  border: none;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+button:focus {
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: 2px;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+button:active:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.btn-secondary {
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+}
+
+button.btn-stop:not([hidden]) {
+  color: var(--vscode-errorForeground);
+}
+
+.hint {
+  font-size: var(--cp-text-body);
+  opacity: 0.9;
+  flex: 1;
+  min-width: 140px;
+  line-height: 1.35;
+}
+
+/* Neutral surface + error text/border: inputValidation errorBackground + errorForeground can both be red in some themes (unreadable). */
+.err {
+  flex: 0 0 auto;
+  color: var(--vscode-errorForeground);
+  background: var(--vscode-editor-background, var(--vscode-sideBar-background));
+  padding: var(--cp-space-1) var(--cp-space-2);
+  border-radius: var(--cp-radius-md);
+  font-size: var(--cp-text-body);
+  line-height: 1.4;
+  margin-bottom: var(--cp-space-1);
+  border: 1px solid var(--vscode-inputValidation-errorBorder, rgba(248, 81, 73, 0.55));
+}
+
+.list {
+  flex: 1 1 auto;
+  min-height: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0 0 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+button.btn-add-case {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  min-width: 26px;
+  height: 22px;
+  margin-left: var(--cp-gutter);
+  padding: 0;
+  border: none;
+  border-radius: var(--cp-radius-sm);
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+}
+
+.list-empty {
+  flex: 0 0 auto;
+  font-size: var(--cp-text-body);
+  line-height: 1.6;
+  opacity: 0.9;
+  text-align: center;
+  padding: 20px var(--cp-space-2);
+  margin: 0 0 var(--cp-space-1);
+  border: 1px dashed var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
+  border-radius: var(--cp-radius-md);
+}
+
+.list-empty strong {
+  font-weight: 600;
+  color: var(--cp-fg);
+}
+
+.cases-section {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--cp-space-3);
+}
+
+
+/**
+ * A problem is one panel: the header is flush against the top edge and its samples sit inside the
+ * same border, so a case row reads as belonging to the header above it rather than floating free.
+ */
+.case-group-wrap {
+  list-style: none;
+  margin: 0 0 var(--cp-space-3);
+  padding: 0;
+}
+
+.case-group-wrap--panel {
+  border: 1px solid var(--cp-surface-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+}
+
+.case-group-wrap:last-child {
+  margin-bottom: 0;
+}
+
+.case-group-head {
+  --cp-head-tint: var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-1) var(--cp-space-2);
+  min-height: 32px;
+  padding: var(--cp-space-1) var(--cp-space-2) var(--cp-space-1) var(--cp-space-1);
+  background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  background-image: linear-gradient(var(--cp-head-tint), var(--cp-head-tint));
+  border-bottom: 1px solid var(--cp-surface-border);
+  cursor: pointer;
+}
+
+/**
+ * The disclosure stays reachable while its own samples scroll past: each header sticks to the top
+ * of the list until its group is gone, then the next group's header takes over. Needs no ancestor
+ * between here and `.list` to clip or scroll, hence no `overflow` on the panel wrap.
+ */
+.case-group-wrap--panel > .case-group-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border-radius: calc(var(--cp-radius-lg) - 1px) calc(var(--cp-radius-lg) - 1px) 0 0;
+}
+
+.case-group-wrap--panel.case-group-wrap--collapsed > .case-group-head {
+  border-radius: calc(var(--cp-radius-lg) - 1px);
+}
+
+button.case-group-disclose {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 2px 6px;
+  border: none;
+  border-radius: var(--cp-radius-sm);
+  background: transparent;
+  color: var(--cp-fg);
+  font: inherit;
+  font-size: var(--cp-text-title);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.case-group-disclose:hover:not(:disabled) {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12));
+  filter: none;
+}
+
+button.case-group-disclose:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: 2px;
+}
+
+.case-group-disclose__chev.codicon[class*="codicon-"] {
+  flex-shrink: 0;
+  width: var(--cp-icon);
+  height: var(--cp-icon);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  font-size: var(--cp-icon);
+  line-height: 1;
+}
+
+.case-group-disclose__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.judge-icon {
+  display: inline-block;
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: 0.35em;
+  vertical-align: -0.15em;
+  flex-shrink: 0;
+}
+
+/**
+ * Every other control in a header acts on a run; a rename sitting beside them at rest reads as
+ * one more of those, so it only surfaces while the pointer is on the problem it belongs to.
+ * Still tab-reachable, hence opacity rather than `display`.
+ */
+button.case-group__rename {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--cp-fg);
+  opacity: 0;
+  transition: opacity 0.1s ease-out;
+}
+
+.case-group-head:hover button.case-group__rename,
+button.case-group__rename:focus-visible {
+  opacity: 0.75;
+}
+
+button.case-group__rename:hover:not(:disabled) {
+  filter: none;
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.18));
+}
+
+button.case-group__rename:disabled {
+  opacity: 0;
+}
+
+/* Takes the disclosure's place, so it has to carry the same type to avoid a jump on open. */
+input.case-group-rename {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 2px 6px;
+  font: inherit;
+  font-size: var(--cp-text-title);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+  border: 1px solid var(--vscode-focusBorder, #007fd4);
+  border-radius: var(--cp-radius-sm);
+  background: var(--vscode-input-background, var(--vscode-editor-background));
+  color: var(--vscode-input-foreground, var(--vscode-foreground));
+  outline: none;
+}
+
+/* Judge limits read as metadata of the title, not as status: plain dim text with an icon. */
+.case-group-limit {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+  margin-left: var(--cp-space-1);
+  color: var(--cp-fg);
+  font-size: var(--cp-chip-font-size);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.case-group-limit .codicon[class*="codicon-"] {
+  font-size: var(--cp-icon-sm);
+  opacity: 0.9;
+}
+
+/**
+ * Every command of a problem in one toolbar at the end of the header, split from the results by a
+ * rule. Buttons are flat until hovered; only Run and Submit carry a colour.
+ */
+.case-group-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-1);
+  flex: 0 0 auto;
+  margin-left: var(--cp-space-1);
+  padding-left: var(--cp-space-2);
+  border-left: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
+}
+
+/**
+ * One flat icon-button style for every toolbar: the view's top bar, problem headers and sample
+ * rows. Run carries green, LOCAL blue, destructive actions turn red on hover.
+ */
+.btn-row__cluster button.btn-icon,
+.case-group-actions button.btn-icon,
+.case-actions button.btn-icon {
+  width: 26px;
+  min-width: 26px;
+  height: var(--cp-chip-height);
+  padding: 0;
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-chip-neutral-bg);
+  box-shadow: inset 0 0 0 1px var(--cp-chip-neutral-border);
+  color: var(--cp-fg);
+  transition: background-color 80ms ease-out, color 80ms ease-out;
+}
+
+.btn-row__cluster button.btn-icon .codicon[class*="codicon-"],
+.case-group-actions button.btn-icon .codicon[class*="codicon-"],
+.case-actions button.btn-icon .codicon[class*="codicon-"] {
+  font-size: var(--cp-icon);
+}
+
+.btn-row__cluster button.btn-icon:hover:not(:disabled),
+.case-group-actions button.btn-icon:hover:not(:disabled),
+.case-actions button.btn-icon:hover:not(:disabled) {
+  background: rgba(128, 128, 128, 0.24);
+  filter: none;
+}
+
+.btn-row__cluster button.btn-icon:disabled,
+.case-group-actions button.btn-icon:disabled,
+.case-actions button.btn-icon:disabled {
+  opacity: 0.35;
+}
+
+.case-group-actions button.btn-run:not(:disabled),
+.case-actions button.btn-run:not(:disabled) {
+  color: var(--cp-ac);
+}
+
+.case-group-actions button.btn-run-local:not(:disabled),
+.case-actions button.btn-run-local:not(:disabled) {
+  color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+.btn-row__cluster button.btn-stop:not([hidden]) {
+  color: var(--cp-wa);
+}
+
+.btn-row__cluster button.btn-icon--on {
+  color: var(--vscode-textLink-foreground, #3794ff);
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.18));
+  box-shadow: inset 0 0 0 1px var(--vscode-focusBorder, rgba(0, 127, 212, 0.55));
+}
+
+.case-group-actions button.case-group__clear:hover:not(:disabled),
+.case-actions button.btn-remove:hover:not(:disabled),
+.btn-row__cluster button#btnClear:hover:not(:disabled) {
+  color: var(--cp-wa);
+  background: rgba(248, 81, 73, 0.12);
+}
+
+.case-group-wrap.case-group-wrap--collapsed .case-group-head {
+  border-bottom-color: transparent;
+}
+
+/* After Run all: group header tint (same palette as the per-sample verdicts). */
+.case-group-wrap--panel.case-group-wrap--ac {
+  border-color: rgba(46, 160, 67, 0.35);
+}
+
+.case-group-wrap--ac .case-group-head {
+  --cp-head-tint: rgba(46, 160, 67, 0.12);
+  border-bottom-color: rgba(46, 160, 67, 0.35);
+}
+
+.case-group-wrap--ac button.case-group-disclose:hover:not(:disabled) {
+  background: rgba(46, 160, 67, 0.18);
+  filter: none;
+}
+
+.case-group-wrap--panel.case-group-wrap--wa {
+  border-color: rgba(248, 81, 73, 0.35);
+}
+
+.case-group-wrap--wa .case-group-head {
+  --cp-head-tint: rgba(248, 81, 73, 0.1);
+  border-bottom-color: rgba(248, 81, 73, 0.35);
+}
+
+.case-group-wrap--wa button.case-group-disclose:hover:not(:disabled) {
+  background: rgba(248, 81, 73, 0.14);
+  filter: none;
+}
+
+.case-group-wrap--panel.case-group-wrap--tle {
+  border-color: rgba(88, 166, 255, 0.35);
+}
+
+.case-group-wrap--tle .case-group-head {
+  --cp-head-tint: rgba(88, 166, 255, 0.1);
+  border-bottom-color: rgba(88, 166, 255, 0.35);
+}
+
+.case-group-wrap--tle button.case-group-disclose:hover:not(:disabled) {
+  background: rgba(88, 166, 255, 0.14);
+  filter: none;
+}
+
+.case-group-wrap--panel.case-group-wrap--re {
+  border-color: rgba(210, 153, 34, 0.35);
+}
+
+.case-group-wrap--re .case-group-head {
+  --cp-head-tint: rgba(210, 153, 34, 0.1);
+  border-bottom-color: rgba(210, 153, 34, 0.35);
+}
+
+.case-group-wrap--re button.case-group-disclose:hover:not(:disabled) {
+  background: rgba(210, 153, 34, 0.14);
+  filter: none;
+}
+
+.case-group-wrap--panel.case-group-wrap--ce {
+  border-color: rgba(188, 140, 255, 0.35);
+}
+
+.case-group-wrap--ce .case-group-head {
+  --cp-head-tint: rgba(188, 140, 255, 0.1);
+  border-bottom-color: rgba(188, 140, 255, 0.35);
+}
+
+.case-group-wrap--ce button.case-group-disclose:hover:not(:disabled) {
+  background: rgba(188, 140, 255, 0.14);
+  filter: none;
+}
+
+/* Compile/run progress for the group that owns the active run (multi-header mode). */
+.case-group-run-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 22px;
+  font-size: var(--cp-text-body);
+  font-weight: 500;
+  color: var(--cp-fg);
+}
+
+.case-group-run-status .run-status-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Slot for the per-verdict counts; a header with no result keeps the slot but shows nothing. */
+.case-group-passed {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--cp-space-1);
+  flex: 0 0 auto;
+  min-width: 34px;
+  margin-left: auto;
+  min-height: var(--cp-chip-height);
+}
+
+/* Same chip as the verdicts it counts. */
+.case-group-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--cp-chip-height);
+  padding: 0 var(--cp-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--cp-chip-radius);
+  font-size: var(--cp-chip-font-size);
+  font-weight: var(--cp-chip-font-weight);
+  letter-spacing: var(--cp-chip-letter-spacing);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.case-group-count--ac {
+  color: var(--vscode-testing-iconPassed, #3fb950);
+  background: rgba(46, 160, 67, 0.15);
+  border-color: rgba(46, 160, 67, 0.3);
+}
+
+.case-group-count--wa {
+  color: var(--vscode-errorForeground, #f85149);
+  background: rgba(248, 81, 73, 0.12);
+  border-color: rgba(248, 81, 73, 0.3);
+}
+
+.case-group-count--tle {
+  color: var(--vscode-textLink-foreground, #58a6ff);
+  background: rgba(88, 166, 255, 0.12);
+  border-color: rgba(88, 166, 255, 0.3);
+}
+
+.case-group-count--re {
+  color: var(--vscode-editorWarning-foreground, #d29922);
+  background: rgba(210, 153, 34, 0.12);
+  border-color: rgba(210, 153, 34, 0.3);
+}
+
+.case-group-count--ce {
+  color: var(--vscode-charts-purple, #bc8cff);
+  background: rgba(188, 140, 255, 0.12);
+  border-color: rgba(188, 140, 255, 0.3);
+}
+
+/**
+ * Source the summary was produced with, shown only when a run would compile a different file.
+ * Same readout as the toolbar's run target so the two are recognised as the same thing.
+ */
+/**
+ * The problem the run keybindings act on, which is the one bound to the file in the editor. An
+ * accent rail rather than a tint: the AC / WA colouring of the header already means something else.
+ */
+.case-group-wrap--active > .case-group-head::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--vscode-focusBorder, #007fd4);
+  border-radius: 2px 0 0 2px;
+}
+
+.case-group-src {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: min(180px, 45%);
+  background: var(--cp-chip-neutral-bg);
+  border-color: var(--cp-chip-neutral-border);
+}
+
+.case-group-src:hover {
+  background: rgba(128, 128, 128, 0.18);
+}
+
+/**
+ * The problem whose bound source is the file in the editor: the pair the keybindings act on. It
+ * carries the accent as a filled pill, since the other headers keep showing their own source and
+ * the difference between them has to survive a glance down a list of problems.
+ */
+.case-group-src--current {
+  background: rgba(88, 166, 255, 0.15);
+  border-color: rgba(88, 166, 255, 0.3);
+}
+
+.case-group-src--current:hover {
+  background: rgba(88, 166, 255, 0.24);
+}
+
+.case-group-src--current .meta-chip__icon.codicon[class*="codicon-"] {
+  opacity: 1;
+  color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+.case-group-src--current .case-group-src__label {
+  color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+.case-group-src--current .active-source-label__dir {
+  opacity: 0.8;
+}
+
+.case-group-src__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--cp-chip-font-size);
+  font-weight: var(--cp-chip-font-weight);
+  line-height: 1.3;
+}
+
+/**
+ * A summary left over from another source file keeps its count but loses the green/red claim on
+ * the header: at a glance it must not read as the verdict for the file that is open now.
+ */
+.case-group-wrap--stale.case-group-wrap--panel {
+  border-color: var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
+}
+
+.case-group-wrap--stale .case-group-count {
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  background: rgba(128, 128, 128, 0.1);
+  border-color: rgba(128, 128, 128, 0.18);
+  opacity: 0.7;
+}
+
+.case-group-wrap--stale button.case-group-disclose:hover:not(:disabled) {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12));
+}
+
+.case-group-cases {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/**
+ * Inset and tinted against the panel body, so the rows read as contents of the header above them
+ * rather than as siblings of the group itself.
+ */
+.case-group-wrap--panel > .case-group-cases {
+  padding: var(--cp-space-2);
+  background: var(--cp-surface-raised);
+  border-radius: 0 0 calc(var(--cp-radius-lg) - 1px) calc(var(--cp-radius-lg) - 1px);
+}
+
+.case-group-cases > .case + .case {
+  margin-top: var(--cp-space-2);
+}
+
+.case {
+  /**
+   * Accent cap colour: neutral grey until a verdict replaces it, and a fixed value rather than a
+   * theme color so it stays visible in themes that leave the border tokens transparent. The cap
+   * itself lives on `.case-head`, which travels with it while the header is stuck.
+   */
+  --cp-case-accent: rgba(128, 128, 128, 0.45);
+  border: 1px solid var(--cp-surface-border);
+  border-left: 3px solid var(--cp-case-accent);
+  border-radius: var(--cp-radius-md);
+  margin-bottom: var(--cp-space-1);
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.case-group-cases > .case {
+  margin-bottom: 0;
+}
+
+.case:hover {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+/**
+ * Which sample you are reading stays on screen: the row header sticks under its group header,
+ * whose measured height arrives as `--cp-sticky-top` (0 in flat mode, where there is no group bar).
+ */
+.case-head {
+  position: sticky;
+  top: var(--cp-sticky-top, 0px);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-height: 30px;
+  padding: var(--cp-space-1) var(--cp-space-2) var(--cp-space-1) var(--cp-space-1);
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  border-bottom: 1px solid var(--cp-surface-border);
+  border-radius: 0 var(--cp-radius-md) 0 0;
+  --case-head-ctrl-h: 22px;
+}
+
+/** The whole title strip is the disclosure, matching the group header's own bar. */
+button.case-disclose {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 2px 6px;
+  border: none;
+  border-radius: var(--cp-radius-sm);
+  background: transparent;
+  color: var(--cp-fg);
+  font: inherit;
+  font-size: var(--cp-text-title);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.case-disclose:hover:not(:disabled) {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12));
+  filter: none;
+}
+
+button.case-disclose:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: 2px;
+}
+
+.case-disclose__chev.codicon[class*="codicon-"] {
+  flex-shrink: 0;
+  width: var(--cp-icon);
+  height: var(--cp-icon);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  font-size: var(--cp-icon);
+  line-height: 1;
+}
+
+.case-num {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--cp-fg);
+  line-height: 1;
+}
+
+/**
+ * Every chip is sized for its widest value ("TLE", "150ms"/"1.20s", "+150ms") rather than its own
+ * text, so the run buttons after them line up down the list instead of stepping in and out.
+ */
+.case-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--cp-chip-height);
+  font-size: var(--cp-chip-font-size);
+  font-weight: var(--cp-chip-font-weight);
+  letter-spacing: var(--cp-chip-letter-spacing);
+  line-height: 1;
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 0 var(--cp-space-2);
+  border-radius: var(--cp-chip-radius);
+  border: 1px solid transparent;
+}
+
+.case-status--blank {
+  visibility: hidden;
+}
+
+.case-verdict {
+  min-width: 38px;
+}
+
+.case-time {
+  min-width: 50px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cp-fg);
+  background: var(--cp-chip-neutral-bg);
+  border-color: var(--cp-chip-neutral-border);
+}
+
+.case-overhead {
+  min-width: 50px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.9;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  background: transparent;
+  border-color: var(--cp-chip-neutral-border);
+  border-style: dashed;
+}
+
+.case--ac {
+  --cp-case-accent: rgba(46, 160, 67, 0.65);
+}
+
+.case--wa {
+  --cp-case-accent: rgba(248, 81, 73, 0.65);
+}
+
+.case--tle {
+  --cp-case-accent: rgba(88, 166, 255, 0.65);
+}
+
+.case--re {
+  --cp-case-accent: rgba(210, 153, 34, 0.65);
+}
+
+.case--ce {
+  --cp-case-accent: rgba(188, 140, 255, 0.65);
+}
+
+.case--ac .case-verdict {
+  color: var(--vscode-testing-iconPassed, #3fb950);
+  background: rgba(46, 160, 67, 0.15);
+  border-color: rgba(46, 160, 67, 0.3);
+}
+
+.case--wa .case-verdict {
+  color: var(--vscode-errorForeground, #f85149);
+  background: rgba(248, 81, 73, 0.12);
+  border-color: rgba(248, 81, 73, 0.3);
+}
+
+.case--tle .case-verdict {
+  color: var(--vscode-textLink-foreground, #58a6ff);
+  background: rgba(88, 166, 255, 0.12);
+  border-color: rgba(88, 166, 255, 0.3);
+}
+
+.case--re .case-verdict {
+  color: var(--vscode-editorWarning-foreground, #d29922);
+  background: rgba(210, 153, 34, 0.12);
+  border-color: rgba(210, 153, 34, 0.3);
+}
+
+.case--ce .case-verdict {
+  color: var(--vscode-charts-purple, #bc8cff);
+  background: rgba(188, 140, 255, 0.12);
+  border-color: rgba(188, 140, 255, 0.3);
+}
+
+.case-head .case-verdict--running {
+  background: transparent;
+  border-color: transparent;
+}
+
+.case-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-1);
+  flex-wrap: wrap;
+  margin-left: var(--cp-space-1);
+  padding-left: var(--cp-space-2);
+  border-left: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
+}
+
+.case-actions button {
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  height: var(--case-head-ctrl-h, 22px);
+  min-height: var(--case-head-ctrl-h, 22px);
+  max-height: var(--case-head-ctrl-h, 22px);
+  padding: 0 7px;
+  font-size: var(--cp-text-body);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.case--collapsed .case-head {
+  border-bottom-color: transparent;
+  border-radius: 0 var(--cp-radius-md) var(--cp-radius-md) 0;
+}
+
+.case-body {
+  padding: var(--cp-space-2) var(--cp-space-3) var(--cp-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  /** The card no longer clips, so the body keeps wide content inside the row. */
+  overflow: hidden;
+}
+
+.field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/**
+ * The view's scrollbars are all hidden, but a clipped sample or run output still has to look
+ * different from a complete one, and this line says so without a scrollbar's bulk. Inset from the
+ * field's right border and pointer-transparent - `syncFieldScrollIndicator()` sizes and offsets it.
+ */
+.field-scroll {
+  position: absolute;
+  right: 4px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.5));
+  pointer-events: none;
+}
+
+/**
+ * Both label rows are one control tall (the copy button's 18px) so a plain label and a
+ * label+copy header put their textareas on the same line in the side-by-side grid.
+ */
+.field > label,
+.field-header {
+  display: flex;
+  align-items: center;
+  min-height: 18px;
+}
+
+.field label {
+  font-size: var(--cp-text-label);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cp-fg);
+}
+
+/**
+ * Code-block surface shared by sample fields (input/expected) and run output (stdout/stderr).
+ * Notation: left accent differentiates sample data vs program streams.
+ */
+.input-area {
+  width: 100%;
+  min-height: 28px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: var(--vscode-editor-font-size, 12px);
+  line-height: 1.45;
+  padding: 6px var(--cp-space-3);
+  border: 1px solid var(--cp-surface-border);
+  border-radius: var(--cp-radius-md);
+  resize: none;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  tab-size: 2;
+  /**
+   * Composed so the coloured left stripe and the focus ring can be set independently:
+   * box-shadow is a single property and both need to be live at once.
+   */
+  --field-stripe: 0 0 #0000;
+  --field-focus-ring: 0 0 #0000;
+  box-shadow: var(--field-stripe), var(--field-focus-ring);
+}
+
+.field--sample .input-area--sample {
+  background: var(--vscode-textCodeBlock-background, rgba(127, 127, 127, 0.12));
+  color: var(--vscode-editor-foreground, var(--vscode-foreground));
+  cursor: text;
+}
+
+.field--sample .input-area--sample:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, #007fd4);
+  --field-focus-ring: 0 0 0 1px var(--vscode-focusBorder, #007fd4);
+}
+
+.field--sample .input-area--sample::placeholder {
+  color: var(--vscode-input-placeholderForeground, var(--vscode-descriptionForeground));
+  opacity: 0.65;
+}
+
+.field--result .input-area {
+  background: var(--vscode-textCodeBlock-background, rgba(127, 127, 127, 0.12));
+  color: var(--vscode-editor-foreground, var(--vscode-foreground));
+  cursor: default;
+}
+
+/** Read-only streams are a `pre`, so they need what the textarea got from the user agent. */
+pre.input-area {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+pre.input-area:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: -1px;
+}
+
+/** Tokens of stdout with no match at the same position in expected output. */
+.diff-token {
+  font-weight: 700;
+  color: var(--vscode-errorForeground, #f85149);
+  background: var(--vscode-diffEditor-removedTextBackground, rgba(248, 81, 73, 0.16));
+  border-radius: 2px;
+}
+
+/* Stdout: auto-height in JS; framed in the sample's verdict colour. */
+.field--result .input-area--stream-stdout {
+  min-height: 32px;
+  overflow-x: auto;
+}
+
+.case--ac .field--result .input-area--stream-stdout {
+  border-color: rgba(46, 160, 67, 0.4);
+}
+
+.case--wa .field--result .input-area--stream-stdout {
+  border-color: rgba(248, 81, 73, 0.4);
+}
+
+.case--tle .field--result .input-area--stream-stdout {
+  border-color: rgba(88, 166, 255, 0.4);
+}
+
+.case--re .field--result .input-area--stream-stdout {
+  border-color: rgba(210, 153, 34, 0.4);
+}
+
+.case--ce .field--result .input-area--stream-stdout {
+  border-color: rgba(188, 140, 255, 0.4);
+}
+
+/* Stderr: auto-height in JS (same cap as stdout) + scroll when long; amber left stripe = errors. */
+.field--result .input-area--stream-stderr {
+  min-height: 32px;
+  overflow-x: auto;
+  border-color: rgba(210, 153, 34, 0.4);
+  --field-stripe: inset 3px 0 0 var(--cp-re);
+}
+
+.cases-heading {
+  flex: 0 0 auto;
+  padding: 0 var(--cp-gutter);
+  font-size: var(--cp-text-label);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cp-fg);
+  margin: 0 0 var(--cp-space-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .run-status-spinner,
+  .run-row-spinner {
+    animation: none;
+  }
+}
+
+.codicon[class*="codicon-"] {
+  font-size: 14px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+button.btn-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 22px;
+  min-width: 26px;
+  padding: 0;
+  line-height: 1;
+}
+
+button.btn-icon--on {
+  color: var(--vscode-textLink-foreground, #3794ff);
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.18));
+  box-shadow: inset 0 0 0 1px var(--vscode-focusBorder, rgba(0, 127, 212, 0.55));
+}
+
+/* Expand/fade-in when case group panel becomes visible */
+@keyframes cp-expand-in {
+  from { opacity: 0.4; transform: translateY(-3px); }
+  to   { opacity: 1;   transform: translateY(0); }
+}
+
+.case-group-cases--expanding {
+  animation: cp-expand-in 0.12s ease-out;
+}
+
+/* Field header: label + copy button side-by-side */
+.field-header {
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.field-header label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Copy button on read-only output fields */
+.btn-copy {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--vscode-icon-foreground, var(--vscode-descriptionForeground));
+  opacity: 0.8;
+  cursor: pointer;
+  transition: opacity 0.1s, background 0.1s, color 0.2s;
+}
+
+.btn-copy:hover:not(:disabled) {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
+  filter: none;
+}
+
+.btn-copy.btn-copy--done {
+  color: var(--vscode-testing-iconPassed, #3fb950);
+  opacity: 1;
+}
+
+/* Export success flash on the export icon button */
+.btn--export-done {
+  color: var(--vscode-testing-iconPassed, #3fb950) !important;
+  transition: color 0.2s;
+}
+
+/* Subtle glow on the group header when all AC */
+.case-group-wrap--stale .case-group-head {
+  --cp-head-tint: var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12));
+  border-bottom-color: var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
+  box-shadow: none;
+}
+
+/**
+ * Wide (panel / bottom bar): two rows anchored at opposite edges read as mostly empty space, so
+ * `display: contents` drops both wrappers and `order` lays their children out as one dense row.
+ * The bar's chrome moves to the section here, since the title now sits on the action line.
+ */
+@media (min-width: 560px) {
+  .import {
+    position: relative;
+    z-index: 5;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--cp-space-1) var(--cp-space-2);
+    margin: 0 calc(-1 * var(--cp-space-2));
+    padding: var(--cp-space-2) calc(var(--cp-space-2) + var(--cp-gutter));
+    background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+    border-bottom: 1px solid var(--cp-surface-border);
+  }
+
+  .import--stuck {
+    box-shadow: 0 4px 8px -6px rgba(0, 0, 0, 0.55);
+  }
+
+  .import__identity,
+  .import__actions {
+    display: contents;
+  }
+
+  .import-problem-title {
+    order: 1;
+  }
+
+  .btn-row__cluster {
+    order: 2;
+    flex: 0 0 auto;
+    margin-left: var(--cp-space-2);
+    margin-right: auto;
+  }
+
+  .runner-hint {
+    order: 3;
+    margin-left: 0;
+  }
+
+  .active-source-wrap {
+    order: 4;
+    margin-left: 0;
+  }
+
+  #import-json {
+    order: 5;
+    flex: 1 0 100%;
+    width: 100%;
+    margin: 0 0 var(--cp-space-1);
+  }
+}
+
+/**
+ * Wide (panel / bottom bar): expected and actual sit side by side so a mismatch is read across
+ * rather than scrolled between. Input spans the full width above them; stderr spans it below.
+ * Input is the first child; expected, stdout and stderr are placed by column so the layout does
+ * not shift with which result fields a run produced.
+ */
+@media (min-width: 560px) {
+  .case-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+    column-gap: var(--cp-space-3);
+  }
+
+  .case-body > .field:nth-child(1) {
+    grid-column: 1 / -1;
+  }
+
+  /**
+   * Expected output holds column 1 so its edge lands in the same place on every run sample, and
+   * stdout is placed by class rather than by document order.
+   */
+  .case-body > .field:nth-child(2) {
+    grid-column: 1;
+  }
+
+  .case-body > .field--stdout {
+    grid-column: 2;
+  }
+
+  /** No stdout column (before a run, or a run that only wrote stderr): expected takes the row. */
+  .case-body > .field:nth-child(2):last-child,
+  .case-body > .field:nth-child(2):has(+ .field--stderr) {
+    grid-column: 1 / -1;
+  }
+
+  .case-body > .field--stderr {
+    grid-column: 1 / -1;
+  }
+}
+
+button.submit-status {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-height: var(--cp-chip-height);
+  padding: 0 var(--cp-space-2);
+  border: 1px solid var(--cp-chip-neutral-border);
+  border-radius: var(--cp-chip-radius);
+  background: var(--cp-chip-neutral-bg);
+  color: var(--cp-fg);
+  font: inherit;
+  font-size: var(--cp-chip-font-size);
+  font-weight: var(--cp-chip-font-weight);
+  letter-spacing: var(--cp-chip-letter-spacing);
+  line-height: 1;
+  white-space: nowrap;
+  user-select: text;
+}
+
+.submit-status__text {
+  min-width: 0;
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+button.submit-status:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+button.submit-status:not(:disabled) {
+  cursor: pointer;
+}
+
+button.submit-status:not(:disabled):hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+button.submit-status--ok {
+  color: var(--vscode-testing-iconPassed, #3fb950);
+  background: rgba(46, 160, 67, 0.15);
+  border-color: rgba(46, 160, 67, 0.3);
+}
+
+button.submit-status--bad {
+  color: var(--vscode-errorForeground, #f85149);
+  background: rgba(248, 81, 73, 0.12);
+  border-color: rgba(248, 81, 73, 0.3);
+}
+
+button.submit-status--provisional {
+  color: var(--vscode-editorInfo-foreground, #58a6ff);
+  background: rgba(56, 139, 253, 0.12);
+  border-color: rgba(56, 139, 253, 0.3);
+}
+
+.case-group-actions button.btn-submit:not(:disabled) {
+  background: rgba(88, 166, 255, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(88, 166, 255, 0.5);
+  color: var(--vscode-textLink-foreground, #58a6ff);
+}
+
+.case-group-actions button.btn-submit:hover:not(:disabled) {
+  background: rgba(88, 166, 255, 0.34);
+}
+
+/* The judge's verdict, marked with a cloud so it is not read as one more local count. */
+button.submit-status::before {
+  content: "\ebaa";
+  margin-right: 4px;
+  font-family: codicon;
+  font-size: var(--cp-icon-sm);
+  font-weight: normal;
+  letter-spacing: 0;
+}
+
+/* Narrow (sidebar): toolbars may wrap onto their own line, where a leading rule would dangle. */
+@media (max-width: 559px) {
+  .case-group-actions,
+  .case-actions {
+    margin-left: auto;
+    padding-left: 0;
+    border-left: none;
+  }
+
+  .case-head {
+    gap: var(--cp-space-1);
+  }
+}

@@ -1,0 +1,310 @@
+{
+  "name": "oj-runner",
+  "displayName": "OJ Runner",
+  "description": "Run online judge samples against your local C++ solution in VSCode.",
+  "version": "1.2.28",
+  "publisher": "from-cero",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.82.0"
+  },
+  "categories": [],
+  "repository": {},
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "secondarySidebar": [
+        {
+          "id": "oj-runner",
+          "title": "OJ Runner",
+          "icon": "$(play)"
+        }
+      ]
+    },
+    "views": {
+      "oj-runner": [
+        {
+          "type": "webview",
+          "id": "oj-runner.webview",
+          "name": "Samples",
+          "icon": "$(play)"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "ojRunner.focusSamples",
+        "title": "Focus Samples View",
+        "category": "OJ Runner"
+      },
+      {
+        "command": "ojRunner.runFirstSample",
+        "title": "Run First Sample of First Problem",
+        "category": "OJ Runner"
+      },
+      {
+        "command": "ojRunner.runFirstSampleLocal",
+        "title": "Run First Sample of First Problem (LOCAL build)",
+        "category": "OJ Runner"
+      },
+      {
+        "command": "ojRunner.runAllSamples",
+        "title": "Run All Samples of First Problem",
+        "category": "OJ Runner"
+      },
+      {
+        "command": "ojRunner.runAllSamplesLocal",
+        "title": "Run All Samples of First Problem (LOCAL build)",
+        "category": "OJ Runner"
+      },
+      {
+        "command": "ojRunner.copySubmitBridgeUrl",
+        "title": "Copy Submit Bridge URL",
+        "category": "OJ Runner"
+      },
+      {
+        "command": "ojRunner.showOutput",
+        "title": "Show Output Log",
+        "category": "OJ Runner"
+      },
+      {
+        "command": "ojRunner.importFromClipboard",
+        "title": "Import Samples from Clipboard",
+        "category": "OJ Runner"
+      },
+      {
+        "command": "ojRunner.selectCompilePreset",
+        "title": "Select Compile Preset",
+        "category": "OJ Runner"
+      },
+      {
+        "command": "ojRunner.exportCases",
+        "title": "Export Cases to Files",
+        "category": "OJ Runner"
+      },
+      {
+        "command": "ojRunner.stressTest",
+        "title": "Stress Test (requires generator command)",
+        "category": "OJ Runner"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "ojRunner.runFirstSample",
+        "key": "ctrl+'",
+        "mac": "cmd+'",
+        "when": "editorTextFocus || oj-runner.samplesFocus || (auxiliaryBarFocus && activeAuxiliary == 'workbench.view.extension.oj-runner') || (sideBarFocus && activeViewlet == 'workbench.view.extension.oj-runner')"
+      },
+      {
+        "command": "ojRunner.runFirstSampleLocal",
+        "key": "ctrl+shift+'",
+        "mac": "cmd+shift+'",
+        "when": "editorTextFocus || oj-runner.samplesFocus || (auxiliaryBarFocus && activeAuxiliary == 'workbench.view.extension.oj-runner') || (sideBarFocus && activeViewlet == 'workbench.view.extension.oj-runner')"
+      },
+      {
+        "command": "ojRunner.runAllSamples",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "editorTextFocus || oj-runner.samplesFocus || (auxiliaryBarFocus && activeAuxiliary == 'workbench.view.extension.oj-runner') || (sideBarFocus && activeViewlet == 'workbench.view.extension.oj-runner')"
+      },
+      {
+        "command": "ojRunner.runAllSamplesLocal",
+        "key": "ctrl+shift+enter",
+        "mac": "cmd+shift+enter",
+        "when": "editorTextFocus || oj-runner.samplesFocus || (auxiliaryBarFocus && activeAuxiliary == 'workbench.view.extension.oj-runner') || (sideBarFocus && activeViewlet == 'workbench.view.extension.oj-runner')"
+      }
+    ],
+    "configuration": {
+      "title": "OJ Runner",
+      "properties": {
+        "ojRunner.compileCommand": {
+          "type": "string",
+          "default": "g++ -std=c++23 -O2 -o \"{{out}}\" \"{{file}}\"",
+          "description": "NORMAL build: the compile line behind the plain Run buttons. Keep it close to the judge (-O2, no sanitizers) so the reported run time is comparable. Empty skips compile (use only if you pre-build the binary that runCommand runs). Placeholders: {{file}}, {{dir}} (source dir), {{out}} (cached binary path)."
+        },
+        "ojRunner.localCompileCommand": {
+          "type": "string",
+          "default": "g++ -std=c++23 -O2 -o \"{{out}}\" \"{{file}}\"",
+          "description": "LOCAL build: the compile line behind the LOCAL Run buttons. Meant for a debug build (-D_GLIBCXX_DEBUG, -fsanitize=...), whose run time is not comparable to the judge. Add -DLOCAL yourself. Empty derives it from compileCommand by injecting -DLOCAL. Placeholders: {{file}}, {{dir}}, {{out}}."
+        },
+        "ojRunner.debugConfigName": {
+          "type": "string",
+          "default": "LLDB Debug",
+          "description": "Name of the launch.json configuration the per-testcase Debug button starts; the sample's input is injected as the debuggee's stdin. Its preLaunchTask does the build. When no configuration matches, an inline CodeLLDB config is used with debugCompileCommand."
+        },
+        "ojRunner.debugCompileCommand": {
+          "type": "string",
+          "default": "g++ -std=c++23 -g -O0 -o \"{{out}}\" \"{{file}}\"",
+          "description": "DEBUG build: the compile line behind each sample's Debug button, used only when debugConfigName matches no launch.json configuration. Used verbatim, independent of the other compile commands. Empty derives it from compileCommand by adding -g -O0. Placeholders: {{file}}, {{dir}}, {{out}}."
+        },
+        "ojRunner.runCommand": {
+          "type": "string",
+          "default": "\"{{out}}\"",
+          "description": "Shell command run with each test's stdin; default runs the compiled binary at {{out}}."
+        },
+        "ojRunner.runTimeoutMs": {
+          "type": "number",
+          "default": 5000,
+          "description": "Compile and run are killed after this many ms. The whole process tree is stopped (not only the shell), so TLE applies to the real program."
+        },
+        "ojRunner.useJudgeTimeLimit": {
+          "type": "boolean",
+          "default": true,
+          "description": "Judge NORMAL runs against the time limit scraped at import (Codeforces and AtCoder). LOCAL runs and compiles always use runTimeoutMs. When off, only runTimeoutMs applies."
+        },
+        "ojRunner.timeLimitFactor": {
+          "type": "number",
+          "default": 2,
+          "description": "Slack over the judge's time limit before the process is killed. A sample is still marked TLE once its own execution time passes the judge limit; the factor only decides how long it is allowed to keep running so you can see how far over it is."
+        },
+        "ojRunner.maxParallelSamples": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "description": "Samples a problem's Run all executes at once. 0 auto-sizes to the CPU count (capped at 8, one core left for the editor). Set 1 for strictly sequential runs when per-sample timings must be comparable."
+        },
+        "ojRunner.floatAbsEpsilon": {
+          "type": "number",
+          "default": 1e-9,
+          "description": "Maximum allowed absolute error when comparing numeric output tokens to expected (e.g. 1e-9 or 1e-12 per problem statement). Invalid values fall back to 1e-9."
+        },
+        "ojRunner.enableLocalImportServer": {
+          "type": "boolean",
+          "default": true,
+          "description": "Listen on 127.0.0.1 so the OJ Loader browser extension can POST samples JSON without a vscode:// URL (avoids Chrome's \"Open URL handler?\" prompt)."
+        },
+        "ojRunner.localImportPort": {
+          "type": "number",
+          "default": 17337,
+          "description": "Port for the local import HTTP server (POST /import, body = samples JSON array). Change if the port is already in use (e.g. another VS Code window)."
+        },
+        "ojRunner.submitLanguageCodeforces": {
+          "type": "string",
+          "default": "GNU G++23",
+          "description": "Language to pick on the Codeforces submit form. Matched case-insensitively against the option text, so a prefix like \"GNU G++23\" is enough."
+        },
+        "ojRunner.submitLanguageAtCoder": {
+          "type": "string",
+          "default": "C++23 (GCC",
+          "description": "Language to pick on the AtCoder submit form. Matched case-insensitively against the option text, so a prefix like \"C++ 23 (gcc\" is enough."
+        },
+        "ojRunner.submitConfirm": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask before every submit. A submit is a real, rate-limited, publicly visible submission on your judge account."
+        },
+        "ojRunner.notifications": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "sticky",
+            "off"
+          ],
+          "enumDescriptions": [
+            "Closed by OJ Runner after 1s; a warning or an error is left to VS Code at information severity, so it takes 10s and hovering holds it open.",
+            "Every message left to VS Code at its own level, so a warning takes 12s and an error 15s, in their own colours.",
+            "No notification at all."
+          ],
+          "default": "auto",
+          "description": "Notification OJ Runner pops for an import, an export, a stress run or a failed action. VS Code drops a plain notification on its own schedule and only while the window has focus, so \"auto\" times it out itself instead. The OJ Runner output log carries the same text in every mode. Prompts that ask a question are not affected. Submits follow ojRunner.submitNotifications."
+        },
+        "ojRunner.submitNotifications": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "sticky",
+            "off"
+          ],
+          "enumDescriptions": [
+            "Closed by OJ Runner after 1s; a warning or an error is left to VS Code at information severity, so it takes 10s and hovering holds it open.",
+            "Every message left to VS Code at its own level, so a warning takes 12s and an error 15s, in their own colours.",
+            "No notification at all."
+          ],
+          "default": "auto",
+          "description": "Notification a submit pops when it settles or fails. VS Code drops a plain notification on its own schedule and only while the window has focus, so \"auto\" times it out itself instead. The problem header and the OJ Runner output log carry the same text in every mode. Everything else follows ojRunner.notifications."
+        },
+        "ojRunner.submitPollTimeoutMs": {
+          "type": "number",
+          "default": 90000,
+          "description": "How long OJ Loader watches the judge's status page for the verdict after a submit. 0 reports the submission without waiting for a verdict."
+        },
+        "ojRunner.instantRunAllOnLocalImport": {
+          "type": "boolean",
+          "default": true,
+          "description": "When samples arrive via local POST /import (e.g. OJ Loader): after import, run the problem that was just synced, wherever it landed in the list. Only fires for single-problem payloads (e.g. one AtCoder task or one Codeforces problem); multi-problem imports (e.g. full contest dump) do not auto-run."
+        },
+        "ojRunner.trimOutput": {
+          "type": "boolean",
+          "default": true,
+          "description": "Trim trailing whitespace when comparing to expected output."
+        },
+        "ojRunner.workingDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "Cwd for compile/run (empty = source file directory)."
+        },
+        "ojRunner.showOutputOnRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "Open the Output panel (channel OJ Runner) when running tests; uses preserveFocus so the editor stays active. Off by default - use command \"OJ Runner: Show Output Log\" when you want the log."
+        },
+        "ojRunner.floatRelEpsilon": {
+          "type": "number",
+          "default": 0,
+          "description": "Maximum allowed relative error when comparing numeric tokens (e.g. 1e-6 = 0.0001%). Applied only when absolute error check fails. 0 disables relative comparison (default)."
+        },
+        "ojRunner.checkerCommand": {
+          "type": "string",
+          "default": "",
+          "description": "Optional custom checker command run after WA (for problems with multiple correct answers). Placeholders: {{file}}, {{out}} (binary), {{input}} (temp stdin file), {{expected}} (temp expected file), {{actual}} (temp actual output file). Exit 0 = AC, non-zero = WA. Example: ./checker {{input}} {{expected}} {{actual}}"
+        },
+        "ojRunner.stressGeneratorCommand": {
+          "type": "string",
+          "default": "",
+          "description": "Shell command for stress testing whose stdout is the raw test input for each iteration. Example: python3 gen.py"
+        },
+        "ojRunner.stressReferenceCommand": {
+          "type": "string",
+          "default": "",
+          "description": "Optional reference (brute-force) solution for stress testing. Its stdout is compared against ojRunner.runCommand output. If empty, only RE and TLE are detected."
+        },
+        "ojRunner.stressMaxIterations": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum number of stress-test iterations before stopping (default 100)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "sync-codicons": "cp node_modules/@vscode/codicons/dist/codicon.css node_modules/@vscode/codicons/dist/codicon.ttf public/codicon/",
+    "watch": "tsc -watch -p ./",
+    "vsix": "vsce package",
+    "bump": "node scripts/bump-version.mjs",
+    "vsix:local:run": "vsce package -o oj-runner.vsix && NODE_NO_WARNINGS=1 code --install-extension oj-runner.vsix --force --profile \"${OJ_RUNNER_PROFILE:-Problem Solving [ C++ ]}\"",
+    "vsix:local:bump": "npm run bump && npm run vsix:local:run"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.39",
+    "@types/vscode": "^1.82.0",
+    "@types/ws": "^8.18.1",
+    "@vscode/codicons": "^0.0.46-24",
+    "@vscode/vsce": "^4.0.0",
+    "typescript": "^5.3.0"
+  },
+  "keywords": [
+    "competitive programming",
+    "c++",
+    "cpp",
+    "codeforces",
+    "atcoder"
+  ],
+  "dependencies": {
+    "ws": "^8.21.3"
+  }
+}

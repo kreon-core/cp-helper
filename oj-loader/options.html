@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>OJ Loader</title>
+    <style>
+      body {
+        font: 14px system-ui, sans-serif;
+        max-width: 42rem;
+        margin: 1rem 1.5rem;
+        line-height: 1.45;
+      }
+      label {
+        display: block;
+        margin: 0.75rem 0 0.25rem;
+        font-weight: 600;
+      }
+      input[type="text"] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0.35rem 0.5rem;
+      }
+      .hint {
+        color: #555;
+        font-size: 12px;
+        margin: 0.25rem 0 0;
+      }
+      h2 {
+        font-size: 1rem;
+        margin: 1.25rem 0 0.35rem;
+        border-top: 1px solid #ddd;
+        padding-top: 1rem;
+      }
+      button {
+        margin-top: 1rem;
+        padding: 0.4rem 0.9rem;
+      }
+      #status {
+        margin-top: 0.75rem;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>OJ Loader</h1>
+    <p>
+      Companion to <strong>OJ Runner</strong> in
+      <strong>Visual Studio Code</strong> (official Microsoft build).
+      The toolbar button <strong>POSTs</strong> extracted JSON to OJ Runner on
+      your machine. Nothing is copied to the clipboard. Keep
+      <strong>localhost HTTP</strong> enabled so Chrome does not need a
+      <code>vscode://</code> prompt for normal imports.
+    </p>
+
+    <h2>Local HTTP (recommended)</h2>
+    <label>
+      <input type="checkbox" id="useLocalHttp" />
+      POST JSON to OJ Runner on localhost (default: on)
+    </label>
+    <label for="localImportUrl">Local import URL</label>
+    <input
+      type="text"
+      id="localImportUrl"
+      spellcheck="false"
+      autocomplete="off"
+      placeholder="http://127.0.0.1:17337/import"
+    />
+    <p class="hint">
+      Must match <strong>OJ Runner</strong> settings
+      <code>ojRunner.localImportPort</code> (default <code>17337</code>) and path
+      <code>/import</code>. OJ Runner must be running in VS Code with
+      the local import server enabled. If the POST fails, you get a red badge;
+      enable the fallback below to open the editor.
+    </p>
+
+    <label>
+      <input type="checkbox" id="fallbackUri" />
+      If POST fails, open editor URL (focus OJ Runner only; Chrome may prompt)
+    </label>
+    <label for="focusUri">Focus URL</label>
+    <input
+      type="text"
+      id="focusUri"
+      spellcheck="false"
+      autocomplete="off"
+      placeholder="vscode://from-cero.oj-runner/focusSamples"
+    />
+    <p class="hint">
+      VS Code default above. This does not import samples - use it to jump to
+      OJ Runner when localhost is down.
+      Manual JSON paste remains in OJ Runner's Samples view.
+    </p>
+
+    <h2>Submit bridge</h2>
+    <label>
+      <input type="checkbox" id="submitBridgeEnabled" />
+      Let OJ Runner send submissions through this browser (default: on)
+    </label>
+    <label for="submitBridgeUrl">Bridge URL</label>
+    <input
+      type="text"
+      id="submitBridgeUrl"
+      spellcheck="false"
+      autocomplete="off"
+      placeholder="ws://127.0.0.1:17337/submit?token=..."
+    />
+    <p class="hint">
+      In VS Code run <strong>OJ Runner: Copy Submit Bridge URL</strong> and paste the result here.
+      The <code>token</code> in it is what keeps other pages and local programs off the socket, so
+      treat the URL as a password and do not share it. Submissions are then sent from the judge tab
+      using <strong>your existing login</strong> - OJ Loader never sees your judge password.
+    </p>
+
+    <button type="button" id="save">Save</button>
+    <div id="status" role="status"></div>
+    <script src="options.js"></script>
+  </body>
+</html>
