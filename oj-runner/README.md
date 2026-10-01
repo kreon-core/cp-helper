@@ -206,7 +206,6 @@ One sample produces one record. Expected/actual dumps appear as indented detail 
 3. Ensure package-lock.json matches.
 4. Run npm run compile.
 5. Build package with npm run vsix.
-6. Run GitHub Actions release workflow.
 
 ## License
 
