@@ -576,7 +576,7 @@
     {"id":"ac:abc206_f","url":"https://atcoder.jp/contests/abc206/tasks/abc206_f","title":"Interval Game 2","platform":"AtCoder","rating":2221,"types":{"grundy_number":2}},
     {"id":"ac:abc207_f","url":"https://atcoder.jp/contests/abc207/tasks/abc207_f","title":"Tree Patrolling","platform":"AtCoder","rating":2398,"types":{"combining_subtrees_technique":2}},
     {"id":"ac:abc210_f","url":"https://atcoder.jp/contests/abc210/tasks/abc210_f","title":"Coprime Solitaire","platform":"AtCoder","rating":2632,"types":{"2_sat":2}},
-    {"id":"ac:abc212_d","url":"https://atcoder.jp/contests/adt_all_20260715_1/tasks/abc212_d","title":"Querying Multiset","platform":"AtCoder","rating":775,"types":{"venice_technique":1}},
+    {"id":"ac:abc212_d","url":"https://atcoder.jp/contests/abc212/tasks/abc212_d","title":"Querying Multiset","platform":"AtCoder","rating":775,"types":{"venice_technique":1}},
     {"id":"ac:abc212_h","url":"https://atcoder.jp/contests/abc212/tasks/abc212_h","title":"Nim Counting","platform":"AtCoder","rating":2741,"types":{"fwht":3}},
     {"id":"ac:abc213_e","url":"https://atcoder.jp/contests/abc213/tasks/abc213_e","title":"Stronger Takahashi","platform":"AtCoder","rating":1423,"types":{"0_1_bfs":1}},
     {"id":"ac:abc213_f","url":"https://atcoder.jp/contests/abc213/tasks/abc213_f","title":"Common Prefixes","platform":"AtCoder","rating":2215,"types":{"suffix_array":2}},
