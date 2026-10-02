@@ -54,7 +54,14 @@ Every `src/data/sources/*.json` file is bundled and merged, so another source ca
   "url": "https://...",
   "fetchedAt": "2026-10-01",
   "categories": [{ "id": "graph_theory", "name": "Graph Theory" }],
-  "types": [{ "id": "dijkstras_algorithm", "name": "Dijkstra's Algorithm", "categoryId": "graph_theory", "group": "Shortest Paths" }],
+  "types": [
+    {
+      "id": "dijkstras_algorithm",
+      "name": "Dijkstra's Algorithm",
+      "categoryId": "graph_theory",
+      "group": "Shortest Paths"
+    }
+  ],
   "problems": [
     {
       "id": "cf:20C",

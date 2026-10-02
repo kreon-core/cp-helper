@@ -8,12 +8,6 @@ C++ is the only supported language. Run and Debug target the active C++ editor, 
 you visited when the active tab is not C++, and are disabled until one has been opened
 (accepted extensions: .cpp, .cc, .cxx, .c++, .cp, .ixx, and .C on case-sensitive filesystems).
 
-## Release scope
-
-- Stable baseline: 1.1.0
-- Language support: C++ only
-- Companion browser extension: OJ Loader 1.1.0
-
 ## Requirements
 
 - Visual Studio Code >= 1.82.0 (official Microsoft build)
@@ -42,15 +36,15 @@ Sample JSON:
 
 ## Main commands
 
-| Command | Purpose |
-| --- | --- |
-| ojRunner.focusSamples | Open the Samples view |
-| ojRunner.runFirstSample | Run the first sample of the active problem |
-| ojRunner.runFirstSampleLocal | Run the first sample of the active problem with the LOCAL build |
-| ojRunner.runAllSamples | Run every sample of the active problem |
-| ojRunner.runAllSamplesLocal | Run every sample of the active problem with the LOCAL build |
-| ojRunner.importFromClipboard | Import JSON from clipboard |
-| ojRunner.showOutput | Show OJ Runner output channel |
+| Command                      | Purpose                                                                    |
+| ---------------------------- | -------------------------------------------------------------------------- |
+| ojRunner.focusSamples        | Open the Samples view                                                      |
+| ojRunner.runFirstSample      | Run the first sample of the active problem                                 |
+| ojRunner.runFirstSampleLocal | Run the first sample of the active problem with the LOCAL build            |
+| ojRunner.runAllSamples       | Run every sample of the active problem                                     |
+| ojRunner.runAllSamplesLocal  | Run every sample of the active problem with the LOCAL build                |
+| ojRunner.importFromClipboard | Import JSON from clipboard                                                 |
+| ojRunner.showOutput          | Show OJ Runner output channel                                              |
 | ojRunner.copySubmitBridgeUrl | Copy the submit bridge URL (with its token) for the OJ Loader options page |
 
 Default keybindings:
@@ -68,28 +62,28 @@ the buttons in its own header, which is how you point it at a different file.
 
 ## Key settings
 
-| Setting | Purpose |
-| --- | --- |
-| ojRunner.compileCommand | NORMAL build, used by the plain Run buttons (keep it judge-like: -O2, no sanitizers) |
-| ojRunner.localCompileCommand | LOCAL build, used by the LOCAL Run buttons (empty = compileCommand with -DLOCAL injected) |
-| ojRunner.debugCompileCommand | DEBUG build behind each sample's Debug button, compiled without -DLOCAL (empty = compileCommand plus -g -O0) |
-| ojRunner.runCommand | Execute command template |
-| ojRunner.runTimeoutMs | Compile/run timeout in ms (used when the problem carries no judge limit) |
-| ojRunner.useJudgeTimeLimit | Judge NORMAL runs against the time limit scraped at import (LOCAL runs keep runTimeoutMs) |
-| ojRunner.timeLimitFactor | Slack over the judge limit before the process is killed |
-| ojRunner.maxParallelSamples | Samples a problem's Run all executes at once (0 = auto) |
-| ojRunner.floatAbsEpsilon | Absolute float tolerance |
-| ojRunner.floatRelEpsilon | Relative float tolerance |
-| ojRunner.trimOutput | Trim trailing whitespace before compare |
-| ojRunner.notifications | Notification for everything but a submit: `auto` (closed after 1s, a problem left to VS Code for 10s; default), `sticky`, `off` |
-| ojRunner.enableLocalImportServer | Enable localhost import server |
-| ojRunner.localImportPort | Local import port (default 17337) |
-| ojRunner.instantRunAllOnLocalImport | Run the problem that was just synced, after a single-problem local import |
-| ojRunner.submitLanguageCodeforces | Language option to pick on the Codeforces submit form |
-| ojRunner.submitLanguageAtCoder | Language option to pick on the AtCoder submit form (whitespace ignored when matching) |
-| ojRunner.submitConfirm | Ask before every submit (default on) |
-| ojRunner.submitNotifications | Notification a submit pops: `auto` (closed after 1s, a problem left to VS Code for 10s; default), `sticky`, `off` |
-| ojRunner.submitPollTimeoutMs | How long to watch the judge for the verdict after a submit |
+| Setting                             | Purpose                                                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| ojRunner.compileCommand             | NORMAL build, used by the plain Run buttons (keep it judge-like: -O2, no sanitizers)                                            |
+| ojRunner.localCompileCommand        | LOCAL build, used by the LOCAL Run buttons (empty = compileCommand with -DLOCAL injected)                                       |
+| ojRunner.debugCompileCommand        | DEBUG build behind each sample's Debug button, compiled without -DLOCAL (empty = compileCommand plus -g -O0)                    |
+| ojRunner.runCommand                 | Execute command template                                                                                                        |
+| ojRunner.runTimeoutMs               | Compile/run timeout in ms (used when the problem carries no judge limit)                                                        |
+| ojRunner.useJudgeTimeLimit          | Judge NORMAL runs against the time limit scraped at import (LOCAL runs keep runTimeoutMs)                                       |
+| ojRunner.timeLimitFactor            | Slack over the judge limit before the process is killed                                                                         |
+| ojRunner.maxParallelSamples         | Samples a problem's Run all executes at once (0 = auto)                                                                         |
+| ojRunner.floatAbsEpsilon            | Absolute float tolerance                                                                                                        |
+| ojRunner.floatRelEpsilon            | Relative float tolerance                                                                                                        |
+| ojRunner.trimOutput                 | Trim trailing whitespace before compare                                                                                         |
+| ojRunner.notifications              | Notification for everything but a submit: `auto` (closed after 1s, a problem left to VS Code for 10s; default), `sticky`, `off` |
+| ojRunner.enableLocalImportServer    | Enable localhost import server                                                                                                  |
+| ojRunner.localImportPort            | Local import port (default 17337)                                                                                               |
+| ojRunner.instantRunAllOnLocalImport | Run the problem that was just synced, after a single-problem local import                                                       |
+| ojRunner.submitLanguageCodeforces   | Language option to pick on the Codeforces submit form                                                                           |
+| ojRunner.submitLanguageAtCoder      | Language option to pick on the AtCoder submit form (whitespace ignored when matching)                                           |
+| ojRunner.submitConfirm              | Ask before every submit (default on)                                                                                            |
+| ojRunner.submitNotifications        | Notification a submit pops: `auto` (closed after 1s, a problem left to VS Code for 10s; default), `sticky`, `off`               |
+| ojRunner.submitPollTimeoutMs        | How long to watch the judge for the verdict after a submit                                                                      |
 
 ## Samples view
 
@@ -172,16 +166,16 @@ Every record is one line: `YYYY-MM-DD HH:MM:SS.mmm LEVEL [scope] message`.
 
 Levels: DEBUG, INFO, WARN (recoverable or non-AC), ERROR (failed operation).
 
-| Scope | Emitted by |
-| --- | --- |
-| core | Activation and palette commands |
-| webview | Samples view messages (save, export, stop, run requests) |
+| Scope   | Emitted by                                                      |
+| ------- | --------------------------------------------------------------- |
+| core    | Activation and palette commands                                 |
+| webview | Samples view messages (save, export, stop, run requests)        |
 | compile | Selected build (normal / local), compile command, compile cache |
-| runner | Run command, per-sample verdicts, checker, run-all summary |
-| stress | Stress-test iterations and failing case |
-| import | Sample import and starter-code clipboard copy |
-| server | Local import HTTP server |
-| submit | Submit bridge connection and submit results |
+| runner  | Run command, per-sample verdicts, checker, run-all summary      |
+| stress  | Stress-test iterations and failing case                         |
+| import  | Sample import and starter-code clipboard copy                   |
+| server  | Local import HTTP server                                        |
+| submit  | Submit bridge connection and submit results                     |
 
 One sample produces one record. Expected/actual dumps appear as indented detail lines only when the sample does not pass.
 
@@ -194,9 +188,9 @@ One sample produces one record. Expected/actual dumps appear as indented detail 
 
 ## Repository layout
 
-| Path | Purpose |
-| --- | --- |
-| src/ | Extension host source |
+| Path    | Purpose               |
+| ------- | --------------------- |
+| src/    | Extension host source |
 | public/ | Webview JS/CSS assets |
 
 ## Publishing checklist
