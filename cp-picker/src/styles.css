@@ -121,11 +121,9 @@ body {
 
 .topic-name {
   margin: 6px 0 0;
-  font-size: 20px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  line-height: 1.3;
-  min-height: 2.6em;
+  font-size: 16px;
+  line-height: 1.35;
+  min-height: 2.7em;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -135,7 +133,7 @@ body {
 .topic-name span {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   overflow: hidden;
 }
 
@@ -361,6 +359,20 @@ select:disabled {
 .btn-wide {
   margin-top: 10px;
   min-width: 140px;
+}
+
+.pick-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
 }
 
 .icon-btn {

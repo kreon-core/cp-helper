@@ -12,6 +12,28 @@ import { Notice, type NoticeState } from "./Notice";
 
 const RECENT_COUNT = 5;
 
+function ShuffleIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22" />
+      <path d="m18 2 4 4-4 4" />
+      <path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2" />
+      <path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8" />
+      <path d="m18 14 4 4-4 4" />
+    </svg>
+  );
+}
+
 export function TodayView({ data, library, today, update }: ViewProps & { today: string }) {
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const solved = new Set(data.solved);
@@ -51,7 +73,6 @@ export function TodayView({ data, library, today, update }: ViewProps & { today:
   return (
     <div className="view">
       <section className="panel today-card">
-        <p className="eyebrow">Today's Pick</p>
         {record ? (
           <>
             <p className="topic-meta">{record.categoryName}</p>
@@ -95,18 +116,31 @@ export function TodayView({ data, library, today, update }: ViewProps & { today:
             <p className="hint">
               {entries.length > 0 ? `${solvedCount} / ${entries.length} solved in this type` : "\u00a0"}
             </p>
-            <button type="button" className={isSolved ? "btn btn-success" : "btn"} onClick={toggleSolved}>
-              {isSolved ? "Solved \u2713" : "Mark solved"}
-            </button>
+            <div className="pick-actions">
+              <button type="button" className={isSolved ? "btn btn-success" : "btn"} onClick={toggleSolved}>
+                {isSolved ? "Solved \u2713" : "Mark solved"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-icon"
+                onClick={shuffle}
+                title="Shuffle"
+                aria-label="Shuffle"
+              >
+                <ShuffleIcon />
+              </button>
+            </div>
           </>
         ) : (
-          <EmptyState title="No problem picked yet">
-            <p className="hint">{selectionBlocker(library, solved, data.filters, data.importance) ?? "Press the button to pick one."}</p>
-          </EmptyState>
+          <>
+            <EmptyState title="No problem picked yet">
+              <p className="hint">{selectionBlocker(library, solved, data.filters, data.importance) ?? "Press the button to pick one."}</p>
+            </EmptyState>
+            <button type="button" className="btn btn-primary btn-wide" onClick={shuffle}>
+              Pick a problem
+            </button>
+          </>
         )}
-        <button type="button" className="btn btn-primary btn-wide" onClick={shuffle}>
-          {record ? "Shuffle" : "Pick a problem"}
-        </button>
         <Notice notice={notice} onClose={() => setNotice(null)} />
       </section>
 
