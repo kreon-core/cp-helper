@@ -23,7 +23,7 @@ Problems are organized as **category** (Graph Theory, Number Theory, Strings, ..
 2. Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new) with only the account permission **Gists: Read and write**.
 3. On every machine, open Settings -> GitHub Gist sync and paste the gist URL and the token.
 
-The extension keeps its data in `cp-picker.json` in that gist, in the same format as a backup export. It syncs when the popup opens and a couple of seconds after every change. Changes are merged per item against the last synced copy, so marking a problem solved on one machine and unsolved on another keeps whichever was changed since the last sync; when both machines changed the same item, the gist wins. The token is stored only in the extension's local storage and is never written to the gist or a backup.
+The extension keeps its data in `cp-picker.json` in that gist, in the same format as a backup export. It syncs when the popup opens, a couple of seconds after every change, and when the popup closes with changes not yet synced (finished by the background service worker). Changes are merged per item against the last synced copy, so marking a problem solved on one machine and unsolved on another keeps whichever was changed since the last sync; when both machines changed the same item, the gist wins. The token is stored only in the extension's local storage and is never written to the gist or a backup.
 
 ## Problem data
 
@@ -145,6 +145,7 @@ src/lib/links.ts              Codeforces / AtCoder link parsing
 src/lib/lookup.ts             title and rating lookup for added links
 src/lib/codeforces.ts         Codeforces handle sync and rating-based range
 src/lib/gist.ts               GitHub Gist pull / push and three-way merge
+src/background.ts             service worker that syncs the gist after the popup closes
 src/lib/custom.ts             adding and removing user problems
 src/lib/storage.ts            chrome.storage.local wrapper, validation, backup
 src/useAppData.ts             React state + persistence hook

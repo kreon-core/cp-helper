@@ -1,4 +1,4 @@
-import type { BackupData, GistSync } from "../types";
+import type { AppData, BackupData, GistSync } from "../types";
 import { isRecord } from "./guards";
 import { parseBackup, serializeBackup } from "./storage";
 
@@ -95,4 +95,26 @@ export function syncedPart(data: BackupData): BackupData {
 
 export function sameData(a: BackupData | undefined, b: BackupData | undefined): boolean {
   return a !== undefined && b !== undefined && serializeBackup(a) === serializeBackup(b);
+}
+
+export function isGistDirty(data: AppData): boolean {
+  return data.gist ? !sameData(syncedPart(data), data.gist.base) : false;
+}
+
+export const FLUSH_PORT = "gist-flush";
+
+export async function syncWithGist(
+  gist: GistSync,
+  read: () => AppData | null | Promise<AppData | null>,
+): Promise<Partial<AppData> | null> {
+  const remote = await pullGist(gist);
+  const before = await read();
+  if (!before || before.gist?.gistId !== gist.gistId) return null;
+  const local = syncedPart(before);
+  const merged = remote ? mergeData(gist.base ?? null, local, remote) : local;
+  if (!sameData(merged, remote ?? undefined)) await pushGist(gist, merged);
+  const after = await read();
+  if (!after?.gist || after.gist.gistId !== gist.gistId) return null;
+  const current = mergeData(local, syncedPart(after), merged);
+  return { ...current, gist: { ...after.gist, syncedAt: new Date().toISOString(), base: merged } };
 }

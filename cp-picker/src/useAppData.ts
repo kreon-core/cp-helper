@@ -4,7 +4,7 @@ import { applySync, fetchCodeforces, isSyncDue } from "./lib/codeforces";
 import { resolveDailyPick } from "./lib/daily";
 import { toLocalDateString } from "./lib/date";
 import { errorMessage } from "./lib/format";
-import { mergeData, pullGist, pushGist, sameData, syncedPart } from "./lib/gist";
+import { FLUSH_PORT, isGistDirty, syncWithGist } from "./lib/gist";
 import { buildLibrary, type Library } from "./lib/library";
 import { SHARED, SOURCES } from "./lib/sources";
 import { loadData, resetData, saveData } from "./lib/storage";
@@ -72,24 +72,10 @@ export function useAppData() {
     gistSyncing.current = true;
     setGistSync({ status: "syncing" });
     try {
-      const remote = await pullGist(gist);
-      const before = dataRef.current;
-      if (!before || before.gist?.gistId !== gist.gistId) {
-        setGistSync({ status: "idle" });
-        return false;
-      }
-      const local = syncedPart(before);
-      const merged = remote ? mergeData(gist.base ?? null, local, remote) : local;
-      if (!sameData(merged, remote ?? undefined)) await pushGist(gist, merged);
-      const after = dataRef.current;
-      if (!after?.gist || after.gist.gistId !== gist.gistId) {
-        setGistSync({ status: "idle" });
-        return false;
-      }
-      const current = mergeData(local, syncedPart(after), merged);
-      update({ ...current, gist: { ...after.gist, syncedAt: new Date().toISOString(), base: merged } });
+      const patch = await syncWithGist(gist, () => dataRef.current);
+      if (patch) update(patch);
       setGistSync({ status: "idle" });
-      return true;
+      return patch !== null;
     } catch (err) {
       setGistSync({ status: "error", message: errorMessage(err) });
       return false;
@@ -106,12 +92,26 @@ export function useAppData() {
     [update, syncGist],
   );
 
-  const gistDirty = data?.gist ? !sameData(syncedPart(data), data.gist.base) : false;
+  const gistDirty = data ? isGistDirty(data) : false;
   useEffect(() => {
     if (!gistDirty) return;
     const timer = setTimeout(() => void syncGist(), GIST_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [data, gistDirty, syncGist]);
+
+  useEffect(() => {
+    if (typeof chrome === "undefined" || !chrome.runtime?.connect) return;
+    let port: chrome.runtime.Port | null = null;
+    const connect = () => {
+      port = chrome.runtime.connect({ name: FLUSH_PORT });
+      port.onDisconnect.addListener(connect);
+    };
+    connect();
+    return () => {
+      port?.onDisconnect.removeListener(connect);
+      port?.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
