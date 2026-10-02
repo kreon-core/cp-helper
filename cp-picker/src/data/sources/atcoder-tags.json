@@ -204,7 +204,7 @@
     {"id":"ac:abc140_f","url":"https://atcoder.jp/contests/abc140/tasks/abc140_f","title":"Many Slimes","platform":"AtCoder","rating":2105,"types":{"constructive_algorithms":3}},
     {"id":"ac:abc141_c","url":"https://atcoder.jp/contests/abc141/tasks/abc141_c","title":"Attack Survival","platform":"AtCoder","rating":135,"types":{"prefix_sum":1,"difference_array":1}},
     {"id":"ac:abc141_d","url":"https://atcoder.jp/contests/abc141/tasks/abc141_d","title":"Powerful Discount Tickets","platform":"AtCoder","rating":823,"types":{"priority_queue":1}},
-    {"id":"ac:abc141_e","url":"https://atcoder.jp/contests/abc141/tasks/abc141_e","title":"Who Says a Pun?","platform":"AtCoder","rating":1459,"types":{"z_algorithm":2}},
+    {"id":"ac:abc141_e","url":"https://atcoder.jp/contests/abc141/tasks/abc141_e","title":"Who Says a Pun?","platform":"AtCoder","rating":1459,"types":{"string_hashing":2}},
     {"id":"ac:abc141_f","url":"https://atcoder.jp/contests/abc141/tasks/abc141_f","title":"Xor Sum 3","platform":"AtCoder","rating":2342,"types":{"gaussian_elimination":3,"bit_manipulation":3}},
     {"id":"ac:abc142_d","url":"https://atcoder.jp/contests/abc142/tasks/abc142_d","title":"Disjoint Set of Common Divisors","platform":"AtCoder","rating":827,"types":{"integer_properties":1,"dsu":1}},
     {"id":"ac:abc142_e","url":"https://atcoder.jp/contests/abc142/tasks/abc142_e","title":"Get Everything","platform":"AtCoder","rating":1397,"types":{"bit_brute_force":1,"bitmask_dp":1}},
