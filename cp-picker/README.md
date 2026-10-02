@@ -15,6 +15,15 @@ Problems are organized as **category** (Graph Theory, Number Theory, Strings, ..
 - Add tab takes many problem links at once and files them under a category and problem type (existing or new).
 - History of daily picks; entries can be deleted.
 - Backup export / import of your added problems, solved list, history and type importance.
+- GitHub Gist sync of the same data across machines (see below).
+
+## Syncing across machines
+
+1. Create a **secret** gist at https://gist.github.com with any file (for example `cp-picker.json` containing `{}`).
+2. Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new) with only the account permission **Gists: Read and write**.
+3. On every machine, open Settings -> GitHub Gist sync and paste the gist URL and the token.
+
+The extension keeps its data in `cp-picker.json` in that gist, in the same format as a backup export. It syncs when the popup opens and a couple of seconds after every change. Changes are merged per item against the last synced copy, so marking a problem solved on one machine and unsolved on another keeps whichever was changed since the last sync; when both machines changed the same item, the gist wins. The token is stored only in the extension's local storage and is never written to the gist or a backup.
 
 ## Problem data
 
@@ -135,6 +144,7 @@ src/lib/daily.ts              today's pick and shuffle logic (pure)
 src/lib/links.ts              Codeforces / AtCoder link parsing
 src/lib/lookup.ts             title and rating lookup for added links
 src/lib/codeforces.ts         Codeforces handle sync and rating-based range
+src/lib/gist.ts               GitHub Gist pull / push and three-way merge
 src/lib/custom.ts             adding and removing user problems
 src/lib/storage.ts            chrome.storage.local wrapper, validation, backup
 src/useAppData.ts             React state + persistence hook

@@ -15,7 +15,8 @@ function openInTab() {
 }
 
 export function App() {
-  const { today, data, library, error, sync, update, reset, syncCodeforces } = useAppData();
+  const { today, data, library, error, sync, update, reset, syncCodeforces, gistSync, syncGist, connectGist } =
+    useAppData();
   const [tab, setTab] = useState<Tab>("Today");
   const [addPreset, setAddPreset] = useState<AddPreset | null>(null);
   const canPopOut = !IN_TAB && typeof chrome !== "undefined" && Boolean(chrome.tabs);
@@ -76,6 +77,9 @@ export function App() {
             update={update}
             sync={sync}
             onSync={syncCodeforces}
+            gistSync={gistSync}
+            onGistSync={syncGist}
+            onGistConnect={connectGist}
             onReset={() => void reset()}
           />
         )}

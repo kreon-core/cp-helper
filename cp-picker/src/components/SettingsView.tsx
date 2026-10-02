@@ -5,6 +5,7 @@ import { SOURCES } from "../lib/sources";
 import { parseBackup, serializeBackup } from "../lib/storage";
 import type { SyncState, ViewProps } from "../useAppData";
 import { CodeforcesPanel } from "./CodeforcesPanel";
+import { GistPanel } from "./GistPanel";
 import { Notice, type NoticeState } from "./Notice";
 
 const MAX_WINDOW_DAYS = 365;
@@ -12,10 +13,23 @@ const MAX_WINDOW_DAYS = 365;
 interface SettingsViewProps extends ViewProps {
   sync: SyncState;
   onSync: (handle: string) => Promise<boolean>;
+  gistSync: SyncState;
+  onGistSync: () => Promise<boolean>;
+  onGistConnect: (gistId: string, token: string) => Promise<boolean>;
   onReset: () => void;
 }
 
-export function SettingsView({ data, library, update, sync, onSync, onReset }: SettingsViewProps) {
+export function SettingsView({
+  data,
+  library,
+  update,
+  sync,
+  onSync,
+  gistSync,
+  onGistSync,
+  onGistConnect,
+  onReset,
+}: SettingsViewProps) {
   const { settings } = data;
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -44,12 +58,13 @@ export function SettingsView({ data, library, update, sync, onSync, onReset }: S
   };
 
   const resetAll = () => {
-    if (confirm("Delete added problems, solved list, history, settings and the Codeforces account?")) onReset();
+    if (confirm("Delete added problems, solved list, history, settings, the Codeforces account and the gist connection?")) onReset();
   };
 
   return (
     <div className="view">
       <CodeforcesPanel data={data} library={library} update={update} sync={sync} onSync={onSync} />
+      <GistPanel gist={data.gist} update={update} sync={gistSync} onSync={onGistSync} onConnect={onGistConnect} />
 
       <section className="panel settings">
         <label className="setting">

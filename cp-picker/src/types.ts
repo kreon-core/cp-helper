@@ -96,6 +96,16 @@ export interface AppData {
   filters: Filters;
   profile: Profile | null;
   importance: Record<string, Importance>;
+  gist: GistSync | null;
+}
+
+export type BackupData = Pick<AppData, "custom" | "solved" | "history" | "importance">;
+
+export interface GistSync {
+  gistId: string;
+  token: string;
+  syncedAt?: string;
+  base?: BackupData;
 }
 
 export const DEFAULT_SETTINGS: Settings = {

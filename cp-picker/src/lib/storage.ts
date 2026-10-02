@@ -4,7 +4,9 @@ import {
   EMPTY_CATALOG,
   RATING_BOUNDS,
   type AppData,
+  type BackupData,
   type Filters,
+  type GistSync,
   type Importance,
   type PickRecord,
   type Profile,
@@ -15,7 +17,7 @@ import { isDateString } from "./date";
 import { asImportance, asPlatform, asString, asStringList, isRecord } from "./guards";
 
 type StorageKey = keyof AppData;
-const KEYS: StorageKey[] = ["custom", "solved", "history", "settings", "filters", "profile", "importance"];
+const KEYS: StorageKey[] = ["custom", "solved", "history", "settings", "filters", "profile", "importance", "gist"];
 const LEGACY_KEYS = ["topics"];
 
 interface StorageArea {
@@ -116,6 +118,20 @@ function readProfile(value: unknown): Profile | null {
   };
 }
 
+function readGist(value: unknown): GistSync | null {
+  if (!isRecord(value)) return null;
+  const gistId = asString(value.gistId);
+  const token = asString(value.token);
+  if (!gistId || !token) return null;
+  const syncedAt = asString(value.syncedAt);
+  return {
+    gistId,
+    token,
+    ...(syncedAt ? { syncedAt } : {}),
+    ...(isRecord(value.base) ? { base: readBackupData(value.base) } : {}),
+  };
+}
+
 export function clampRating(value: unknown, fallback: number): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
   return Math.max(RATING_BOUNDS.min, Math.min(RATING_BOUNDS.max, Math.round(value)));
@@ -152,6 +168,7 @@ export async function loadData(): Promise<AppData> {
     filters: readFilters(stored.filters),
     profile: readProfile(stored.profile),
     importance: readImportance(stored.importance),
+    gist: readGist(stored.gist),
   };
 }
 
@@ -164,15 +181,17 @@ export async function resetData(): Promise<AppData> {
   return loadData();
 }
 
-export interface Backup {
-  custom: AppData["custom"];
-  solved: string[];
-  history: PickRecord[];
-  importance: Record<string, Importance>;
+function readBackupData(value: Record<string, unknown>): BackupData {
+  return {
+    custom: readCatalog(value.custom),
+    solved: asStringList(value.solved),
+    history: readHistory(value.history),
+    importance: readImportance(value.importance),
+  };
 }
 
-export function serializeBackup(data: AppData): string {
-  const backup: Backup & { app: string; version: number } = {
+export function serializeBackup(data: BackupData): string {
+  const backup: BackupData & { app: string; version: number } = {
     app: "cp-picker",
     version: 2,
     custom: data.custom,
@@ -183,7 +202,7 @@ export function serializeBackup(data: AppData): string {
   return JSON.stringify(backup, null, 2);
 }
 
-export type BackupResult = { ok: true; backup: Backup } | { ok: false; error: string };
+export type BackupResult = { ok: true; backup: BackupData } | { ok: false; error: string };
 
 export function parseBackup(text: string): BackupResult {
   let parsed: unknown;
@@ -195,13 +214,5 @@ export function parseBackup(text: string): BackupResult {
   if (!isRecord(parsed) || parsed.app !== "cp-picker") {
     return { ok: false, error: "Not a CP Picker backup file." };
   }
-  return {
-    ok: true,
-    backup: {
-      custom: readCatalog(parsed.custom),
-      solved: asStringList(parsed.solved),
-      history: readHistory(parsed.history),
-      importance: readImportance(parsed.importance),
-    },
-  };
+  return { ok: true, backup: readBackupData(parsed) };
 }

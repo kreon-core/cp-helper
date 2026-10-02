@@ -4,6 +4,7 @@ import { applySync, fetchCodeforces, isSyncDue } from "./lib/codeforces";
 import { resolveDailyPick } from "./lib/daily";
 import { toLocalDateString } from "./lib/date";
 import { errorMessage } from "./lib/format";
+import { mergeData, pullGist, pushGist, sameData, syncedPart } from "./lib/gist";
 import { buildLibrary, type Library } from "./lib/library";
 import { SHARED, SOURCES } from "./lib/sources";
 import { loadData, resetData, saveData } from "./lib/storage";
@@ -19,6 +20,8 @@ async function withDailyPick(data: AppData, today: string): Promise<AppData> {
   return { ...data, history: daily.history };
 }
 
+const GIST_DEBOUNCE_MS = 2000;
+
 export type SyncState = { status: "idle" } | { status: "syncing" } | { status: "error"; message: string };
 
 export function useAppData() {
@@ -28,6 +31,8 @@ export function useAppData() {
   const [sync, setSync] = useState<SyncState>({ status: "idle" });
   const dataRef = useRef<AppData | null>(null);
   const syncing = useRef(false);
+  const [gistSync, setGistSync] = useState<SyncState>({ status: "idle" });
+  const gistSyncing = useRef(false);
   const custom = data?.custom;
   const library = useMemo(() => (custom ? libraryFor(custom) : null), [custom]);
   dataRef.current = data;
@@ -61,6 +66,53 @@ export function useAppData() {
     [update],
   );
 
+  const syncGist = useCallback(async (): Promise<boolean> => {
+    const gist = dataRef.current?.gist;
+    if (!gist || gistSyncing.current) return false;
+    gistSyncing.current = true;
+    setGistSync({ status: "syncing" });
+    try {
+      const remote = await pullGist(gist);
+      const before = dataRef.current;
+      if (!before || before.gist?.gistId !== gist.gistId) {
+        setGistSync({ status: "idle" });
+        return false;
+      }
+      const local = syncedPart(before);
+      const merged = remote ? mergeData(gist.base ?? null, local, remote) : local;
+      if (!sameData(merged, remote ?? undefined)) await pushGist(gist, merged);
+      const after = dataRef.current;
+      if (!after?.gist || after.gist.gistId !== gist.gistId) {
+        setGistSync({ status: "idle" });
+        return false;
+      }
+      const current = mergeData(local, syncedPart(after), merged);
+      update({ ...current, gist: { ...after.gist, syncedAt: new Date().toISOString(), base: merged } });
+      setGistSync({ status: "idle" });
+      return true;
+    } catch (err) {
+      setGistSync({ status: "error", message: errorMessage(err) });
+      return false;
+    } finally {
+      gistSyncing.current = false;
+    }
+  }, [update]);
+
+  const connectGist = useCallback(
+    (gistId: string, token: string) => {
+      update({ gist: { gistId, token } });
+      return syncGist();
+    },
+    [update, syncGist],
+  );
+
+  const gistDirty = data?.gist ? !sameData(syncedPart(data), data.gist.base) : false;
+  useEffect(() => {
+    if (!gistDirty) return;
+    const timer = setTimeout(() => void syncGist(), GIST_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [data, gistDirty, syncGist]);
+
   useEffect(() => {
     let cancelled = false;
     loadData()
@@ -70,6 +122,7 @@ export function useAppData() {
         dataRef.current = loaded;
         setData(loaded);
         if (loaded.profile && isSyncDue(loaded.profile, Date.now())) void syncCodeforces(loaded.profile.handle);
+        if (loaded.gist) void syncGist();
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(`Could not load data: ${errorMessage(err)}`);
@@ -77,7 +130,7 @@ export function useAppData() {
     return () => {
       cancelled = true;
     };
-  }, [today, syncCodeforces]);
+  }, [today, syncCodeforces, syncGist]);
 
   const reset = useCallback(async () => {
     try {
@@ -88,7 +141,7 @@ export function useAppData() {
     }
   }, [today]);
 
-  return { today, data, library, error, sync, update, reset, syncCodeforces };
+  return { today, data, library, error, sync, update, reset, syncCodeforces, gistSync, syncGist, connectGist };
 }
 
 export type UpdateData = (patch: Partial<AppData>) => void;
