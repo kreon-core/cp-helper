@@ -54,27 +54,35 @@ export function TodayView({ data, library, today, update }: ViewProps & { today:
         {record ? (
           <>
             <p className="topic-meta">{record.categoryName}</p>
-            <h2 className="topic-name">{record.typeName}</h2>
-            {type && (
-              <p className="hint">
-                {type.group && (
-                  <>
-                    {type.group}
-                    <Dot />
-                  </>
-                )}
-                <span className="stars" title={IMPORTANCE_NAMES[typeImportance(type, data.importance)]}>
-                  {stars(typeImportance(type, data.importance))}
-                </span>
-              </p>
-            )}
+            <h2 className="topic-name" title={record.typeName}>
+              <span>{record.typeName}</span>
+            </h2>
+            <p className="hint">
+              {type ? (
+                <>
+                  {type.group && (
+                    <>
+                      {type.group}
+                      <Dot />
+                    </>
+                  )}
+                  <span className="stars" title={IMPORTANCE_NAMES[typeImportance(type, data.importance)]}>
+                    {stars(typeImportance(type, data.importance))}
+                  </span>
+                </>
+              ) : (
+                "\u00a0"
+              )}
+            </p>
             <a
               className={isSolved ? "problem-card problem-done" : "problem-card"}
               href={record.problemUrl}
               target="_blank"
               rel="noreferrer"
             >
-              <span className="problem-title">{record.problemTitle}</span>
+              <span className="problem-title" title={record.problemTitle}>
+                {record.problemTitle}
+              </span>
               {entry && (
                 <span className="problem-sub">
                   <ProblemMeta problem={entry.problem} />
@@ -83,11 +91,9 @@ export function TodayView({ data, library, today, update }: ViewProps & { today:
                 </span>
               )}
             </a>
-            {entries.length > 0 && (
-              <p className="hint">
-                {solvedCount} / {entries.length} solved in this type
-              </p>
-            )}
+            <p className="hint">
+              {entries.length > 0 ? `${solvedCount} / ${entries.length} solved in this type` : "\u00a0"}
+            </p>
             <button type="button" className={isSolved ? "btn btn-success" : "btn"} onClick={toggleSolved}>
               {isSolved ? "Solved \u2713" : "Mark solved"}
             </button>
