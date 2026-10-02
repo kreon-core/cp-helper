@@ -18,7 +18,7 @@ Problems are organized as **category** (Graph Theory, Number Theory, Strings, ..
 
 ## Problem data
 
-Two sources are bundled as JSON in `src/data/sources/`. They are maintained by hand (or by asking Claude), not by fetch scripts; after editing the data, run `npm run sort:groups` and `npm run build`.
+Three sources are bundled as JSON in `src/data/sources/`. They are maintained by hand (or by asking Claude), not by fetch scripts; after editing the data, run `npm run sort:groups` and `npm run build`.
 
 ### YouKn0wWho
 
@@ -27,6 +27,10 @@ The technique types come from [YouKn0wWho's topic list](https://youkn0wwho.acade
 ### CSES
 
 Every [CSES problem set](https://cses.fi/problemset/) problem outside Introductory Problems is listed under the same technique types as everything else, never under its CSES section. YouKn0wWho already tags about half of them; the rest are tagged by hand in `src/data/tags.json`, which maps a problem id to extra type ids for any source (the level comes from the rating). CSES has no ratings, so each problem gets an estimate from its solver count on a log scale (the most solved problem is about 800, a problem with about 200 solvers is about 2600), shown as `~1850`.
+
+### AtCoder Tags
+
+AtCoder problems tagged by vote on [AtCoder Tags](https://atcoder-tags.herokuapp.com/explain) are listed under the same technique types. Each sub-tag maps to the closest existing type (`Graph / Shortest-Path` -> Dijkstra's Algorithm, `Technique / imos` -> Difference Array, ...), and the tags with no matching type get their own: Brute Force, Bitmask Brute Force, Sorting, Integer Properties, Counting, String Processing, Basic DP, Interval DP, Stack and Queue, Set and Map, Priority Queue, Minimax, Game Observations and Ad Hoc. The `Easy`, `April-Fool`, `Marathon` and `Other` categories, every `Other` sub-tag and problems tagged with a category but no sub-tag are left out. Ratings are the clipped AtCoder Problems difficulty. Problems without one get an estimate, shown as `~`: Typical 90 problems from the stars in their title, the rest from the AtCoder Tags solver count on a log scale fitted to the rated problems. Problems from unrated contests (PAST, JOI, KUPC, ...) have fewer solvers, so their estimates tend to be high.
 
 ### One category per problem
 
