@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { IMPORTANCE_NAMES } from "../types";
-import { findRecord, shuffleDailyPick } from "../lib/daily";
+import { findRecord, pickInType, shuffleDailyPick } from "../lib/daily";
 import { toggleItem } from "../lib/format";
 import { stars, typeImportance } from "../lib/importance";
 import { selectionBlocker, typeProblems } from "../lib/picker";
@@ -67,7 +67,20 @@ export function TodayView({ data, library, today, update }: ViewProps & { today:
   };
 
   const toggleSolved = () => {
-    if (record) update({ solved: toggleItem(data.solved, record.problemId) });
+    if (!record) return;
+    const nextSolved = toggleItem(data.solved, record.problemId);
+    if (isSolved) {
+      update({ solved: nextSolved });
+      return;
+    }
+    const result = pickInType({ ...data, solved: nextSolved }, library, today, record.typeId);
+    if (result.kind === "picked") {
+      update({ solved: nextSolved, history: result.history });
+      setNotice(null);
+    } else {
+      update({ solved: nextSolved });
+      if (result.kind === "empty") setNotice({ tone: "info", text: result.reason });
+    }
   };
 
   return (
