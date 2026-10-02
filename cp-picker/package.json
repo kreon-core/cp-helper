@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "node scripts/check-types.mjs && tsc --noEmit && vite build",
+    "check:types": "node scripts/check-types.mjs",
     "typecheck": "tsc --noEmit",
     "bump": "node scripts/bump-version.mjs",
     "assign:categories": "node scripts/assign-categories.mjs",
