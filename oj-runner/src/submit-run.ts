@@ -7,7 +7,11 @@ import {
 } from "./constants";
 import { createCpLogger } from "./log";
 import { ensureSourceSavedBeforeRun } from "./source-hints";
-import { resolveSubmitTarget, type SubmitJudge } from "./submit-target";
+import {
+  resolveSubmitTarget,
+  type SubmitJudge,
+  type SubmitTarget,
+} from "./submit-target";
 import type { SubmitBridge, SubmitOutcome, SubmitProgress } from "./submit-bridge";
 import type { CaseGroup } from "./types";
 
@@ -47,18 +51,10 @@ export interface SubmitRequestResult extends SubmitOutcome {
   title?: string;
 }
 
-/**
- * Resolve the problem, confirm with the user, and hand the file linked to that problem to OJ Loader.
- * The editor in front does not decide what is sent: a problem submits the file its last Run bound
- * to it, so submitting from a header never uploads another problem's source.
- * @param group the case group whose Submit button was pressed
- * @param onProgress stage updates from the browser, for the Samples view
- */
-export async function submitGroupSource(
+function reachableTarget(
   bridge: SubmitBridge,
   group: CaseGroup | undefined,
-  onProgress: (p: SubmitProgress) => void,
-): Promise<SubmitRequestResult> {
+): { target: SubmitTarget } | (SubmitRequestResult & { rejected: string }) {
   const target = resolveSubmitTarget(group?.label, group?.url);
   if (!target) {
     const label = (group?.label ?? "").trim();
@@ -77,6 +73,26 @@ export async function submitGroupSource(
         "OJ Loader is not connected - paste the bridge URL into its options page.",
     };
   }
+  return { target };
+}
+
+/**
+ * Resolve the problem, confirm with the user, and hand the file linked to that problem to OJ Loader.
+ * The editor in front does not decide what is sent: a problem submits the file its last Run bound
+ * to it, so submitting from a header never uploads another problem's source.
+ * @param group the case group whose Submit button was pressed
+ * @param onProgress stage updates from the browser, for the Samples view
+ */
+export async function submitGroupSource(
+  bridge: SubmitBridge,
+  group: CaseGroup | undefined,
+  onProgress: (p: SubmitProgress) => void,
+): Promise<SubmitRequestResult> {
+  const ready = reachableTarget(bridge, group);
+  if ("rejected" in ready) {
+    return ready;
+  }
+  const { target } = ready;
 
   const file = (group?.source ?? "").trim();
   if (file === "") {
@@ -163,6 +179,53 @@ export async function submitGroupSource(
     log.info(`${target.title}: ${outcome.verdict}`);
   } else if (outcome.submitted) {
     log.info(`${target.title}: submitted, verdict not seen yet`);
+  }
+  return { ...outcome, title: target.title };
+}
+
+/**
+ * Ask OJ Loader to read the judge's status page again for a problem whose submit lost track of
+ * its verdict (tab closed or navigated, poll timed out), and follow it until it settles.
+ * @param group the case group whose status chip was right-clicked
+ * @param onStart called once the request is on its way to the browser
+ * @param onProgress stage and live verdict updates from the browser
+ */
+export async function refreshGroupVerdict(
+  bridge: SubmitBridge,
+  group: CaseGroup | undefined,
+  onStart: () => void,
+  onProgress: (p: SubmitProgress) => void,
+): Promise<SubmitRequestResult> {
+  const ready = reachableTarget(bridge, group);
+  if ("rejected" in ready) {
+    return ready;
+  }
+  const { target } = ready;
+  if (!bridge.supports("watch")) {
+    return {
+      submitted: false,
+      title: target.title,
+      rejected:
+        "This OJ Loader cannot re-check verdicts - reload it in chrome://extensions, then try again.",
+    };
+  }
+  onStart();
+  log.info(`${target.title}: re-reading the verdict from the judge`);
+  const outcome = await bridge.watch(
+    {
+      judge: target.judge,
+      contestId: target.contestId,
+      problemId: target.problemId,
+      submitUrl: target.submitUrl,
+      statusUrl: target.statusUrl,
+      pollTimeoutMs: pollTimeoutMs() || DEFAULT_SUBMIT_POLL_TIMEOUT_MS,
+    },
+    onProgress,
+  );
+  if (outcome.error) {
+    log.error(`verdict refresh for ${target.title} failed: ${outcome.error}`);
+  } else if (outcome.verdict) {
+    log.info(`${target.title}: ${outcome.verdict}`);
   }
   return { ...outcome, title: target.title };
 }

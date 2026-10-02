@@ -5,9 +5,9 @@
  * this WebSocket open to `127.0.0.1` instead. Chrome suspends an idle worker after ~30s but
  * WebSocket traffic resets that timer, which is what OJ Runner's `ping` frames are for.
  */
-import type { SubmitJob } from "../types";
+import type { ProgressReporter, SubmitJob, SubmitOutcome, VerdictWatchJob } from "../types";
 import { getSubmitSettings } from "./settings";
-import { runSubmitJob } from "./submit-runner";
+import { runSubmitJob, runVerdictWatchJob } from "./submit-runner";
 
 let socket: WebSocket | undefined;
 
@@ -52,12 +52,15 @@ function reportProgress(id: string, stage: string, message?: string): void {
   send({ t: "progress", id, stage, message });
 }
 
-async function onJob(raw: unknown): Promise<void> {
-  const job = raw as SubmitJob;
+async function answer<J extends { id?: unknown }>(
+  raw: unknown,
+  run: (job: J, onProgress: ProgressReporter) => Promise<SubmitOutcome>,
+): Promise<void> {
+  const job = raw as J;
   const id = String(job.id ?? "");
   if (id === "") return;
   try {
-    const result = await runSubmitJob(job, (stage, message) =>
+    const result = await run(job, (stage, message) =>
       reportProgress(id, stage, message),
     );
     send({ t: "result", id, ...result });
@@ -123,7 +126,11 @@ export async function connectBridge(opts?: { force?: boolean }): Promise<void> {
     retryMs = 1000;
     consecutiveFailures = 0;
     setDormant(false);
-    send({ t: "hello", version: chrome.runtime.getManifest().version });
+    send({
+      t: "hello",
+      version: chrome.runtime.getManifest().version,
+      features: ["watch"],
+    });
   });
 
   ws.addEventListener("message", (ev) => {
@@ -138,7 +145,9 @@ export async function connectBridge(opts?: { force?: boolean }): Promise<void> {
       return;
     }
     if (msg.t === "job") {
-      void onJob(msg);
+      void answer<SubmitJob>(msg, runSubmitJob);
+    } else if (msg.t === "watch") {
+      void answer<VerdictWatchJob>(msg, runVerdictWatchJob);
     }
   });
 

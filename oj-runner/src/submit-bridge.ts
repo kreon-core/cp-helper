@@ -27,6 +27,9 @@ export interface SubmitJob {
   pollTimeoutMs: number;
 }
 
+/** Job that only follows the newest submission for a problem on the judge's status page. */
+export type VerdictWatchJob = Omit<SubmitJob, "language" | "source">;
+
 export interface SubmitProgress {
   stage: string;
   message?: string;
@@ -49,7 +52,7 @@ export interface SubmitOutcome {
 }
 
 type ClientFrame =
-  | { t: "hello"; version?: string }
+  | { t: "hello"; version?: string; features?: unknown }
   | { t: "pong" }
   | { t: "progress"; id: string; stage: string; message?: string }
   | ({ t: "result"; id: string } & SubmitOutcome);
@@ -81,6 +84,8 @@ export class SubmitBridge {
 
   private clientVersion = "";
 
+  private clientFeatures = new Set<string>();
+
   private readonly pending = new Map<string, PendingJob>();
 
   private pingTimer: ReturnType<typeof setInterval> | undefined;
@@ -103,6 +108,11 @@ export class SubmitBridge {
 
   get peerVersion(): string {
     return this.clientVersion;
+  }
+
+  /** Whether the connected OJ Loader announced `feature` in its hello frame. */
+  supports(feature: string): boolean {
+    return this.connected && this.clientFeatures.has(feature);
   }
 
   /**
@@ -146,6 +156,7 @@ export class SubmitBridge {
     }
     this.client = ws;
     this.clientVersion = "";
+    this.clientFeatures = new Set();
     log.info("OJ Loader connected to the submit bridge");
     this.onDidChangeConnection.fire(true);
 
@@ -156,6 +167,7 @@ export class SubmitBridge {
       }
       this.client = undefined;
       this.clientVersion = "";
+      this.clientFeatures = new Set();
       log.info("OJ Loader disconnected from the submit bridge");
       this.failPending("OJ Loader disconnected before the submit finished.");
       this.onDidChangeConnection.fire(false);
@@ -179,6 +191,11 @@ export class SubmitBridge {
     switch (msg.t) {
       case "hello":
         this.clientVersion = typeof msg.version === "string" ? msg.version : "";
+        this.clientFeatures = new Set(
+          Array.isArray(msg.features)
+            ? msg.features.filter((f): f is string => typeof f === "string")
+            : [],
+        );
         this.onDidChangeConnection.fire(true);
         break;
       case "pong":
@@ -235,6 +252,26 @@ export class SubmitBridge {
     job: SubmitJob,
     onProgress: (p: SubmitProgress) => void,
   ): Promise<SubmitOutcome> {
+    return this.dispatch("job", job, onProgress);
+  }
+
+  /**
+   * Have the browser read the judge's status page again and follow the newest submission for
+   * the problem until its verdict settles. Nothing is submitted.
+   * @param onProgress called for every stage the browser reports (tab, polling)
+   */
+  watch(
+    job: VerdictWatchJob,
+    onProgress: (p: SubmitProgress) => void,
+  ): Promise<SubmitOutcome> {
+    return this.dispatch("watch", job, onProgress);
+  }
+
+  private dispatch(
+    frame: "job" | "watch",
+    job: VerdictWatchJob,
+    onProgress: (p: SubmitProgress) => void,
+  ): Promise<SubmitOutcome> {
     if (!this.connected) {
       return Promise.resolve({
         submitted: false,
@@ -253,7 +290,7 @@ export class SubmitBridge {
         });
       }, SUBMIT_JOB_TIMEOUT_MS);
       this.pending.set(id, { resolve, onProgress, timer });
-      this.send({ t: "job", id, ...job });
+      this.send({ t: frame, id, ...job });
     });
   }
 

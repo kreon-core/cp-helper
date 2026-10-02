@@ -1573,16 +1573,16 @@ button.submit-status {
   text-overflow: ellipsis;
 }
 
-button.submit-status:disabled {
+button.submit-status[aria-disabled="true"] {
   opacity: 1;
   cursor: default;
 }
 
-button.submit-status:not(:disabled) {
+button.submit-status:not([aria-disabled="true"]) {
   cursor: pointer;
 }
 
-button.submit-status:not(:disabled):hover {
+button.submit-status:not([aria-disabled="true"]):hover {
   text-decoration: underline;
   text-underline-offset: 2px;
 }

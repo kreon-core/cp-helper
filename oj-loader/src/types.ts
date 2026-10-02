@@ -63,6 +63,8 @@ export interface SubmitJob {
   pollTimeoutMs: number;
 }
 
+export type VerdictWatchJob = Omit<SubmitJob, "language" | "source">;
+
 export interface SubmitResult {
   submitted: boolean;
   posted?: boolean;

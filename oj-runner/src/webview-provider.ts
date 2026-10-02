@@ -30,7 +30,11 @@ import { killActiveShell, runState } from "./run-state";
 import { runAllTestsSharedCompile, runSingleTest } from "./run-tests";
 import { postRunnerLabel } from "./runner-label";
 import type { SubmitBridge } from "./submit-bridge";
-import { submitGroupSource } from "./submit-run";
+import {
+  refreshGroupVerdict,
+  submitGroupSource,
+  type SubmitRequestResult,
+} from "./submit-run";
 import { resolveSubmitTarget } from "./submit-target";
 import {
   ensureSourceSavedBeforeRun,
@@ -61,6 +65,42 @@ export async function revealSamplesContainer(): Promise<void> {
     await vscode.commands.executeCommand(`${VIEW_TYPE_SAMPLES}.focus`);
   } catch {
     await vscode.commands.executeCommand("workbench.view.extension.oj-runner");
+  }
+}
+
+function reportSubmitOutcome(
+  result: SubmitRequestResult,
+  postSubmitState: (extra: Record<string, unknown>) => void,
+): void {
+  const failure = result.rejected ?? result.error;
+  if (failure) {
+    maybeShowOutputOnRun();
+    log.error(`submit rejected: ${failure}`);
+    postSubmitState({ phase: "done", error: failure, submissionUrl: result.submissionUrl });
+    notify("error", failure, "submitNotifications");
+    return;
+  }
+  postSubmitState({
+    phase: "done",
+    submitted: result.submitted,
+    verdict: result.verdict,
+    accepted: result.accepted,
+    provisional: result.provisional,
+    submissionUrl: result.submissionUrl,
+    title: result.title,
+  });
+  if (result.verdict) {
+    notify(
+      result.accepted || result.provisional ? "info" : "warn",
+      `${result.title} - ${result.verdict}`,
+      "submitNotifications",
+    );
+  } else if (result.submitted) {
+    notify(
+      "info",
+      `Submitted to ${result.title}.`,
+      "submitNotifications",
+    );
   }
 }
 
@@ -625,38 +665,57 @@ export class OjRunnerViewProvider
               postSubmitState({ phase: "done", cancelled: true });
               break;
             }
-            const failure = result.rejected ?? result.error;
-            if (failure) {
-              maybeShowOutputOnRun();
-              log.error(`submit rejected: ${failure}`);
-              postSubmitState({ phase: "done", error: failure });
-              notify("error", failure, "submitNotifications");
-              break;
-            }
-            postSubmitState({
-              phase: "done",
-              submitted: result.submitted,
-              verdict: result.verdict,
-              accepted: result.accepted,
-              provisional: result.provisional,
-              submissionUrl: result.submissionUrl,
-              title: result.title,
-            });
-            if (result.verdict) {
-              notify(
-                result.accepted || result.provisional ? "info" : "warn",
-                `${result.title} - ${result.verdict}`,
-                "submitNotifications",
-              );
-            } else if (result.submitted) {
-              notify(
-                "info",
-                `Submitted to ${result.title}.`,
-                "submitNotifications",
-              );
-            }
+            reportSubmitOutcome(result, postSubmitState);
           } finally {
             this.submitInFlight.delete(submitKey);
+          }
+          break;
+        }
+        case "refreshVerdict": {
+          const groupIndex =
+            typeof msg.groupIndex === "number" ? msg.groupIndex : 0;
+          const postSubmitState = (
+            extra: Record<string, unknown>,
+          ): void => {
+            webviewView.webview.postMessage({
+              type: "submitState",
+              groupIndex,
+              refresh: true,
+              ...extra,
+            });
+          };
+          if (!this.submitBridge) {
+            notify("error", "Submit bridge is disabled.", "submitNotifications");
+            break;
+          }
+          const wsFolderRefresh = vscode.workspace.workspaceFolders?.[0]?.uri;
+          const refreshGroups = wsFolderRefresh
+            ? await loadCaseGroupsFromFile(this.ctx.workspaceState, wsFolderRefresh)
+            : loadCaseGroups(this.ctx.workspaceState);
+          const refreshKey = String(refreshGroups[groupIndex]?.id ?? `#${groupIndex}`);
+          if (this.submitInFlight.has(refreshKey)) {
+            notify(
+              "warn",
+              "This problem already has a submit or verdict check in progress.",
+              "submitNotifications",
+            );
+            break;
+          }
+          this.submitInFlight.add(refreshKey);
+          try {
+            const result = await refreshGroupVerdict(
+              this.submitBridge,
+              refreshGroups[groupIndex],
+              () => postSubmitState({ phase: "start", stage: "checking" }),
+              (p) => postSubmitState({ phase: "progress", stage: p.stage, message: p.message }),
+            );
+            if (result.rejected) {
+              notify("error", result.rejected, "submitNotifications");
+              break;
+            }
+            reportSubmitOutcome(result, postSubmitState);
+          } finally {
+            this.submitInFlight.delete(refreshKey);
           }
           break;
         }

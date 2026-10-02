@@ -1816,8 +1816,8 @@
     el.replaceChildren(label);
     el.hidden = text === "";
     el.dataset.cpUrl = url;
-    el.title = url !== "" ? `${full}` : full;
-    el.disabled = url === "";
+    el.title = `${full}\nRight-click to re-check on the judge`;
+    el.setAttribute("aria-disabled", url === "" ? "true" : "false");
     el.setAttribute("aria-label", full);
     el.classList.toggle("submit-status--ok", st?.tone === "ok");
     el.classList.toggle("submit-status--bad", st?.tone === "bad");
@@ -2321,6 +2321,11 @@
           if (url !== "") {
             vscode.postMessage({ type: "openSubmission", url });
           }
+        });
+        submitStatusG.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          if (!submitBridgeConnected || submitBusyGroups.has(gi)) return;
+          vscode.postMessage({ type: "refreshVerdict", groupIndex: gi });
         });
       }
 
@@ -3307,9 +3312,15 @@
       if (gi < 0) {
         return;
       }
+      const refresh = m.refresh === true;
       if (m.phase === "start") {
         submitBusyGroups.add(gi);
-        setSubmitStatus(gi, "SENDING", "", "Submitting");
+        setSubmitStatus(
+          gi,
+          refresh ? "CHECKING" : "SENDING",
+          "",
+          refresh ? "Re-checking on the judge" : "Submitting",
+        );
       } else if (m.phase === "progress") {
         const live = typeof m.message === "string" ? m.message.trim() : "";
         if (live !== "") {
@@ -3318,7 +3329,7 @@
           const stage = String(m.stage ?? "working");
           setSubmitStatus(
             gi,
-            stage === "judging" ? "SUBMITTED" : "SENDING",
+            refresh ? "CHECKING" : stage === "judging" ? "SUBMITTED" : "SENDING",
             "",
             stage,
           );

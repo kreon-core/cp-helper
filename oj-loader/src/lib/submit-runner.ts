@@ -13,6 +13,7 @@ import type {
   SubmitResult,
   VerdictRow,
   VerdictsQuery,
+  VerdictWatchJob,
 } from "../types";
 import { OJ_LOADER_SUBMIT_SCRIPT_PATHS } from "./inject-manifest";
 
@@ -222,14 +223,16 @@ async function waitForLoad(tabId: number, expectedUrl: string): Promise<void> {
 }
 
 /**
- * Take a tab out of the pool for `submitUrl`, opening one when every pooled tab is either gone or
+ * Take a tab out of the pool for `openUrl`, opening one when every pooled tab is either gone or
  * already carrying another job. The navigation itself is left to the caller: claims are
  * serialized, so waiting for a page to load in here would park every later submit behind it.
- * @returns claimed tab, marked busy
+ * @param stays whether a pooled tab can be used where it is, without loading `openUrl`
+ * @returns claimed tab, marked busy, and the page it has to finish loading
  */
 async function claimTab(
-  submitUrl: string,
-): Promise<{ tabId: number; navigate: boolean }> {
+  openUrl: string,
+  stays: (tab: chrome.tabs.Tab) => boolean,
+): Promise<{ tabId: number; navigate: boolean; loadUrl: string }> {
   const stored = await chrome.storage.session.get({ [TAB_KEY]: [] });
   const pool = (Array.isArray(stored[TAB_KEY]) ? stored[TAB_KEY] : []).filter(
     (id: unknown): id is number => typeof id === "number",
@@ -242,8 +245,9 @@ async function claimTab(
   }
   let tabId = alive.find((id) => !busyTabs.has(id));
   let navigate = false;
+  let loadUrl = openUrl;
   if (tabId === undefined) {
-    const created = await chrome.tabs.create({ url: submitUrl, active: false });
+    const created = await chrome.tabs.create({ url: openUrl, active: false });
     if (created.id === undefined) {
       throw new Error("Could not open a tab on the judge.");
     }
@@ -251,14 +255,14 @@ async function claimTab(
     alive.push(tabId);
   } else {
     const tab = await getTab(tabId);
-    // Re-navigating a tab that is already on this exact page throws away an anti-bot token the
-    // user just cleared by hand, which is what "clear it there, then submit again" asks them to do.
-    // A token this pool has already submitted with is worth nothing, so that tab does reload.
-    navigate = !tab || (tab.url ?? "") !== submitUrl || spentTabs.has(tabId);
+    navigate = !tab || !stays(tab);
+    if (tab && !navigate) {
+      loadUrl = tab.url ?? openUrl;
+    }
   }
   busyTabs.add(tabId);
   await chrome.storage.session.set({ [TAB_KEY]: alive });
-  return { tabId, navigate };
+  return { tabId, navigate, loadUrl };
 }
 
 /**
@@ -288,23 +292,27 @@ async function discardTab(tabId: number): Promise<void> {
 }
 
 /**
- * @returns id of a tab sitting on `submitUrl`
+ * @param stays whether a pooled tab can be used where it is, without loading `openUrl`
+ * @returns id of a loaded tab, on `openUrl` unless `stays` kept it where it was
  */
-async function acquireTab(submitUrl: string): Promise<number> {
+async function acquireTab(
+  openUrl: string,
+  stays: (tab: chrome.tabs.Tab) => boolean,
+): Promise<number> {
   const claim = claimChain.then(() =>
-    withTimeout(claimTab(submitUrl), CLAIM_TIMEOUT_MS, "The browser"),
+    withTimeout(claimTab(openUrl, stays), CLAIM_TIMEOUT_MS, "The browser"),
   );
   claimChain = claim.then(
     () => undefined,
     () => undefined,
   );
-  const { tabId, navigate } = await claim;
+  const { tabId, navigate, loadUrl } = await claim;
   try {
     if (navigate) {
-      await navigateTab(tabId, submitUrl);
+      await navigateTab(tabId, openUrl);
       spentTabs.delete(tabId);
     }
-    await waitForLoad(tabId, submitUrl);
+    await waitForLoad(tabId, loadUrl);
   } catch (e) {
     busyTabs.delete(tabId);
     throw e;
@@ -347,9 +355,9 @@ function callVerdictInPage(job: SubmitJob): VerdictRow | Promise<VerdictRow> {
  */
 function callVerdictsInPage(
   opts: VerdictsQuery,
-): Record<string, VerdictRow> | Promise<Record<string, VerdictRow>> {
+): Record<string, VerdictRow> | null | Promise<Record<string, VerdictRow>> {
   const fn = globalThis.__ojLoaderVerdictsInPage;
-  return typeof fn === "function" ? fn(opts) : {};
+  return typeof fn === "function" ? fn(opts) : null;
 }
 
 /**
@@ -387,6 +395,29 @@ async function callInPage<A, R>(
   );
   const first = frames ? frames[0] : undefined;
   return first ? (first.result as R | undefined) : undefined;
+}
+
+async function injectSubmitDriver(tabId: number): Promise<void> {
+  await inTab(
+    tabId,
+    chrome.scripting.executeScript({
+      target: { tabId },
+      files: OJ_LOADER_SUBMIT_SCRIPT_PATHS,
+    }),
+    IN_PAGE_TIMEOUT_MS,
+  );
+}
+
+async function readVerdicts(
+  tabId: number,
+  query: VerdictsQuery,
+): Promise<Record<string, VerdictRow> | undefined> {
+  const rows = await callInPage(tabId, callVerdictsInPage, query);
+  if (rows !== null) {
+    return rows;
+  }
+  await injectSubmitDriver(tabId);
+  return (await callInPage(tabId, callVerdictsInPage, query)) ?? undefined;
 }
 
 async function focusTab(tabId: number): Promise<void> {
@@ -462,7 +493,7 @@ async function pollLoop(statusUrl: string, poller: Poller): Promise<void> {
       let failure: unknown;
       for (const s of subs) {
         try {
-          rows = await callInPage(s.tabId, callVerdictsInPage, {
+          rows = await readVerdicts(s.tabId, {
             judge: s.judge,
             statusUrl,
             problemIds,
@@ -492,12 +523,15 @@ async function pollLoop(statusUrl: string, poller: Poller): Promise<void> {
  * Follow one problem's verdict on the poller shared by everything on the same status page.
  * @param tabId this job's tab, offered to the poller to read the status page in
  * @param pollFor how long to wait for the verdict to settle
+ * @param requireRow end on the first read that lists no submission for the problem, instead of
+ * waiting for one to appear
  */
 function watchVerdict(
-  job: SubmitJob,
+  job: Pick<SubmitJob, "judge" | "problemId" | "statusUrl">,
   tabId: number,
   pollFor: number,
   onProgress: ProgressReporter,
+  requireRow = false,
 ): Promise<VerdictOutcome> {
   const statusUrl = String(job.statusUrl);
   let poller = pollers.get(statusUrl);
@@ -527,6 +561,11 @@ function watchVerdict(
           return;
         }
         if (!row) {
+          if (requireRow) {
+            finish({
+              error: `No submission for ${String(job.problemId)} on the judge's status page.`,
+            });
+          }
           return;
         }
         last = row;
@@ -570,14 +609,7 @@ async function submitInTab(
   job: SubmitJob,
   onProgress: ProgressReporter,
 ): Promise<SubmitOutcome> {
-  await inTab(
-    tabId,
-    chrome.scripting.executeScript({
-      target: { tabId },
-      files: OJ_LOADER_SUBMIT_SCRIPT_PATHS,
-    }),
-    IN_PAGE_TIMEOUT_MS,
-  );
+  await injectSubmitDriver(tabId);
 
   // Newest submission before the POST: the judge's answer is not always classifiable, and a new
   // row appearing for this problem is the only unambiguous proof that one was created.
@@ -647,9 +679,51 @@ export async function runSubmitJob(
   onProgress: ProgressReporter,
 ): Promise<SubmitOutcome> {
   onProgress("opening judge");
-  const tabId = await acquireTab(String(job.submitUrl));
+  const submitUrl = String(job.submitUrl);
+  // Re-navigating a tab that is already on this exact page throws away an anti-bot token the
+  // user just cleared by hand, which is what "clear it there, then submit again" asks them to do.
+  // A token this pool has already submitted with is worth nothing, so that tab does reload.
+  const tabId = await acquireTab(
+    submitUrl,
+    (tab) => (tab.url ?? "") === submitUrl && !spentTabs.has(tab.id ?? -1),
+  );
   try {
     return await submitInTab(tabId, job, onProgress);
+  } finally {
+    busyTabs.delete(tabId);
+  }
+}
+
+/**
+ * Follow the newest submission for a problem without submitting anything, for a submit whose
+ * verdict was lost along the way.
+ * @param job from OJ Runner
+ */
+export async function runVerdictWatchJob(
+  job: VerdictWatchJob,
+  onProgress: ProgressReporter,
+): Promise<SubmitOutcome> {
+  onProgress("opening judge");
+  const statusUrl = String(job.statusUrl);
+  const origin = new URL(statusUrl).origin;
+  const tabId = await acquireTab(statusUrl, (tab) => {
+    try {
+      return new URL(tab.url ?? "").origin === origin;
+    } catch {
+      return false;
+    }
+  });
+  try {
+    onProgress("checking");
+    const pollFor = Number(job.pollTimeoutMs);
+    const watched = await watchVerdict(
+      job,
+      tabId,
+      Number.isFinite(pollFor) && pollFor > 0 ? pollFor : POLL_SLOW_AFTER_MS,
+      onProgress,
+      true,
+    );
+    return { submitted: watched.verdict !== undefined, ...watched };
   } finally {
     busyTabs.delete(tabId);
   }
