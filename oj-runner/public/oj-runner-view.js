@@ -148,6 +148,7 @@
   const _JUDGE_ICONS = {
     codeforces: {
       title: "Codeforces",
+      viewBox: "0 0 24 24",
       shapes: [
         ["rect", { x: "2", y: "9", width: "6", height: "13", rx: "1", fill: "#fdc62f" }],
         ["rect", { x: "9", y: "3", width: "6", height: "19", rx: "1", fill: "#1e88e5" }],
@@ -156,34 +157,13 @@
     },
     atcoder: {
       title: "AtCoder",
+      viewBox: "194 218.5 62 42",
+      fill: "currentColor",
+      stroke: "currentColor",
+      strokeWidth: "2",
       shapes: [
-        [
-          "path",
-          {
-            d: "M12 1.8 20.6 4.4V11c0 5.4-3.6 9.2-8.6 11.2C7 20.2 3.4 16.4 3.4 11V4.4Z",
-            fill: "none",
-            stroke: "currentColor",
-            "stroke-width": "1.8",
-            "stroke-linejoin": "round",
-          },
-        ],
-        [
-          "circle",
-          { cx: "12", cy: "10.6", r: "4.6", fill: "none", stroke: "currentColor", "stroke-width": "1.3" },
-        ],
-        [
-          "ellipse",
-          {
-            cx: "12",
-            cy: "10.6",
-            rx: "2",
-            ry: "4.6",
-            fill: "none",
-            stroke: "currentColor",
-            "stroke-width": "1.1",
-          },
-        ],
-        ["path", { d: "M7.4 10.6h9.2", fill: "none", stroke: "currentColor", "stroke-width": "1.1" }],
+        ["path", { d: "M249,248.34a12.17,12.17,0,0,1-20.84-1l-.73-1.3c-6.46-11.51-10.36-18.57-11.58-21l-2.33-4.62-2.4,4.58c-1.62,3.14-9.93,21-13.48,28.62-.68,1.46-2.41,4.84-2.57,5.18l6-.11c.17-.35.64-1.37,1.33-2.84,2.44-5.24,7.91-17,11.13-23.78,3,5.48,7.45,13.4,9.23,16.56.4.71.64,1.15.69,1.21A17.47,17.47,0,0,0,255,248.34Z" }],
+        ["path", { d: "M238.85,224.07a17.43,17.43,0,0,0-15.69,9.8l3.46,5.53a24.7,24.7,0,0,1,1.24-3.1A12.17,12.17,0,0,1,249,234.79h6A17.46,17.46,0,0,0,238.85,224.07Z" }],
       ],
     },
   };
@@ -195,7 +175,14 @@
   function mkJudgeIcon(judge) {
     const spec = _JUDGE_ICONS[judge];
     const svg = document.createElementNS(SVG_NS, "svg");
-    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("viewBox", spec.viewBox);
+    if (spec.fill) {
+      svg.setAttribute("fill", spec.fill);
+    }
+    if (spec.stroke) {
+      svg.setAttribute("stroke", spec.stroke);
+      svg.setAttribute("stroke-width", spec.strokeWidth);
+    }
     svg.setAttribute("class", `judge-icon judge-icon--${judge}`);
     svg.setAttribute("aria-hidden", "true");
     const title = document.createElementNS(SVG_NS, "title");

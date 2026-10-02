@@ -559,6 +559,10 @@ button.case-group-disclose:focus-visible {
   flex-shrink: 0;
 }
 
+.judge-icon--atcoder {
+  width: 1.55em;
+}
+
 /**
  * Every other control in a header acts on a run; a rename sitting beside them at rest reads as
  * one more of those, so it only surfaces while the pointer is on the problem it belongs to.
