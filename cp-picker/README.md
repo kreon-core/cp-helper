@@ -18,19 +18,15 @@ Problems are organized as **category** (Graph Theory, Number Theory, Strings, ..
 
 ## Problem data
 
-Two sources are bundled. Refresh both with `npm run fetch:sources` (which also reassigns categories, see below), then `npm run build`.
+Two sources are bundled as JSON in `src/data/sources/`. They are maintained by hand (or by asking Claude), not by fetch scripts; after editing the data, run `npm run sort:groups` and `npm run build`.
 
 ### YouKn0wWho
 
 The technique types come from [YouKn0wWho's topic list](https://youkn0wwho.academy/topic-list), filtered to Codeforces contest problems (no gym / group / edu), AtCoder tasks and CSES tasks, including the ones the site links through vjudge. From the `Basics` category only the technique groups are kept (binary search and two pointers, prefix sums, greedy and constructive, bit manipulation, basic counting, ...); the language, STL, complexity, sorting-algorithm and graph-representation lessons are left out. The types listed in `src/data/research.json` (advanced or non-contest topics such as Top Tree, Pell's Equation or A*) are moved into a separate `Research` category for later study. Research types keep their group, are never picked unless the Research category is selected in the filters, and a problem that also has a contest type stays in the contest category. Order inside a type is the Codeforces rating or the AtCoder Problems difficulty estimate, then the site's per-topic level (Easy, Medium, Hard, Very Hard). Problems without a rating are placed at 1200 / 1700 / 2200 / 2700 by level.
 
-`npm run fetch:youkn0wwho` rewrites `src/data/sources/youkn0wwho.json`.
-
 ### CSES
 
-Every [CSES problem set](https://cses.fi/problemset/) problem outside Introductory Problems is listed under the same technique types as everything else, never under its CSES section. YouKn0wWho already tags about half of them; the rest are tagged by hand in `src/data/tags.json`, which maps a problem id to extra type ids for any source (the level comes from the rating). `npm run fetch:cses` lists any CSES problem that has no types yet. CSES has no ratings, so each problem gets an estimate from its solver count on a log scale (the most solved problem is about 800, a problem with about 200 solvers is about 2600), shown as `~1850`.
-
-`npm run fetch:cses` rewrites `src/data/sources/cses.json`.
+Every [CSES problem set](https://cses.fi/problemset/) problem outside Introductory Problems is listed under the same technique types as everything else, never under its CSES section. YouKn0wWho already tags about half of them; the rest are tagged by hand in `src/data/tags.json`, which maps a problem id to extra type ids for any source (the level comes from the rating). CSES has no ratings, so each problem gets an estimate from its solver count on a log scale (the most solved problem is about 800, a problem with about 200 solvers is about 2600), shown as `~1850`.
 
 ### One category per problem
 
@@ -74,7 +70,7 @@ Every `src/data/sources/*.json` file is bundled and merged, so another source ca
 }
 ```
 
-A type's `categoryId` is looked up in `src/data/categories.json`, a map from id to display name, and its `groupId` in `src/data/groups.json`, which maps each category id to its own map of group id to display name, so every category has its own groups (each has its own `miscellaneous`). Both files are shared by all sources; edit a name there to rename it everywhere. The order of `categories.json` is the category order, and the order inside each category of `groups.json` is the group order in Browse. `npm run sort:groups` (part of `fetch:sources`) sorts the groups of each category by how many problems they have, most first. Types inside a group are always shown by problem count, most first. The fetch scripts only add ids missing from those files, so renames survive a refetch. A type may set `"importance"` from 1 (Rare) to 3 (Core). `types` on a problem maps a problem type id to a level from 1 (Easy) to 4 (Very Hard); `"ratingEstimated": true` marks a rating that is not official. Problems with the same id across sources are merged, and the source with the most types takes precedence.
+A type's `categoryId` is looked up in `src/data/categories.json`, a map from id to display name, and its `groupId` in `src/data/groups.json`, which maps each category id to its own map of group id to display name, so every category has its own groups. Groups name a specific topic; there are no catch-all Miscellaneous or Techniques groups. Both files are shared by all sources; edit a name there to rename it everywhere. The order of `categories.json` is the category order, and the order inside each category of `groups.json` is the group order in Browse. `npm run sort:groups` sorts the groups of each category by how many problems they have, most first. Types inside a group are always shown by problem count, most first. A type may set `"importance"` from 1 (Rare) to 3 (Core). `types` on a problem maps a problem type id to a level from 1 (Easy) to 4 (Very Hard); `"ratingEstimated": true` marks a rating that is not official. Problems with the same id across sources are merged, and the source with the most types takes precedence.
 
 ## Adding links
 
@@ -115,8 +111,6 @@ The arrow button in the popup header opens the app in a full tab. Use it for imp
 ```
 public/manifest.json          extension manifest, copied to dist/
 public/icons/                 toolbar icons
-scripts/fetch-youkn0wwho.mjs  scrapes youkn0wwho.academy into src/data/sources/
-scripts/fetch-cses.mjs        scrapes the CSES problem set into src/data/sources/
 scripts/assign-categories.mjs picks one category per problem into src/data/assignments.json
 scripts/sort-groups.mjs       sorts each category's groups in src/data/groups.json by problem count
 src/types.ts                  data model and defaults
