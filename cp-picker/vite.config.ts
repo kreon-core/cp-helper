@@ -8,5 +8,16 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     chunkSizeWarningLimit: 1024,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: (id) => /\/src\/data\/sources\/([^/]+)\.json$/.exec(id)?.[1] ?? null,
+            },
+          ],
+        },
+      },
+    },
   },
 });
