@@ -1,7 +1,7 @@
 {
   "name": "oj-loader",
   "private": true,
-  "version": "1.2.30",
+  "version": "1.2.31",
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && node scripts/build.mjs",

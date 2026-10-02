@@ -2,117 +2,418 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
     <title>OJ Loader</title>
     <style>
-      body {
-        font: 14px system-ui, sans-serif;
-        max-width: 42rem;
-        margin: 1rem 1.5rem;
-        line-height: 1.45;
+      :root {
+        color-scheme: light;
+        --bg: #ffffff;
+        --surface: #ffffff;
+        --surface-muted: #f6f7f9;
+        --border: #e3e6ea;
+        --border-strong: #cfd4da;
+        --text: #1b1f24;
+        --text-muted: #5b6470;
+        --accent: #2563eb;
+        --accent-hover: #1d4ed8;
+        --accent-text: #ffffff;
+        --focus: rgba(37, 99, 235, 0.35);
+        --code-bg: #eef1f5;
+        --success: #15803d;
+        --success-bg: #e8f6ed;
+        --toggle-off: #cfd4da;
+        --shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+        --icon-bg: #1b1f24;
       }
-      label {
-        display: block;
-        margin: 0.75rem 0 0.25rem;
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+          --bg: #0f1115;
+          --surface: #171a21;
+          --surface-muted: #1d212a;
+          --border: #272c36;
+          --border-strong: #363c48;
+          --text: #e6e8ec;
+          --text-muted: #9aa3af;
+          --accent: #4f8cff;
+          --accent-hover: #6a9dff;
+          --accent-text: #0b0d12;
+          --focus: rgba(79, 140, 255, 0.4);
+          --code-bg: #232833;
+          --success: #4ade80;
+          --success-bg: rgba(74, 222, 128, 0.12);
+          --toggle-off: #3a414e;
+          --shadow: none;
+          --icon-bg: #232833;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      main {
+        max-width: 44rem;
+        margin: 0 auto;
+        padding: 2.5rem 1.25rem 3rem;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        margin-bottom: 0.75rem;
+      }
+
+      header img {
+        width: 44px;
+        height: 44px;
+        padding: 6px;
+        border-radius: 12px;
+        background: var(--icon-bg);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+
+      .subtitle {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+
+      .intro {
+        margin: 0 0 1.75rem;
+        color: var(--text-muted);
+      }
+
+      .intro strong {
+        color: var(--text);
         font-weight: 600;
       }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        margin-bottom: 1.25rem;
+        overflow: hidden;
+      }
+
+      .card-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-muted);
+      }
+
+      h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      .tag {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--accent);
+      }
+
+      .row {
+        padding: 1rem 1.25rem;
+      }
+
+      .row + .row {
+        border-top: 1px solid var(--border);
+      }
+
+      .toggle {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        cursor: pointer;
+      }
+
+      .toggle-text {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+      }
+
+      .toggle-title {
+        font-weight: 600;
+      }
+
+      .toggle-sub {
+        color: var(--text-muted);
+        font-size: 12.5px;
+      }
+
+      .toggle input {
+        appearance: none;
+        flex: none;
+        position: relative;
+        width: 38px;
+        height: 22px;
+        margin: 1px 0 0;
+        border-radius: 999px;
+        background: var(--toggle-off);
+        cursor: pointer;
+        transition: background 0.15s ease;
+      }
+
+      .toggle input::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #ffffff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+        transition: transform 0.15s ease;
+      }
+
+      .toggle input:checked {
+        background: var(--accent);
+      }
+
+      .toggle input:checked::after {
+        transform: translateX(16px);
+      }
+
+      .toggle input:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--focus);
+      }
+
+      .field label {
+        display: block;
+        margin-bottom: 0.4rem;
+        font-weight: 600;
+      }
+
       input[type="text"] {
         width: 100%;
-        box-sizing: border-box;
-        padding: 0.35rem 0.5rem;
+        padding: 0.55rem 0.7rem;
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        background: var(--bg);
+        color: var(--text);
+        font: 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
       }
+
+      input[type="text"]::placeholder {
+        color: var(--text-muted);
+        opacity: 0.7;
+      }
+
+      input[type="text"]:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--focus);
+      }
+
       .hint {
-        color: #555;
-        font-size: 12px;
-        margin: 0.25rem 0 0;
+        margin: 0.55rem 0 0;
+        color: var(--text-muted);
+        font-size: 12.5px;
       }
-      h2 {
-        font-size: 1rem;
-        margin: 1.25rem 0 0.35rem;
-        border-top: 1px solid #ddd;
-        padding-top: 1rem;
+
+      .hint strong {
+        color: var(--text);
+        font-weight: 600;
       }
+
+      code {
+        padding: 0.1em 0.35em;
+        border-radius: 4px;
+        background: var(--code-bg);
+        font: 0.92em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      .actions {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        margin-top: 1.5rem;
+      }
+
       button {
-        margin-top: 1rem;
-        padding: 0.4rem 0.9rem;
+        padding: 0.55rem 1.4rem;
+        border: 0;
+        border-radius: 8px;
+        background: var(--accent);
+        color: var(--accent-text);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s ease;
       }
+
+      button:hover {
+        background: var(--accent-hover);
+      }
+
+      button:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--focus);
+      }
+
       #status {
-        margin-top: 0.75rem;
-        font-size: 13px;
+        padding: 0.25rem 0.7rem;
+        border-radius: 999px;
+        background: var(--success-bg);
+        color: var(--success);
+        font-size: 12.5px;
+        font-weight: 600;
+      }
+
+      #status:empty {
+        display: none;
       }
     </style>
   </head>
   <body>
-    <h1>OJ Loader</h1>
-    <p>
-      Companion to <strong>OJ Runner</strong> in
-      <strong>Visual Studio Code</strong> (official Microsoft build).
-      The toolbar button <strong>POSTs</strong> extracted JSON to OJ Runner on
-      your machine. Nothing is copied to the clipboard. Keep
-      <strong>localhost HTTP</strong> enabled so Chrome does not need a
-      <code>vscode://</code> prompt for normal imports.
-    </p>
+    <main>
+      <header>
+        <img src="icons/icon-48.png" alt="" />
+        <div>
+          <h1>OJ Loader</h1>
+          <p class="subtitle">Settings</p>
+        </div>
+      </header>
+      <p class="intro">
+        Companion to <strong>OJ Runner</strong> in
+        <strong>Visual Studio Code</strong> (official Microsoft build).
+        The toolbar button <strong>POSTs</strong> extracted JSON to OJ Runner on
+        your machine. Nothing is copied to the clipboard. Keep
+        <strong>localhost HTTP</strong> enabled so Chrome does not need a
+        <code>vscode://</code> prompt for normal imports.
+      </p>
 
-    <h2>Local HTTP (recommended)</h2>
-    <label>
-      <input type="checkbox" id="useLocalHttp" />
-      POST JSON to OJ Runner on localhost (default: on)
-    </label>
-    <label for="localImportUrl">Local import URL</label>
-    <input
-      type="text"
-      id="localImportUrl"
-      spellcheck="false"
-      autocomplete="off"
-      placeholder="http://127.0.0.1:17337/import"
-    />
-    <p class="hint">
-      Must match <strong>OJ Runner</strong> settings
-      <code>ojRunner.localImportPort</code> (default <code>17337</code>) and path
-      <code>/import</code>. OJ Runner must be running in VS Code with
-      the local import server enabled. If the POST fails, you get a red badge;
-      enable the fallback below to open the editor.
-    </p>
+      <section class="card">
+        <div class="card-head">
+          <h2>Local HTTP</h2>
+          <span class="tag">Recommended</span>
+        </div>
+        <div class="row">
+          <label class="toggle">
+            <span class="toggle-text">
+              <span class="toggle-title">POST JSON to OJ Runner on localhost</span>
+              <span class="toggle-sub">Default: on</span>
+            </span>
+            <input type="checkbox" id="useLocalHttp" />
+          </label>
+        </div>
+        <div class="row field">
+          <label for="localImportUrl">Local import URL</label>
+          <input
+            type="text"
+            id="localImportUrl"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="http://127.0.0.1:17337/import"
+          />
+          <p class="hint">
+            Must match <strong>OJ Runner</strong> settings
+            <code>ojRunner.localImportPort</code> (default <code>17337</code>) and path
+            <code>/import</code>. OJ Runner must be running in VS Code with
+            the local import server enabled. If the POST fails, you get a red badge;
+            enable the fallback below to open the editor.
+          </p>
+        </div>
+      </section>
 
-    <label>
-      <input type="checkbox" id="fallbackUri" />
-      If POST fails, open editor URL (focus OJ Runner only; Chrome may prompt)
-    </label>
-    <label for="focusUri">Focus URL</label>
-    <input
-      type="text"
-      id="focusUri"
-      spellcheck="false"
-      autocomplete="off"
-      placeholder="vscode://from-cero.oj-runner/focusSamples"
-    />
-    <p class="hint">
-      VS Code default above. This does not import samples - use it to jump to
-      OJ Runner when localhost is down.
-      Manual JSON paste remains in OJ Runner's Samples view.
-    </p>
+      <section class="card">
+        <div class="card-head">
+          <h2>Fallback</h2>
+        </div>
+        <div class="row">
+          <label class="toggle">
+            <span class="toggle-text">
+              <span class="toggle-title">If POST fails, open editor URL</span>
+              <span class="toggle-sub">Focuses OJ Runner only; Chrome may prompt</span>
+            </span>
+            <input type="checkbox" id="fallbackUri" />
+          </label>
+        </div>
+        <div class="row field">
+          <label for="focusUri">Focus URL</label>
+          <input
+            type="text"
+            id="focusUri"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="vscode://from-cero.oj-runner/focusSamples"
+          />
+          <p class="hint">
+            VS Code default above. This does not import samples - use it to jump to
+            OJ Runner when localhost is down.
+            Manual JSON paste remains in OJ Runner's Samples view.
+          </p>
+        </div>
+      </section>
 
-    <h2>Submit bridge</h2>
-    <label>
-      <input type="checkbox" id="submitBridgeEnabled" />
-      Let OJ Runner send submissions through this browser (default: on)
-    </label>
-    <label for="submitBridgeUrl">Bridge URL</label>
-    <input
-      type="text"
-      id="submitBridgeUrl"
-      spellcheck="false"
-      autocomplete="off"
-      placeholder="ws://127.0.0.1:17337/submit?token=..."
-    />
-    <p class="hint">
-      In VS Code run <strong>OJ Runner: Copy Submit Bridge URL</strong> and paste the result here.
-      The <code>token</code> in it is what keeps other pages and local programs off the socket, so
-      treat the URL as a password and do not share it. Submissions are then sent from the judge tab
-      using <strong>your existing login</strong> - OJ Loader never sees your judge password.
-    </p>
+      <section class="card">
+        <div class="card-head">
+          <h2>Submit bridge</h2>
+        </div>
+        <div class="row">
+          <label class="toggle">
+            <span class="toggle-text">
+              <span class="toggle-title">Let OJ Runner send submissions through this browser</span>
+              <span class="toggle-sub">Default: on</span>
+            </span>
+            <input type="checkbox" id="submitBridgeEnabled" />
+          </label>
+        </div>
+        <div class="row field">
+          <label for="submitBridgeUrl">Bridge URL</label>
+          <input
+            type="text"
+            id="submitBridgeUrl"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="ws://127.0.0.1:17337/submit?token=..."
+          />
+          <p class="hint">
+            In VS Code run <strong>OJ Runner: Copy Submit Bridge URL</strong> and paste the result here.
+            The <code>token</code> in it is what keeps other pages and local programs off the socket, so
+            treat the URL as a password and do not share it. Submissions are then sent from the judge tab
+            using <strong>your existing login</strong> - OJ Loader never sees your judge password.
+          </p>
+        </div>
+      </section>
 
-    <button type="button" id="save">Save</button>
-    <div id="status" role="status"></div>
+      <div class="actions">
+        <button type="button" id="save">Save</button>
+        <div id="status" role="status"></div>
+      </div>
+    </main>
     <script src="options.js"></script>
   </body>
 </html>
