@@ -190,10 +190,11 @@ function readBackupData(value: Record<string, unknown>): BackupData {
   };
 }
 
-export function serializeBackup(data: BackupData): string {
-  const backup: BackupData & { app: string; version: number } = {
+export function serializeBackup(data: BackupData, updatedAt?: string): string {
+  const backup: BackupData & { app: string; version: number; updatedAt?: string } = {
     app: "cp-picker",
     version: 2,
+    ...(updatedAt ? { updatedAt } : {}),
     custom: data.custom,
     solved: data.solved,
     history: data.history,

@@ -51,7 +51,7 @@ export async function pullGist(gist: GistSync): Promise<BackupData | null> {
 }
 
 export async function pushGist(gist: GistSync, data: BackupData): Promise<void> {
-  await request(gist, { files: { [FILE]: { content: serializeBackup(data) } } });
+  await request(gist, { files: { [FILE]: { content: serializeBackup(data, new Date().toISOString()) } } });
 }
 
 function mergeKeyed<T>(base: readonly T[], local: readonly T[], remote: readonly T[], key: (item: T) => string): T[] {
