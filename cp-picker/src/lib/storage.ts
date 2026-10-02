@@ -5,16 +5,17 @@ import {
   RATING_BOUNDS,
   type AppData,
   type Filters,
+  type Importance,
   type PickRecord,
   type Profile,
   type Settings,
 } from "../types";
 import { readCatalog } from "./custom";
 import { isDateString } from "./date";
-import { asPlatform, asString, asStringList, isRecord } from "./guards";
+import { asImportance, asPlatform, asString, asStringList, isRecord } from "./guards";
 
 type StorageKey = keyof AppData;
-const KEYS: StorageKey[] = ["custom", "solved", "history", "settings", "filters", "profile"];
+const KEYS: StorageKey[] = ["custom", "solved", "history", "settings", "filters", "profile", "importance"];
 const LEGACY_KEYS = ["topics"];
 
 interface StorageArea {
@@ -130,6 +131,16 @@ function readFilters(value: unknown): Filters {
   };
 }
 
+function readImportance(value: unknown): Record<string, Importance> {
+  if (!isRecord(value)) return {};
+  const out: Record<string, Importance> = {};
+  for (const [typeId, raw] of Object.entries(value)) {
+    const importance = asImportance(raw);
+    if (importance !== undefined) out[typeId] = importance;
+  }
+  return out;
+}
+
 export async function loadData(): Promise<AppData> {
   const stored = await area().get([...KEYS, ...LEGACY_KEYS]);
   if (LEGACY_KEYS.some((key) => key in stored)) await area().remove(LEGACY_KEYS);
@@ -140,6 +151,7 @@ export async function loadData(): Promise<AppData> {
     settings: readSettings(stored.settings),
     filters: readFilters(stored.filters),
     profile: readProfile(stored.profile),
+    importance: readImportance(stored.importance),
   };
 }
 
@@ -156,6 +168,7 @@ export interface Backup {
   custom: AppData["custom"];
   solved: string[];
   history: PickRecord[];
+  importance: Record<string, Importance>;
 }
 
 export function serializeBackup(data: AppData): string {
@@ -165,6 +178,7 @@ export function serializeBackup(data: AppData): string {
     custom: data.custom,
     solved: data.solved,
     history: data.history,
+    importance: data.importance,
   };
   return JSON.stringify(backup, null, 2);
 }
@@ -187,6 +201,7 @@ export function parseBackup(text: string): BackupResult {
       custom: readCatalog(parsed.custom),
       solved: asStringList(parsed.solved),
       history: readHistory(parsed.history),
+      importance: readImportance(parsed.importance),
     },
   };
 }

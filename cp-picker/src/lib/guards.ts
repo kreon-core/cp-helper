@@ -1,4 +1,4 @@
-import { LEVELS, PLATFORMS, type Level, type Platform } from "../types";
+import { IMPORTANCES, LEVELS, PLATFORMS, type Importance, type Level, type Platform } from "../types";
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -6,6 +6,10 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function asLevel(value: unknown): Level | undefined {
   return LEVELS.find((l) => l === value);
+}
+
+export function asImportance(value: unknown): Importance | undefined {
+  return IMPORTANCES.find((i) => i === value);
 }
 
 export function asPlatform(value: unknown): Platform | undefined {

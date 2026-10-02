@@ -5,7 +5,8 @@ Chrome extension (Manifest V3) that picks one Codeforces, AtCoder or CSES proble
 Problems are organized as **category** (Graph Theory, Number Theory, Strings, ...) -> **problem type** (Dijkstra, Sieve, KMP, ...) -> **problems**, ordered from easy to hard.
 
 - One pick per local calendar day; reopening the popup shows the same pick.
-- A pick chooses a random category, then a random problem type in it, then the easiest unsolved problem of that type.
+- A pick chooses a random category, then a problem type in it weighted by how important the type is in CP, then the easiest unsolved problem of that type.
+- Importance comes from YouKn0wWho's star rating: Core (3 stars) is picked 9 times as often as Rare (1 star), Useful (2 stars) 3 times as often. CSES sections and your own types default to Useful. Change any type's importance in Browse, including `Never pick` to drop it.
 - `Shuffle` replaces today's pick with a different problem type. A type always serves its lowest unsolved problem, so a harder one only comes up after the easier ones are solved.
 - Skips problem types picked within the last N days (default 7). If every matching type is recent, it picks from all of them.
 - Connect a Codeforces handle in Settings: problems you solved on Codeforces are marked solved automatically (synced when the popup opens, at most every 10 minutes), and the rating range can follow your rating (+100 to +500).
@@ -13,7 +14,7 @@ Problems are organized as **category** (Graph Theory, Number Theory, Strings, ..
 - Browse tab lists every type with its problems easy to hard; tick problems as solved there or from the Today card.
 - Add tab takes many problem links at once and files them under a category and problem type (existing or new).
 - History of daily picks; entries can be deleted.
-- Backup export / import of your added problems, solved list and history.
+- Backup export / import of your added problems, solved list, history and type importance.
 
 ## Problem data
 
@@ -67,7 +68,7 @@ Every `src/data/sources/*.json` file is bundled and merged, so another source ca
 }
 ```
 
-`types` maps a problem type id to a level from 1 (Easy) to 4 (Very Hard); `"ratingEstimated": true` marks a rating that is not official. Problems with the same id across sources are merged, and the source with the most categories sets the category order.
+A type may set `"importance"` from 1 (Rare) to 3 (Core). `types` on a problem maps a problem type id to a level from 1 (Easy) to 4 (Very Hard); `"ratingEstimated": true` marks a rating that is not official. Problems with the same id across sources are merged, and the source with the most categories sets the category order.
 
 ## Adding links
 
@@ -115,7 +116,8 @@ src/types.ts                  data model and defaults
 src/data/sources/             bundled problem catalogs
 src/data/assignments.json     category chosen for problems tagged in several categories
 src/lib/library.ts            merges catalogs, one category per problem, orders problems by rating
-src/lib/picker.ts             category -> type -> problem selection (pure)
+src/lib/picker.ts             category -> weighted type -> problem selection (pure)
+src/lib/importance.ts         type importance, pick weights and star labels
 src/lib/daily.ts              today's pick and shuffle logic (pure)
 src/lib/links.ts              Codeforces / AtCoder link parsing
 src/lib/lookup.ts             title and rating lookup for added links

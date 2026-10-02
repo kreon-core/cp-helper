@@ -11,6 +11,18 @@ export const LEVEL_NAMES: Record<Level, string> = {
   4: "Very Hard",
 };
 
+export const IMPORTANCES = [3, 2, 1, 0] as const;
+export type Importance = (typeof IMPORTANCES)[number];
+
+export const IMPORTANCE_NAMES: Record<Importance, string> = {
+  3: "Core",
+  2: "Useful",
+  1: "Rare",
+  0: "Never pick",
+};
+
+export const DEFAULT_IMPORTANCE: Importance = 2;
+
 export interface Category {
   id: string;
   name: string;
@@ -21,6 +33,7 @@ export interface ProblemType {
   name: string;
   categoryId: string;
   group?: string;
+  importance?: Importance;
 }
 
 export interface Problem {
@@ -80,6 +93,7 @@ export interface AppData {
   settings: Settings;
   filters: Filters;
   profile: Profile | null;
+  importance: Record<string, Importance>;
 }
 
 export const DEFAULT_SETTINGS: Settings = {

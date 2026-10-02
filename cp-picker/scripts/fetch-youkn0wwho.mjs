@@ -190,6 +190,7 @@ async function main() {
           name: topic.topic_title.trim(),
           categoryId: cat.category_id,
           group: sub.sub_category_title.trim(),
+          importance: [1, 2, 3].includes(topic.importance) ? topic.importance : 2,
         });
       }
     }

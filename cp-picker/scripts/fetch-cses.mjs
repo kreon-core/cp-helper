@@ -110,7 +110,7 @@ async function main() {
       continue;
     }
     const typeId = `cses_${slug(name)}`;
-    types.push({ id: typeId, name: `CSES: ${name}`, categoryId, group: "CSES Problem Set" });
+    types.push({ id: typeId, name: `CSES: ${name}`, categoryId, group: "CSES Problem Set", importance: 2 });
     for (const [, id, title, solvers] of tasks) {
       const rating = estimateRating(Number(solvers));
       problems.push({

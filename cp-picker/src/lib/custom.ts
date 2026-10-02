@@ -1,5 +1,5 @@
 import type { Catalog, Category, Level, Problem, ProblemType } from "../types";
-import { asLevel, asPlatform, asString, isRecord } from "./guards";
+import { asImportance, asLevel, asPlatform, asString, isRecord } from "./guards";
 import { findByName, levelFromRating, type Library } from "./library";
 import type { ProblemLink } from "./links";
 import type { ProblemInfo } from "./lookup";
@@ -148,7 +148,9 @@ function readType(value: unknown): ProblemType | undefined {
   const name = asString(value.name);
   const categoryId = asString(value.categoryId);
   const group = asString(value.group);
-  return id && name && categoryId ? { id, name, categoryId, ...(group ? { group } : {}) } : undefined;
+  const importance = asImportance(value.importance);
+  if (!id || !name || !categoryId) return undefined;
+  return { id, name, categoryId, ...(group ? { group } : {}), ...(importance !== undefined ? { importance } : {}) };
 }
 
 function readProblem(value: unknown): Problem | undefined {

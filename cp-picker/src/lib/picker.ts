@@ -1,5 +1,6 @@
 import type { Category, Filters, PickRecord, ProblemType, Settings } from "../types";
 import { daysBetween } from "./date";
+import { IMPORTANCE_WEIGHT, typeImportance, type ImportanceOverrides } from "./importance";
 import { estimatedRating, type Library, type TypeProblem } from "./library";
 
 export type Rng = () => number;
@@ -18,6 +19,7 @@ export interface SelectionInput {
   history: readonly PickRecord[];
   filters: Filters;
   settings: Settings;
+  importance: ImportanceOverrides;
   today: string;
   excludeTypeId?: string;
 }
@@ -60,31 +62,58 @@ export function pickRandom<T>(items: readonly T[], rng: Rng = Math.random): T | 
   return items[index];
 }
 
+export function pickWeighted<T>(items: readonly T[], weight: (item: T) => number, rng: Rng = Math.random): T | undefined {
+  const total = items.reduce((sum, item) => sum + weight(item), 0);
+  if (total <= 0) return undefined;
+  let r = rng() * total;
+  for (const item of items) {
+    r -= weight(item);
+    if (r < 0) return item;
+  }
+  return items[items.length - 1];
+}
+
 interface Candidate {
   category: Category;
   type: ProblemType;
   entry: TypeProblem;
+  weight: number;
 }
 
-function candidates(library: Library, solved: ReadonlySet<string>, filters: Filters): Candidate[] {
+function candidates(
+  library: Library,
+  solved: ReadonlySet<string>,
+  filters: Filters,
+  importance: ImportanceOverrides,
+): Candidate[] {
   const out: Candidate[] = [];
   for (const category of filteredCategories(library, filters)) {
     for (const type of library.typesByCategory.get(category.id) ?? []) {
+      const weight = IMPORTANCE_WEIGHT[typeImportance(type, importance)];
+      if (weight === 0) continue;
       const entry = nextUnsolved(typeProblems(library, type.id, filters), solved);
-      if (entry) out.push({ category, type, entry });
+      if (entry) out.push({ category, type, entry, weight });
     }
   }
   return out;
 }
 
-export function selectionBlocker(library: Library, solved: ReadonlySet<string>, filters: Filters): string | null {
+export function selectionBlocker(
+  library: Library,
+  solved: ReadonlySet<string>,
+  filters: Filters,
+  importance: ImportanceOverrides,
+): string | null {
   if (library.problemById.size === 0) return "No problems yet. Add some links in the Add tab.";
   const scoped = filteredCategories(library, filters).some((c) =>
     (library.typesByCategory.get(c.id) ?? []).some((t) => typeProblems(library, t.id, filters).length > 0),
   );
   if (!scoped) return "No problems match the current filters. Loosen the filters or the rating range to get a pick.";
-  if (candidates(library, solved, filters).length === 0) {
+  if (candidates(library, solved, filters, {}).length === 0) {
     return "Every problem that matches the current filters is solved.";
+  }
+  if (candidates(library, solved, filters, importance).length === 0) {
+    return "Every type with unsolved problems is set to Never pick. Change a type's importance in Browse.";
   }
   return null;
 }
@@ -92,18 +121,19 @@ export function selectionBlocker(library: Library, solved: ReadonlySet<string>, 
 function pickFrom(pool: readonly Candidate[], rng: Rng): Candidate | undefined {
   const categoryIds = [...new Set(pool.map((c) => c.category.id))];
   const categoryId = pickRandom(categoryIds, rng);
-  return pickRandom(
+  return pickWeighted(
     pool.filter((c) => c.category.id === categoryId),
+    (c) => c.weight,
     rng,
   );
 }
 
 export function selectPick(input: SelectionInput, rng: Rng = Math.random): SelectionResult {
-  const { library, solved, history, filters, settings, today, excludeTypeId } = input;
-  const blocker = selectionBlocker(library, solved, filters);
+  const { library, solved, history, filters, settings, importance, today, excludeTypeId } = input;
+  const blocker = selectionBlocker(library, solved, filters, importance);
   if (blocker) return { ok: false, reason: blocker };
 
-  const all = candidates(library, solved, filters);
+  const all = candidates(library, solved, filters, importance);
   const recent = recentTypeIds(history, today, settings.historyWindowDays);
   const others = all.filter((c) => c.type.id !== excludeTypeId);
 

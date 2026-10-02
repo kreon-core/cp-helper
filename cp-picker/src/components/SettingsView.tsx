@@ -28,7 +28,7 @@ export function SettingsView({ data, library, update, sync, onSync, onReset }: S
     try {
       const result = parseBackup(await file.text());
       if (!result.ok) return setNotice({ tone: "error", text: result.error });
-      if (!confirm("Replace your added problems, solved list and history with this backup?")) return;
+      if (!confirm("Replace your added problems, solved list, history and type importance with this backup?")) return;
       update(result.backup);
       setNotice({
         tone: "success",
@@ -100,7 +100,7 @@ export function SettingsView({ data, library, update, sync, onSync, onReset }: S
         <div className="row-between">
           <span>
             Backup
-            <span className="hint block">Added problems, solved list and history.</span>
+            <span className="hint block">Added problems, solved list, history and type importance.</span>
           </span>
           <div className="row">
             <button type="button" className="btn" onClick={() => fileInput.current?.click()}>

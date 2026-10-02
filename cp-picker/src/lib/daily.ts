@@ -2,7 +2,7 @@ import type { AppData, Category, PickRecord, Problem, ProblemType } from "../typ
 import type { Library } from "./library";
 import { nextUnsolved, selectPick, typeProblems, type Rng } from "./picker";
 
-export type DailyInput = Pick<AppData, "solved" | "history" | "filters" | "settings">;
+export type DailyInput = Pick<AppData, "solved" | "history" | "filters" | "settings" | "importance">;
 
 export type DailyResult =
   | { kind: "existing"; record: PickRecord }

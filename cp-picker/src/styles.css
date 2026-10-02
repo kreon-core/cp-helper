@@ -222,6 +222,17 @@ body {
   margin-top: 4px;
 }
 
+.stars {
+  color: var(--medium);
+  font-size: 11px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+.list-item .stars {
+  margin-left: auto;
+}
+
 .count {
   font-size: 12px;
   color: var(--muted);

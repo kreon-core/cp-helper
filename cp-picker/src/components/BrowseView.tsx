@@ -1,8 +1,9 @@
 import { useState } from "react";
-import type { ProblemType } from "../types";
+import { DEFAULT_IMPORTANCE, IMPORTANCES, IMPORTANCE_NAMES, type Importance, type ProblemType } from "../types";
 import { isCustomAssignment, removeAssignment } from "../lib/custom";
 import { findRecord, pickInType } from "../lib/daily";
 import { toggleItem } from "../lib/format";
+import { stars, typeImportance } from "../lib/importance";
 import { matchesFilters, typeProblems } from "../lib/picker";
 import type { ViewProps } from "../useAppData";
 import { EmptyState } from "./EmptyState";
@@ -40,6 +41,13 @@ export function BrowseView({ data, library, update, today, onPracticed, onAddLin
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const solved = new Set(data.solved);
 
+  const setImportance = (t: ProblemType, value: Importance) => {
+    const next = { ...data.importance };
+    if (value === (t.importance ?? DEFAULT_IMPORTANCE)) delete next[t.id];
+    else next[t.id] = value;
+    update({ importance: next });
+  };
+
   const type = typeId ? library.typeById.get(typeId) : undefined;
   if (type) {
     const category = library.categoryById.get(type.categoryId);
@@ -72,6 +80,20 @@ export function BrowseView({ data, library, update, today, onPracticed, onAddLin
           <h2 className="type-title">{type.name}</h2>
           {type.group && <p className="hint">{type.group}</p>}
         </div>
+        <label className="row hint">
+          Importance
+          <select
+            value={typeImportance(type, data.importance)}
+            onChange={(e) => setImportance(type, Number(e.target.value) as Importance)}
+          >
+            {IMPORTANCES.map((i) => (
+              <option key={i} value={i}>
+                {i === 0 ? IMPORTANCE_NAMES[i] : `${stars(i)} ${IMPORTANCE_NAMES[i]}`}
+                {i === (type.importance ?? DEFAULT_IMPORTANCE) ? " (default)" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="toolbar">
           <button type="button" className="btn btn-primary" disabled={practiceSet.length === 0} onClick={practice}>
             Practice today
@@ -148,6 +170,9 @@ export function BrowseView({ data, library, update, today, onPracticed, onAddLin
                   <li key={t.id}>
                     <button type="button" className="list-item" onClick={() => setTypeId(t.id)}>
                       <span className="list-title">{t.name}</span>
+                      <span className="stars" title={IMPORTANCE_NAMES[typeImportance(t, data.importance)]}>
+                        {stars(typeImportance(t, data.importance))}
+                      </span>
                       <span className={entries.length > 0 && done === entries.length ? "count count-done" : "count"}>
                         {done} / {entries.length}
                       </span>

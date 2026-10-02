@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { IMPORTANCE_NAMES } from "../types";
 import { findRecord, shuffleDailyPick } from "../lib/daily";
 import { toggleItem } from "../lib/format";
+import { stars, typeImportance } from "../lib/importance";
 import { selectionBlocker, typeProblems } from "../lib/picker";
 import type { ViewProps } from "../useAppData";
 import { Dot, LevelBadge, ProblemMeta } from "./Badges";
@@ -53,7 +55,19 @@ export function TodayView({ data, library, today, update }: ViewProps & { today:
           <>
             <p className="topic-meta">{record.categoryName}</p>
             <h2 className="topic-name">{record.typeName}</h2>
-            {type?.group && <p className="hint">{type.group}</p>}
+            {type && (
+              <p className="hint">
+                {type.group && (
+                  <>
+                    {type.group}
+                    <Dot />
+                  </>
+                )}
+                <span className="stars" title={IMPORTANCE_NAMES[typeImportance(type, data.importance)]}>
+                  {stars(typeImportance(type, data.importance))}
+                </span>
+              </p>
+            )}
             <a
               className={isSolved ? "problem-card problem-done" : "problem-card"}
               href={record.problemUrl}
@@ -80,7 +94,7 @@ export function TodayView({ data, library, today, update }: ViewProps & { today:
           </>
         ) : (
           <EmptyState title="No problem picked yet">
-            <p className="hint">{selectionBlocker(library, solved, data.filters) ?? "Press the button to pick one."}</p>
+            <p className="hint">{selectionBlocker(library, solved, data.filters, data.importance) ?? "Press the button to pick one."}</p>
           </EmptyState>
         )}
         <button type="button" className="btn btn-primary btn-wide" onClick={shuffle}>
