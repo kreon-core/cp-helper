@@ -13,6 +13,7 @@ export default defineConfig({
         codeSplitting: {
           groups: [
             {
+              debugName: "sources",
               name: (id) => /\/src\/data\/sources\/([^/]+)\.json$/.exec(id)?.[1] ?? null,
             },
           ],
