@@ -157,8 +157,33 @@
     atcoder: {
       title: "AtCoder",
       shapes: [
-        ["path", { d: "M12 2 21.5 22h-4.6L12 11.2 7.1 22H2.5Z", fill: "currentColor" }],
-        ["rect", { x: "8.5", y: "16", width: "7", height: "2.4", fill: "currentColor" }],
+        [
+          "path",
+          {
+            d: "M12 1.8 20.6 4.4V11c0 5.4-3.6 9.2-8.6 11.2C7 20.2 3.4 16.4 3.4 11V4.4Z",
+            fill: "none",
+            stroke: "currentColor",
+            "stroke-width": "1.8",
+            "stroke-linejoin": "round",
+          },
+        ],
+        [
+          "circle",
+          { cx: "12", cy: "10.6", r: "4.6", fill: "none", stroke: "currentColor", "stroke-width": "1.3" },
+        ],
+        [
+          "ellipse",
+          {
+            cx: "12",
+            cy: "10.6",
+            rx: "2",
+            ry: "4.6",
+            fill: "none",
+            stroke: "currentColor",
+            "stroke-width": "1.1",
+          },
+        ],
+        ["path", { d: "M7.4 10.6h9.2", fill: "none", stroke: "currentColor", "stroke-width": "1.1" }],
       ],
     },
   };
