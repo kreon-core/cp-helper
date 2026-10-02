@@ -11,7 +11,8 @@
     "fetch:youkn0wwho": "node scripts/fetch-youkn0wwho.mjs",
     "fetch:cses": "node scripts/fetch-cses.mjs",
     "assign:categories": "node scripts/assign-categories.mjs",
-    "fetch:sources": "npm run fetch:youkn0wwho && npm run fetch:cses && npm run assign:categories"
+    "sort:groups": "node scripts/sort-groups.mjs",
+    "fetch:sources": "npm run fetch:youkn0wwho && npm run fetch:cses && npm run assign:categories && npm run sort:groups"
   },
   "dependencies": {
     "react": "^19.3.0",

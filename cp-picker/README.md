@@ -6,7 +6,7 @@ Problems are organized as **category** (Graph Theory, Number Theory, Strings, ..
 
 - One pick per local calendar day; reopening the popup shows the same pick.
 - A pick chooses a random category, then a problem type in it weighted by how important the type is in CP, then the easiest unsolved problem of that type.
-- Importance comes from YouKn0wWho's star rating: Core (3 stars) is picked 9 times as often as Rare (1 star), Useful (2 stars) 3 times as often. CSES sections and your own types default to Useful. Change any type's importance in Browse, including `Never pick` to drop it.
+- Importance comes from YouKn0wWho's star rating: Core (3 stars) is picked 9 times as often as Rare (1 star), Useful (2 stars) 3 times as often. Your own types default to Useful. Change any type's importance in Browse, including `Never pick` to drop it.
 - `Shuffle` replaces today's pick with a different problem type. A type always serves its lowest unsolved problem, so a harder one only comes up after the easier ones are solved.
 - Skips problem types picked within the last N days (default 7). If every matching type is recent, it picks from all of them.
 - Connect a Codeforces handle in Settings: problems you solved on Codeforces are marked solved automatically (synced when the popup opens, at most every 10 minutes), and the rating range can follow your rating (+100 to +500).
@@ -22,19 +22,19 @@ Two sources are bundled. Refresh both with `npm run fetch:sources` (which also r
 
 ### YouKn0wWho
 
-The technique types come from [YouKn0wWho's topic list](https://youkn0wwho.academy/topic-list), filtered to Codeforces contest problems (no gym / group / edu), AtCoder tasks and CSES tasks, including the ones the site links through vjudge. The beginner `Basics` category is left out. Order inside a type is the Codeforces rating or the AtCoder Problems difficulty estimate, then the site's per-topic level (Easy, Medium, Hard, Very Hard). Problems without a rating are placed at 1200 / 1700 / 2200 / 2700 by level.
+The technique types come from [YouKn0wWho's topic list](https://youkn0wwho.academy/topic-list), filtered to Codeforces contest problems (no gym / group / edu), AtCoder tasks and CSES tasks, including the ones the site links through vjudge. From the `Basics` category only the technique groups are kept (binary search and two pointers, prefix sums, greedy and constructive, bit manipulation, basic counting, ...); the language, STL, complexity, sorting-algorithm and graph-representation lessons are left out. The types listed in `src/data/research.json` (advanced or non-contest topics such as Top Tree, Pell's Equation or A*) are moved into a separate `Research` category for later study. Research types keep their group, are never picked unless the Research category is selected in the filters, and a problem that also has a contest type stays in the contest category. Order inside a type is the Codeforces rating or the AtCoder Problems difficulty estimate, then the site's per-topic level (Easy, Medium, Hard, Very Hard). Problems without a rating are placed at 1200 / 1700 / 2200 / 2700 by level.
 
 `npm run fetch:youkn0wwho` rewrites `src/data/sources/youkn0wwho.json`.
 
 ### CSES
 
-Every [CSES problem set](https://cses.fi/problemset/) section except Introductory Problems becomes a problem type named `CSES: <section>` inside the matching category (for example `CSES: Range Queries` under Data Structures). CSES has no ratings, so each problem gets an estimate from its solver count on a log scale (the most solved problem is about 800, a problem with about 200 solvers is about 2600), shown as `~1850`. CSES problems that YouKn0wWho tags also appear under those technique types.
+Every [CSES problem set](https://cses.fi/problemset/) problem outside Introductory Problems is listed under the same technique types as everything else, never under its CSES section. YouKn0wWho already tags about half of them; the rest are tagged by hand in `src/data/tags.json`, which maps a problem id to extra type ids for any source (the level comes from the rating). `npm run fetch:cses` lists any CSES problem that has no types yet. CSES has no ratings, so each problem gets an estimate from its solver count on a log scale (the most solved problem is about 800, a problem with about 200 solvers is about 2600), shown as `~1850`.
 
 `npm run fetch:cses` rewrites `src/data/sources/cses.json`.
 
 ### One category per problem
 
-A problem can be tagged with types from several categories (for example a CSES game problem that is in both `Grundy Number` and `CSES: Mathematics`). It is kept in exactly one category, and only its types in that category are used.
+A problem can be tagged with types from several categories (for example a problem that is in both `Grundy Number` and `Bitmask DP`). It is kept in exactly one category, and only its types in that category are used.
 
 `npm run assign:categories` picks that category for every such problem and writes `src/data/assignments.json`. For each candidate category it adds up three shares:
 
@@ -53,13 +53,12 @@ Every `src/data/sources/*.json` file is bundled and merged, so another source ca
   "source": "name",
   "url": "https://...",
   "fetchedAt": "2026-10-01",
-  "categories": [{ "id": "graph_theory", "name": "Graph Theory" }],
   "types": [
     {
       "id": "dijkstras_algorithm",
       "name": "Dijkstra's Algorithm",
       "categoryId": "graph_theory",
-      "group": "Shortest Paths"
+      "groupId": "shortest_paths"
     }
   ],
   "problems": [
@@ -75,7 +74,7 @@ Every `src/data/sources/*.json` file is bundled and merged, so another source ca
 }
 ```
 
-A type may set `"importance"` from 1 (Rare) to 3 (Core). `types` on a problem maps a problem type id to a level from 1 (Easy) to 4 (Very Hard); `"ratingEstimated": true` marks a rating that is not official. Problems with the same id across sources are merged, and the source with the most categories sets the category order.
+A type's `categoryId` is looked up in `src/data/categories.json`, a map from id to display name, and its `groupId` in `src/data/groups.json`, which maps each category id to its own map of group id to display name, so every category has its own groups (each has its own `miscellaneous`). Both files are shared by all sources; edit a name there to rename it everywhere. The order of `categories.json` is the category order, and the order inside each category of `groups.json` is the group order in Browse. `npm run sort:groups` (part of `fetch:sources`) sorts the groups of each category by how many problems they have, most first. Types inside a group are always shown by problem count, most first. The fetch scripts only add ids missing from those files, so renames survive a refetch. A type may set `"importance"` from 1 (Rare) to 3 (Core). `types` on a problem maps a problem type id to a level from 1 (Easy) to 4 (Very Hard); `"ratingEstimated": true` marks a rating that is not official. Problems with the same id across sources are merged, and the source with the most types takes precedence.
 
 ## Adding links
 
@@ -119,9 +118,14 @@ public/icons/                 toolbar icons
 scripts/fetch-youkn0wwho.mjs  scrapes youkn0wwho.academy into src/data/sources/
 scripts/fetch-cses.mjs        scrapes the CSES problem set into src/data/sources/
 scripts/assign-categories.mjs picks one category per problem into src/data/assignments.json
+scripts/sort-groups.mjs       sorts each category's groups in src/data/groups.json by problem count
 src/types.ts                  data model and defaults
 src/data/sources/             bundled problem catalogs
 src/data/assignments.json     category chosen for problems tagged in several categories
+src/data/categories.json      category id -> name, in display order
+src/data/groups.json          category id -> group id -> name
+src/data/research.json        type ids moved to the Research category
+src/data/tags.json            extra type ids per problem (hand-tagged CSES problems)
 src/lib/library.ts            merges catalogs, one category per problem, orders problems by rating
 src/lib/picker.ts             category -> weighted type -> problem selection (pure)
 src/lib/importance.ts         type importance, pick weights and star labels

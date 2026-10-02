@@ -51,6 +51,7 @@ export function BrowseView({ data, library, update, today, onPracticed, onAddLin
   const type = typeId ? library.typeById.get(typeId) : undefined;
   if (type) {
     const category = library.categoryById.get(type.categoryId);
+    const groupName = library.groupByType.get(type.id);
     const entries = library.problemsByType.get(type.id) ?? [];
     const practiceSet = entries.filter((e) => matchesFilters(e, data.filters));
     const solvedCount = practiceSet.filter((e) => solved.has(e.problem.id)).length;
@@ -78,7 +79,7 @@ export function BrowseView({ data, library, update, today, onPracticed, onAddLin
         </div>
         <div>
           <h2 className="type-title">{type.name}</h2>
-          {type.group && <p className="hint">{type.group}</p>}
+          {groupName && <p className="hint">{groupName}</p>}
         </div>
         <label className="row hint">
           Importance
@@ -124,12 +125,13 @@ export function BrowseView({ data, library, update, today, onPracticed, onAddLin
 
   const query = search.trim().toLowerCase();
   const scope = categoryId ? library.categories.filter((c) => c.id === categoryId) : library.categories;
+  const groupOf = (t: ProblemType) => library.groupByType.get(t.id);
   const types = scope
     .flatMap((c) => library.typesByCategory.get(c.id) ?? [])
     .filter((t) => showEmpty || typeProblems(library, t.id, data.filters).length > 0)
-    .filter((t) => !query || t.name.toLowerCase().includes(query) || t.group?.toLowerCase().includes(query));
+    .filter((t) => !query || t.name.toLowerCase().includes(query) || groupOf(t)?.toLowerCase().includes(query));
   const groups = groupTypes(types, (t) =>
-    categoryId ? (t.group ?? "Other") : (library.categoryById.get(t.categoryId)?.name ?? ""),
+    categoryId ? (groupOf(t) ?? "Other") : (library.categoryById.get(t.categoryId)?.name ?? ""),
   );
 
   return (

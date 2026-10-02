@@ -8,6 +8,9 @@ net.setDefaultAutoSelectFamilyAttemptTimeout(5000);
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCES = resolve(ROOT, "src/data/sources");
 const OUT = resolve(ROOT, "src/data/assignments.json");
+const CATEGORIES = resolve(ROOT, "src/data/categories.json");
+const RESEARCH = resolve(ROOT, "src/data/research.json");
+const TAGS = resolve(ROOT, "src/data/tags.json");
 const CACHE = resolve(ROOT, "scripts/.cache/statements");
 const CF_API = "https://codeforces.com/api/problemset.problems";
 const DELAY_MS = 400;
@@ -149,6 +152,14 @@ function keywordHits(text) {
   return hits;
 }
 
+function levelFromRating(rating) {
+  if (rating === undefined) return 2;
+  if (rating < 1400) return 1;
+  if (rating < 1900) return 2;
+  if (rating < 2400) return 3;
+  return 4;
+}
+
 function shares(values, candidates) {
   const total = candidates.reduce((sum, c) => sum + (values[c] ?? 0), 0);
   return Object.fromEntries(candidates.map((c) => [c, total > 0 ? (values[c] ?? 0) / total : 0]));
@@ -157,13 +168,13 @@ function shares(values, candidates) {
 async function main() {
   const files = (await readdir(SOURCES)).filter((f) => f.endsWith(".json")).sort();
   const sources = await Promise.all(files.map(async (f) => JSON.parse(await readFile(resolve(SOURCES, f), "utf8"))));
-  sources.sort((a, b) => b.categories.length - a.categories.length);
+  sources.sort((a, b) => b.types.length - a.types.length);
 
-  const categoryOrder = [];
+  const categoryOrder = Object.keys(JSON.parse(await readFile(CATEGORIES, "utf8")));
+  const research = new Set(JSON.parse(await readFile(RESEARCH, "utf8")));
   const typeCategory = new Map();
   for (const s of sources) {
-    for (const c of s.categories) if (!categoryOrder.includes(c.id)) categoryOrder.push(c.id);
-    for (const t of s.types) if (!typeCategory.has(t.id)) typeCategory.set(t.id, t.categoryId);
+    for (const t of s.types) if (!research.has(t.id) && !typeCategory.has(t.id)) typeCategory.set(t.id, t.categoryId);
   }
 
   const problems = new Map();
@@ -172,6 +183,12 @@ async function main() {
       const current = problems.get(p.id);
       problems.set(p.id, current ? { ...current, types: { ...current.types, ...p.types } } : { ...p, types: { ...p.types } });
     }
+  }
+  for (const [id, typeIds] of Object.entries(JSON.parse(await readFile(TAGS, "utf8")))) {
+    const problem = problems.get(id);
+    if (!problem) continue;
+    const rating = problem.rating ?? sources.flatMap((s) => s.problems).find((p) => p.id === id && p.rating)?.rating;
+    for (const typeId of typeIds) problem.types[typeId] ??= levelFromRating(rating);
   }
 
   const multi = [...problems.values()].filter((p) => {

@@ -1,4 +1,4 @@
-import type { Category, Filters, PickRecord, ProblemType, Settings } from "../types";
+import { RESEARCH_CATEGORY, type Category, type Filters, type PickRecord, type ProblemType, type Settings } from "../types";
 import { daysBetween } from "./date";
 import { IMPORTANCE_WEIGHT, typeImportance, type ImportanceOverrides } from "./importance";
 import { estimatedRating, type Library, type TypeProblem } from "./library";
@@ -43,7 +43,7 @@ export function nextUnsolved(entries: readonly TypeProblem[], solved: ReadonlySe
 }
 
 function filteredCategories(library: Library, filters: Filters): Category[] {
-  if (filters.categories.length === 0) return library.categories;
+  if (filters.categories.length === 0) return library.categories.filter((c) => c.id !== RESEARCH_CATEGORY);
   return library.categories.filter((c) => filters.categories.includes(c.id));
 }
 

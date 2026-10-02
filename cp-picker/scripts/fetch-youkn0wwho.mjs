@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
+import { addCategories, addGroups } from "./names.mjs";
 
 const SITE = "https://youkn0wwho.academy";
 const PAGE = `${SITE}/topic-list`;
@@ -10,7 +11,15 @@ const AC_PROBLEMS = "https://kenkoooo.com/atcoder/resources/problems.json";
 const AC_MODELS = "https://kenkoooo.com/atcoder/resources/problem-models.json";
 const OUT = resolve(dirname(fileURLToPath(import.meta.url)), "../src/data/sources/youkn0wwho.json");
 const MAX_CF_CONTEST = 100000;
-const EXCLUDED_CATEGORIES = new Set(["basics"]);
+const EXCLUDED_GROUPS = new Set([
+  "basics/intro_to_programming",
+  "basics/learn_a_language",
+  "basics/intro_to_competitive_programming",
+  "basics/complexity_analysis",
+  "basics/standard_template_library_stl",
+  "basics/basic_sorting_algorithms",
+  "basics/very_basic_graphs",
+]);
 
 async function get(url, kind = "text") {
   const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 cp-picker" } });
@@ -140,6 +149,13 @@ function asLevel(value) {
   return Number.isFinite(n) ? Math.min(4, Math.max(1, n)) : 2;
 }
 
+function slug(text) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
 function cleanCategoryName(name) {
   return name.replace(/\s*\([A-Z]+\)\s*$/, "").trim();
 }
@@ -151,7 +167,6 @@ function stringify(catalog) {
     `  "source": ${JSON.stringify(catalog.source)},`,
     `  "url": ${JSON.stringify(catalog.url)},`,
     `  "fetchedAt": ${JSON.stringify(catalog.fetchedAt)},`,
-    `  "categories": [\n${lines(catalog.categories)}\n  ],`,
     `  "types": [\n${lines(catalog.types)}\n  ],`,
     `  "problems": [\n${lines(catalog.problems)}\n  ]`,
     "}",
@@ -175,13 +190,18 @@ async function main() {
   const acInfo = new Map(acProblems.map((p) => [p.id, p]));
   const acContestOf = new Map(acProblems.map((p) => [p.id, p.contest_id]));
 
-  const categories = [];
+  const categories = new Map();
+  const groups = new Map();
   const types = [];
   const typeIds = new Set();
   for (const cat of topicList) {
-    if (EXCLUDED_CATEGORIES.has(cat.category_id)) continue;
-    categories.push({ id: cat.category_id, name: cleanCategoryName(cat.category_title) });
+    categories.set(cat.category_id, cleanCategoryName(cat.category_title));
     for (const sub of cat.sub_categories ?? []) {
+      const groupName = sub.sub_category_title.trim();
+      const groupId = slug(groupName);
+      const groupKey = `${cat.category_id}/${groupId}`;
+      if (EXCLUDED_GROUPS.has(groupKey)) continue;
+      if (!groups.has(groupKey)) groups.set(groupKey, [cat.category_id, groupId, groupName]);
       for (const topic of sub.topics ?? []) {
         if (typeIds.has(topic.topic_id)) continue;
         typeIds.add(topic.topic_id);
@@ -189,7 +209,7 @@ async function main() {
           id: topic.topic_id,
           name: topic.topic_title.trim(),
           categoryId: cat.category_id,
-          group: sub.sub_category_title.trim(),
+          groupId,
           importance: [1, 2, 3].includes(topic.importance) ? topic.importance : 2,
         });
       }
@@ -236,15 +256,17 @@ async function main() {
     source: "youkn0wwho",
     url: PAGE,
     fetchedAt: new Date().toISOString().slice(0, 10),
-    categories,
     types,
     problems: sorted,
   };
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, stringify(catalog));
+  const newCategories = await addCategories(categories);
+  const newGroups = await addGroups(groups.values());
   const withProblems = new Set(sorted.flatMap((p) => Object.keys(p.types)));
   console.log(
-    `Wrote ${OUT}\n  ${categories.length} categories, ${types.length} types (${withProblems.size} with problems), ` +
+    `Wrote ${OUT}\n  ${categories.size} categories (${newCategories} new), ${groups.size} groups (${newGroups} new), ` +
+      `${types.length} types (${withProblems.size} with problems), ` +
       `${sorted.length} problems (${sorted.filter((p) => p.platform === "Codeforces").length} Codeforces, ` +
       `${sorted.filter((p) => p.platform === "AtCoder").length} AtCoder, ` +
       `${sorted.filter((p) => p.platform === "CSES").length} CSES), ${skipped} skipped`,

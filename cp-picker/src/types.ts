@@ -23,6 +23,8 @@ export const IMPORTANCE_NAMES: Record<Importance, string> = {
 
 export const DEFAULT_IMPORTANCE: Importance = 2;
 
+export const RESEARCH_CATEGORY = "research";
+
 export interface Category {
   id: string;
   name: string;
@@ -32,7 +34,7 @@ export interface ProblemType {
   id: string;
   name: string;
   categoryId: string;
-  group?: string;
+  groupId?: string;
   importance?: Importance;
 }
 

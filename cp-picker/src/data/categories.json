@@ -1,0 +1,14 @@
+{
+  "basics": "Basics",
+  "data_structures": "Data Structures",
+  "graph_theory": "Graph Theory",
+  "number_theory": "Number Theory",
+  "combinatorics": "Combinatorics",
+  "math": "Math",
+  "strings": "Strings",
+  "dynamic_programming": "Dynamic Programming",
+  "game_theory": "Game Theory",
+  "geometry": "Geometry",
+  "miscellaneous": "Miscellaneous",
+  "research": "Research"
+}

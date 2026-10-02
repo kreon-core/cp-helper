@@ -17,6 +17,7 @@ export function TodayView({ data, library, today, update }: ViewProps & { today:
   const solved = new Set(data.solved);
   const record = findRecord(data.history, today);
   const type = record ? library.typeById.get(record.typeId) : undefined;
+  const groupName = type ? library.groupByType.get(type.id) : undefined;
   const entries = record ? typeProblems(library, record.typeId, data.filters) : [];
   const entry = record ? (library.problemsByType.get(record.typeId) ?? []).find((e) => e.problem.id === record.problemId) : undefined;
   const solvedCount = entries.filter((e) => solved.has(e.problem.id)).length;
@@ -60,9 +61,9 @@ export function TodayView({ data, library, today, update }: ViewProps & { today:
             <p className="hint">
               {type ? (
                 <>
-                  {type.group && (
+                  {groupName && (
                     <>
-                      {type.group}
+                      {groupName}
                       <Dot />
                     </>
                   )}

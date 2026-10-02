@@ -147,10 +147,10 @@ function readType(value: unknown): ProblemType | undefined {
   const id = asString(value.id);
   const name = asString(value.name);
   const categoryId = asString(value.categoryId);
-  const group = asString(value.group);
+  const groupId = asString(value.groupId);
   const importance = asImportance(value.importance);
   if (!id || !name || !categoryId) return undefined;
-  return { id, name, categoryId, ...(group ? { group } : {}), ...(importance !== undefined ? { importance } : {}) };
+  return { id, name, categoryId, ...(groupId ? { groupId } : {}), ...(importance !== undefined ? { importance } : {}) };
 }
 
 function readProblem(value: unknown): Problem | undefined {

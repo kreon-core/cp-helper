@@ -1,4 +1,4 @@
-import type { Catalog, Category, Level, Problem, ProblemType } from "../types";
+import { RESEARCH_CATEGORY, type Catalog, type Category, type Level, type Problem, type ProblemType } from "../types";
 
 export interface TypeProblem {
   problem: Problem;
@@ -8,6 +8,7 @@ export interface TypeProblem {
 export interface Library {
   categories: Category[];
   categoryById: Map<string, Category>;
+  groupByType: Map<string, string>;
   typeById: Map<string, ProblemType>;
   typesByCategory: Map<string, ProblemType[]>;
   problemById: Map<string, Problem>;
@@ -50,6 +51,16 @@ function mergeProblem(current: Problem | undefined, next: Problem): Problem {
 }
 
 export type Assignments = Readonly<Record<string, string>>;
+export type Names = Readonly<Record<string, string>>;
+export type SourceData = Omit<Catalog, "categories">;
+
+export interface SharedData {
+  categories?: Names;
+  groups?: Readonly<Record<string, Names>>;
+  assignments?: Assignments;
+  research?: readonly string[];
+  tags?: Readonly<Record<string, readonly string[]>>;
+}
 
 function chooseCategory(
   problem: Problem,
@@ -64,6 +75,7 @@ function chooseCategory(
   }
   if (weight.size <= 1) return undefined;
   if (preferred && weight.has(preferred)) return preferred;
+  weight.delete(RESEARCH_CATEGORY);
   let best: string | undefined;
   for (const categoryId of categoryOrder) {
     const w = weight.get(categoryId);
@@ -73,17 +85,39 @@ function chooseCategory(
 }
 
 export function buildLibrary(
-  sources: readonly Catalog[],
+  sources: readonly SourceData[],
   custom: Catalog = { categories: [], types: [], problems: [] },
-  assignments: Assignments = {},
+  { categories = {}, groups = {}, assignments = {}, research = [], tags = {} }: SharedData = {},
 ): Library {
-  const categoryById = new Map<string, Category>();
+  const categoryById = new Map<string, Category>(Object.entries(categories).map(([id, name]) => [id, { id, name }]));
+  for (const c of custom.categories) if (!categoryById.has(c.id)) categoryById.set(c.id, c);
   const typeById = new Map<string, ProblemType>();
+  const researchIds = new Set(research);
+  const groupByType = new Map<string, string>();
+  const typeRank = new Map<string, [number, number]>();
+  const categoryRank = new Map(Object.keys(categories).map((id, i) => [id, i]));
   const problemById = new Map<string, Problem>();
   for (const source of [...sources, custom]) {
-    for (const c of source.categories) if (!categoryById.has(c.id)) categoryById.set(c.id, c);
-    for (const t of source.types) if (!typeById.has(t.id)) typeById.set(t.id, t);
+    for (const t of source.types) {
+      if (typeById.has(t.id)) continue;
+      const groupName = t.groupId ? groups[t.categoryId]?.[t.groupId] : undefined;
+      if (groupName) groupByType.set(t.id, groupName);
+      const groupIndex = t.groupId ? Object.keys(groups[t.categoryId] ?? {}).indexOf(t.groupId) : -1;
+      typeRank.set(t.id, [
+        categoryRank.get(t.categoryId) ?? categoryRank.size,
+        groupIndex < 0 ? Number.MAX_SAFE_INTEGER : groupIndex,
+      ]);
+      typeById.set(t.id, researchIds.has(t.id) ? { ...t, categoryId: RESEARCH_CATEGORY } : t);
+    }
     for (const p of source.problems) problemById.set(p.id, mergeProblem(problemById.get(p.id), p));
+  }
+  for (const [id, typeIds] of Object.entries(tags)) {
+    const problem = problemById.get(id);
+    if (!problem) continue;
+    const level = levelFromRating(problem.rating) ?? 2;
+    const types = { ...problem.types };
+    for (const typeId of typeIds) types[typeId] ??= level;
+    problemById.set(id, { ...problem, types });
   }
 
   const customCategory = new Map<string, string>();
@@ -109,7 +143,6 @@ export function buildLibrary(
     list.push(t);
     typesByCategory.set(t.categoryId, list);
   }
-
   const problemsByType = new Map<string, TypeProblem[]>();
   for (const problem of problemById.values()) {
     for (const [typeId, level] of Object.entries(problem.types)) {
@@ -121,9 +154,16 @@ export function buildLibrary(
   }
   for (const list of problemsByType.values()) list.sort(compareTypeProblems);
 
+  const rankOf = (t: ProblemType) => typeRank.get(t.id) ?? [categoryRank.size, Number.MAX_SAFE_INTEGER];
+  const countOf = (t: ProblemType) => problemsByType.get(t.id)?.length ?? 0;
+  for (const list of typesByCategory.values()) {
+    list.sort((a, b) => rankOf(a)[0] - rankOf(b)[0] || rankOf(a)[1] - rankOf(b)[1] || countOf(b) - countOf(a));
+  }
+
   return {
     categories: [...categoryById.values()],
     categoryById,
+    groupByType,
     typeById,
     typesByCategory,
     problemById,
