@@ -16,6 +16,7 @@ import type {
   VerdictWatchJob,
 } from "../types";
 import { OJ_LOADER_SUBMIT_SCRIPT_PATHS } from "./inject-manifest";
+import { getSubmitSettings } from "./settings";
 
 type VerdictOutcome = Omit<SubmitOutcome, "submitted" | "language">;
 
@@ -272,6 +273,14 @@ async function claimTab(
  */
 async function discardTab(tabId: number): Promise<void> {
   wedgedTabs.add(tabId);
+  await closeTab(tabId);
+}
+
+/**
+ * Take a tab out of the pool and close it. Runs on the claim chain, so a claim never picks up a
+ * tab that is on its way out.
+ */
+async function closeTab(tabId: number): Promise<void> {
   const drop = claimChain.then(async () => {
     const stored = await chrome.storage.session.get({ [TAB_KEY]: [] });
     const pool = Array.isArray(stored[TAB_KEY]) ? stored[TAB_KEY] : [];
@@ -289,6 +298,30 @@ async function discardTab(tabId: number): Promise<void> {
     () => undefined,
   );
   await drop;
+}
+
+/**
+ * Hand a tab back once its job is over. A job that ended on a settled verdict closes its tab when
+ * the user asked for that; anything else leaves it open for the user to look at. The tab stays
+ * busy until it is closed, so no other job can claim it in between, and a tab some later job
+ * reused is closed or kept by how that job ends.
+ */
+async function releaseTab(tabId: number, out: SubmitOutcome | undefined): Promise<void> {
+  try {
+    const settled =
+      out !== undefined &&
+      out.submitted &&
+      out.verdict !== undefined &&
+      out.error === undefined;
+    if (settled && (await getSubmitSettings()).closeJudgedTabs) {
+      await closeTab(tabId);
+      spentTabs.delete(tabId);
+    }
+  } catch {
+    /* the tab simply stays open */
+  } finally {
+    busyTabs.delete(tabId);
+  }
 }
 
 /**
@@ -687,10 +720,12 @@ export async function runSubmitJob(
     submitUrl,
     (tab) => (tab.url ?? "") === submitUrl && !spentTabs.has(tab.id ?? -1),
   );
+  let out: SubmitOutcome | undefined;
   try {
-    return await submitInTab(tabId, job, onProgress);
+    out = await submitInTab(tabId, job, onProgress);
+    return out;
   } finally {
-    busyTabs.delete(tabId);
+    void releaseTab(tabId, out);
   }
 }
 
@@ -713,6 +748,7 @@ export async function runVerdictWatchJob(
       return false;
     }
   });
+  let out: SubmitOutcome | undefined;
   try {
     onProgress("checking");
     const pollFor = Number(job.pollTimeoutMs);
@@ -723,8 +759,9 @@ export async function runVerdictWatchJob(
       onProgress,
       true,
     );
-    return { submitted: watched.verdict !== undefined, ...watched };
+    out = { submitted: watched.verdict !== undefined, ...watched };
+    return out;
   } finally {
-    busyTabs.delete(tabId);
+    void releaseTab(tabId, out);
   }
 }

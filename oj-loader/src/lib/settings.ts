@@ -10,6 +10,7 @@ export interface ImportSettings {
 export interface SubmitSettings {
   submitBridgeEnabled: boolean;
   submitBridgeUrl: string;
+  closeJudgedTabs: boolean;
 }
 
 export async function getImportSettings(): Promise<ImportSettings> {
@@ -43,11 +44,13 @@ export async function getSubmitSettings(): Promise<SubmitSettings> {
   const raw = await chrome.storage.sync.get({
     submitBridgeEnabled: true,
     submitBridgeUrl: "",
+    closeJudgedTabs: false,
   });
   const url =
     typeof raw.submitBridgeUrl === "string" ? raw.submitBridgeUrl.trim() : "";
   return {
     submitBridgeEnabled: raw.submitBridgeEnabled !== false,
     submitBridgeUrl: /^wss?:\/\//iu.test(url) ? url : "",
+    closeJudgedTabs: raw.closeJudgedTabs === true,
   };
 }

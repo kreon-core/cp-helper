@@ -6,6 +6,7 @@ const fallbackUriEl = document.getElementById("fallbackUri");
 const focusUriEl = document.getElementById("focusUri");
 const submitBridgeEnabledEl = document.getElementById("submitBridgeEnabled");
 const submitBridgeUrlEl = document.getElementById("submitBridgeUrl");
+const closeJudgedTabsEl = document.getElementById("closeJudgedTabs");
 const saveEl = document.getElementById("save");
 const statusEl = document.getElementById("status");
 
@@ -16,6 +17,7 @@ if (
   !(focusUriEl instanceof HTMLInputElement) ||
   !(submitBridgeEnabledEl instanceof HTMLInputElement) ||
   !(submitBridgeUrlEl instanceof HTMLInputElement) ||
+  !(closeJudgedTabsEl instanceof HTMLInputElement) ||
   !(saveEl instanceof HTMLButtonElement) ||
   !(statusEl instanceof HTMLElement)
 ) {
@@ -29,6 +31,7 @@ const storageDefaults = {
   focusUri: "",
   submitBridgeEnabled: true,
   submitBridgeUrl: "",
+  closeJudgedTabs: false,
 };
 
 chrome.storage.sync.get(storageDefaults, (items) => {
@@ -47,6 +50,7 @@ chrome.storage.sync.get(storageDefaults, (items) => {
   submitBridgeEnabledEl.checked = items.submitBridgeEnabled !== false;
   submitBridgeUrlEl.value =
     typeof items.submitBridgeUrl === "string" ? items.submitBridgeUrl : "";
+  closeJudgedTabsEl.checked = items.closeJudgedTabs === true;
 });
 
 saveEl.addEventListener("click", () => {
@@ -61,6 +65,7 @@ saveEl.addEventListener("click", () => {
       focusUri,
       submitBridgeEnabled: submitBridgeEnabledEl.checked,
       submitBridgeUrl: submitBridgeUrlEl.value.trim(),
+      closeJudgedTabs: closeJudgedTabsEl.checked,
     },
     () => {
       statusEl.textContent = "Saved.";

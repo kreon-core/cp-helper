@@ -74,6 +74,11 @@ the tab is brought to the front and the submit is reported as needing that inste
 silently. A token is good for one submission and the widget goes on showing the spent one, so a tab
 that has posted is reloaded before the next submit is replayed in it.
 
+Judge tabs are pooled and reused across jobs. With **Close the judge tab once the verdict is in**
+on (options page, default off), a tab is closed when its job ends on a settled verdict; a job that
+ends on an error, a polling timeout, a login redirect or an anti-bot widget needing the user leaves
+its tab open. A tab is decided by the last job that used it.
+
 Pairing: in VS Code run **OJ Runner: Copy Submit Bridge URL** and paste the result into the options
 page. The URL carries a token; WebSocket connections are not subject to CORS, so that token is the
 only thing keeping other pages and local programs off the socket. Treat it as a password.
