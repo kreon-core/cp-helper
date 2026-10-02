@@ -1,6 +1,6 @@
 # OJ Loader (Chrome)
 
-**Version 1.2.28** - aligned with **OJ Runner 1.2.28**.
+**Version 1.2.30** - aligned with **OJ Runner 1.2.30**.
 
 Chrome extension that reads **sample test cases** from **AtCoder**, **Codeforces**, and **LeetCode** problem pages and sends them to **OJ Runner** in VS Code, and submits solutions to **Codeforces** and **AtCoder** on OJ Runner's behalf.
 
