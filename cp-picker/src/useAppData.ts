@@ -5,11 +5,11 @@ import { resolveDailyPick } from "./lib/daily";
 import { toLocalDateString } from "./lib/date";
 import { errorMessage } from "./lib/format";
 import { buildLibrary, type Library } from "./lib/library";
-import { SOURCES } from "./lib/sources";
+import { ASSIGNMENTS, SOURCES } from "./lib/sources";
 import { loadData, resetData, saveData } from "./lib/storage";
 
 function libraryFor(custom: Catalog): Library {
-  return buildLibrary([...SOURCES, custom]);
+  return buildLibrary(SOURCES, custom, ASSIGNMENTS);
 }
 
 async function withDailyPick(data: AppData, today: string): Promise<AppData> {

@@ -17,7 +17,7 @@ Problems are organized as **category** (Graph Theory, Number Theory, Strings, ..
 
 ## Problem data
 
-Two sources are bundled. Refresh both with `npm run fetch:sources`, then `npm run build`.
+Two sources are bundled. Refresh both with `npm run fetch:sources` (which also reassigns categories, see below), then `npm run build`.
 
 ### YouKn0wWho
 
@@ -30,6 +30,18 @@ The technique types come from [YouKn0wWho's topic list](https://youkn0wwho.acade
 Every [CSES problem set](https://cses.fi/problemset/) section except Introductory Problems becomes a problem type named `CSES: <section>` inside the matching category (for example `CSES: Range Queries` under Data Structures). CSES has no ratings, so each problem gets an estimate from its solver count on a log scale (the most solved problem is about 800, a problem with about 200 solvers is about 2600), shown as `~1850`. CSES problems that YouKn0wWho tags also appear under those technique types.
 
 `npm run fetch:cses` rewrites `src/data/sources/cses.json`.
+
+### One category per problem
+
+A problem can be tagged with types from several categories (for example a CSES game problem that is in both `Grundy Number` and `CSES: Mathematics`). It is kept in exactly one category, and only its types in that category are used.
+
+`npm run assign:categories` picks that category for every such problem and writes `src/data/assignments.json`. For each candidate category it adds up three shares:
+
+- statement keywords: AtCoder and CSES statements are downloaded (cached in `scripts/.cache/`) and matched against a keyword list per category, such as graph / vertex / edge / tree for Graph Theory or prime / gcd / divisor for Number Theory. Codeforces problem pages are behind a browser check, so for Codeforces only the title is matched;
+- Codeforces tags from the API, mapped to categories (`graphs` -> Graph Theory, `number theory` -> Number Theory, ...);
+- the problem's own types in that category, weighted so an Easy (direct) application counts more than a Very Hard one, at 0.75 weight.
+
+The category with the highest total wins; ties go to the earlier category. Problems missing from the file (new data before the script is rerun) fall back to the type weights alone. Filing a problem under a category in the Add tab overrides all of this and moves it there; removing that filing in Browse moves it back.
 
 ### Adding a source
 
@@ -98,9 +110,11 @@ public/manifest.json          extension manifest, copied to dist/
 public/icons/                 toolbar icons
 scripts/fetch-youkn0wwho.mjs  scrapes youkn0wwho.academy into src/data/sources/
 scripts/fetch-cses.mjs        scrapes the CSES problem set into src/data/sources/
+scripts/assign-categories.mjs picks one category per problem into src/data/assignments.json
 src/types.ts                  data model and defaults
 src/data/sources/             bundled problem catalogs
-src/lib/library.ts            merges catalogs, orders problems by rating
+src/data/assignments.json     category chosen for problems tagged in several categories
+src/lib/library.ts            merges catalogs, one category per problem, orders problems by rating
 src/lib/picker.ts             category -> type -> problem selection (pure)
 src/lib/daily.ts              today's pick and shuffle logic (pure)
 src/lib/links.ts              Codeforces / AtCoder link parsing

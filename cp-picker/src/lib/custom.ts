@@ -16,6 +16,7 @@ export interface AddResult {
   typeId: string;
   added: number;
   alreadyThere: number;
+  moved: number;
 }
 
 function slug(text: string): string {
@@ -62,9 +63,13 @@ export function addProblems(
   const withCategory = resolveCategory(custom, library, target.categoryName);
   const withType = resolveType(withCategory.custom, library, withCategory.category.id, target.typeName);
   const typeId = withType.type.id;
+  const categoryId = withCategory.category.id;
+  const categoryOf = (id: string) =>
+    library.typeById.get(id)?.categoryId ?? withType.custom.types.find((t) => t.id === id)?.categoryId;
   const problems = [...withType.custom.problems];
   let added = 0;
   let alreadyThere = 0;
+  let moved = 0;
 
   for (const link of links) {
     const known = library.problemById.get(link.id);
@@ -76,10 +81,14 @@ export function addProblems(
     const rating = meta?.rating ?? known?.rating;
     const ratingEstimated = meta?.rating === undefined && known?.ratingEstimated === true;
     const level = target.level ?? levelFromRating(rating) ?? 2;
+    if (known && Object.keys(known.types).some((t) => categoryOf(t) !== categoryId)) moved++;
     const index = problems.findIndex((p) => p.id === link.id);
     const current = index >= 0 ? problems[index] : undefined;
+    const sameCategory = current
+      ? Object.fromEntries(Object.entries(current.types).filter(([t]) => categoryOf(t) === categoryId))
+      : {};
     const next: Problem = current
-      ? { ...current, types: { ...current.types, [typeId]: level } }
+      ? { ...current, types: { ...sameCategory, [typeId]: level } }
       : {
           id: link.id,
           url: link.url,
@@ -95,11 +104,12 @@ export function addProblems(
   }
 
   return {
-    custom: { ...withType.custom, problems },
-    categoryId: withCategory.category.id,
+    custom: pruneCatalog({ ...withType.custom, problems }),
+    categoryId,
     typeId,
     added,
     alreadyThere,
+    moved,
   };
 }
 
@@ -114,11 +124,15 @@ export function removeAssignment(custom: Catalog, problemId: string, typeId: str
     delete types[typeId];
     return Object.keys(types).length > 0 ? [{ ...p, types }] : [];
   });
-  const usedTypes = new Set(problems.flatMap((p) => Object.keys(p.types)));
+  return pruneCatalog({ ...custom, problems });
+}
+
+function pruneCatalog(custom: Catalog): Catalog {
+  const usedTypes = new Set(custom.problems.flatMap((p) => Object.keys(p.types)));
   const types = custom.types.filter((t) => usedTypes.has(t.id));
   const usedCategories = new Set(types.map((t) => t.categoryId));
   const categories = custom.categories.filter((c) => usedCategories.has(c.id));
-  return { categories, types, problems };
+  return { categories, types, problems: custom.problems };
 }
 
 function readCategory(value: unknown): Category | undefined {

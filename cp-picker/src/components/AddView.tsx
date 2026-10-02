@@ -51,6 +51,7 @@ export function AddView({ data, library, update, preset }: ViewProps & { preset:
       update({ custom: result.custom });
       const lines = [`Added ${result.added} problem(s) to ${categoryName.trim()} / ${typeName.trim()}.`];
       if (result.alreadyThere > 0) lines.push(`${result.alreadyThere} were already in this type.`);
+      if (result.moved > 0) lines.push(`${result.moved} moved here from another category.`);
       if (lookup.failed.length > 0) {
         lines.push(`Could not reach ${lookup.failed.join(" and ")}; some titles and ratings are missing.`);
       }

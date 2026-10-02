@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "fetch:youkn0wwho": "node scripts/fetch-youkn0wwho.mjs",
     "fetch:cses": "node scripts/fetch-cses.mjs",
-    "fetch:sources": "npm run fetch:youkn0wwho && npm run fetch:cses"
+    "assign:categories": "node scripts/assign-categories.mjs",
+    "fetch:sources": "npm run fetch:youkn0wwho && npm run fetch:cses && npm run assign:categories"
   },
   "dependencies": {
     "react": "^19.3.0",

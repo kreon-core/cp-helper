@@ -49,14 +49,57 @@ function mergeProblem(current: Problem | undefined, next: Problem): Problem {
   };
 }
 
-export function buildLibrary(sources: readonly Catalog[]): Library {
+export type Assignments = Readonly<Record<string, string>>;
+
+function chooseCategory(
+  problem: Problem,
+  typeById: ReadonlyMap<string, ProblemType>,
+  categoryOrder: readonly string[],
+  preferred: string | undefined,
+): string | undefined {
+  const weight = new Map<string, number>();
+  for (const [typeId, level] of Object.entries(problem.types)) {
+    const categoryId = typeById.get(typeId)?.categoryId;
+    if (categoryId) weight.set(categoryId, (weight.get(categoryId) ?? 0) + (5 - level));
+  }
+  if (weight.size <= 1) return undefined;
+  if (preferred && weight.has(preferred)) return preferred;
+  let best: string | undefined;
+  for (const categoryId of categoryOrder) {
+    const w = weight.get(categoryId);
+    if (w !== undefined && (best === undefined || w > (weight.get(best) ?? 0))) best = categoryId;
+  }
+  return best;
+}
+
+export function buildLibrary(
+  sources: readonly Catalog[],
+  custom: Catalog = { categories: [], types: [], problems: [] },
+  assignments: Assignments = {},
+): Library {
   const categoryById = new Map<string, Category>();
   const typeById = new Map<string, ProblemType>();
   const problemById = new Map<string, Problem>();
-  for (const source of sources) {
+  for (const source of [...sources, custom]) {
     for (const c of source.categories) if (!categoryById.has(c.id)) categoryById.set(c.id, c);
     for (const t of source.types) if (!typeById.has(t.id)) typeById.set(t.id, t);
     for (const p of source.problems) problemById.set(p.id, mergeProblem(problemById.get(p.id), p));
+  }
+
+  const customCategory = new Map<string, string>();
+  for (const p of custom.problems) {
+    const last = Object.keys(p.types).at(-1);
+    const categoryId = last ? typeById.get(last)?.categoryId : undefined;
+    if (categoryId) customCategory.set(p.id, categoryId);
+  }
+  const categoryOrder = [...categoryById.keys()];
+  for (const [id, problem] of problemById) {
+    const chosen = chooseCategory(problem, typeById, categoryOrder, customCategory.get(id) ?? assignments[id]);
+    if (!chosen) continue;
+    const types = Object.fromEntries(
+      Object.entries(problem.types).filter(([typeId]) => typeById.get(typeId)?.categoryId === chosen),
+    );
+    problemById.set(id, { ...problem, types });
   }
 
   const typesByCategory = new Map<string, ProblemType[]>();
