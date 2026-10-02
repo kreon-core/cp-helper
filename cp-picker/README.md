@@ -30,7 +30,11 @@ Every [CSES problem set](https://cses.fi/problemset/) problem outside Introducto
 
 ### AtCoder Tags
 
-AtCoder problems tagged by vote on [AtCoder Tags](https://atcoder-tags.herokuapp.com/explain) are listed under the same technique types. Each sub-tag maps to the closest existing type (`Graph / Shortest-Path` -> Dijkstra's Algorithm, `Technique / imos` -> Difference Array, ...), and the tags with no matching type get their own: Brute Force, Bitmask Brute Force, Sorting, Integer Properties, Counting, String Processing, Basic DP, Interval DP, Stack and Queue, Set and Map, Priority Queue, Minimax, Game Observations and Ad Hoc. The `Easy`, `April-Fool`, `Marathon` and `Other` categories, every `Other` sub-tag and problems tagged with a category but no sub-tag are left out. Ratings are the clipped AtCoder Problems difficulty. Problems without one get an estimate, shown as `~`: Typical 90 problems from the stars in their title, the rest from the AtCoder Tags solver count on a log scale fitted to the rated problems. Problems from unrated contests (PAST, JOI, KUPC, ...) have fewer solvers, so their estimates tend to be high.
+AtCoder problems tagged by vote on [AtCoder Tags](https://atcoder-tags.herokuapp.com/explain) are listed under the same technique types. Each sub-tag maps to the closest existing type (`Graph / Shortest-Path` -> Dijkstra's Algorithm, `Technique / imos` -> Difference Array, ...), and the tags with no matching type get their own: Brute Force, Bitmask Brute Force, Sorting, Integer Properties, Counting, String Processing, Basic DP, Interval DP, Stack and Queue, Set and Map, Priority Queue, Minimax, Game Observations and Ad Hoc. The `Easy`, `April-Fool`, `Marathon` and `Other` categories, every `Other` sub-tag and problems tagged with a category but no sub-tag are left out. Ratings are the clipped AtCoder Problems difficulty. Problems without one get an estimate from the AtCoder Tags solver count on a log scale fitted to the rated problems, shown as `~`. Problems from unrated contests (PAST, KUPC, ...) have fewer solvers, so their estimates tend to be high.
+
+### English statements only
+
+AtCoder tasks without an English statement (most JOI, Typical 90, old ABC and many university contests) are removed from every source. A task is kept when its page has an English (`lang-en`) statement; Codeforces and CSES are always in English.
 
 ### One category per problem
 
