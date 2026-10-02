@@ -165,4 +165,4 @@ OJ Runner's **instant Run all** after import applies only when that payload reso
 
 See **`public/manifest.json`** -> **`version`**. Bump it whenever you change this extension (see repo rule **`oj-loader-release.mdc`**).
 
-Run **`npm run bump`** in **`oj-runner/`**: it raises the patch version in **`oj-runner/package.json`**, **`oj-loader/package.json`**, **`oj-loader/public/manifest.json`** and the version line above, all to the same number. Pass **`minor`**, **`major`** or an explicit **`x.y.z`** to override (**`npm run bump -- minor`**).
+Run **`npm run bump`** here or in **`oj-runner/`** (or **`make bump-oj-loader`** from the repo root): it raises the patch version in **`oj-runner/package.json`**, **`oj-loader/package.json`**, **`oj-loader/public/manifest.json`** and the version line above, all to the same number. Pass **`minor`**, **`major`** or an explicit **`x.y.z`** to override (**`npm run bump -- minor`**).

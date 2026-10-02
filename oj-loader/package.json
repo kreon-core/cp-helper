@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc --noEmit && node scripts/build.mjs",
     "watch": "node scripts/build.mjs --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "bump": "node ../oj-runner/scripts/bump-version.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.3.4",

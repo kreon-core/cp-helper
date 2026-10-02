@@ -1,8 +1,9 @@
 EXTENSIONS := oj-runner oj-loader cp-picker
 NPM ?= npm
 
-.PHONY: all help install build typecheck clean distclean vsix vsix-install bump \
-	$(EXTENSIONS) $(addprefix install-,$(EXTENSIONS)) $(addprefix typecheck-,$(EXTENSIONS))
+.PHONY: all help install build typecheck clean distclean vsix vsix-install \
+	$(EXTENSIONS) $(addprefix install-,$(EXTENSIONS)) $(addprefix typecheck-,$(EXTENSIONS)) \
+	$(addprefix bump-,$(EXTENSIONS))
 
 all: build
 
@@ -16,7 +17,9 @@ help:
 	@echo "  typecheck         type-check every extension"
 	@echo "  vsix              package oj-runner/oj-runner.vsix"
 	@echo "  vsix-install      package and install OJ Runner (OJ_RUNNER_PROFILE selects the profile)"
-	@echo "  bump [VERSION=x]  bump OJ Runner and OJ Loader versions (minor, major or x.y.z)"
+	@echo "  bump-oj-runner    bump OJ Runner and OJ Loader together [VERSION=minor|major|x.y.z]"
+	@echo "  bump-oj-loader    same as bump-oj-runner (the two share one version)"
+	@echo "  bump-cp-picker    bump CP Picker [VERSION=minor|major|x.y.z]"
 	@echo "  clean             remove build output"
 	@echo "  distclean         clean and remove node_modules"
 
@@ -57,8 +60,14 @@ vsix: oj-runner/node_modules
 vsix-install: oj-runner/node_modules
 	cd oj-runner && $(NPM) run vsix:local:run
 
-bump: oj-runner/node_modules
+bump-oj-runner: oj-runner/node_modules
 	cd oj-runner && $(NPM) run bump $(if $(VERSION),-- $(VERSION))
+
+bump-oj-loader: oj-loader/node_modules
+	cd oj-loader && $(NPM) run bump $(if $(VERSION),-- $(VERSION))
+
+bump-cp-picker: cp-picker/node_modules
+	cd cp-picker && $(NPM) run bump $(if $(VERSION),-- $(VERSION))
 
 clean:
 	rm -rf oj-runner/out oj-runner/*.vsix oj-loader/dist cp-picker/dist

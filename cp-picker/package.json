@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
+    "bump": "node scripts/bump-version.mjs",
     "fetch:youkn0wwho": "node scripts/fetch-youkn0wwho.mjs",
     "fetch:cses": "node scripts/fetch-cses.mjs",
     "assign:categories": "node scripts/assign-categories.mjs",

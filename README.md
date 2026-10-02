@@ -20,7 +20,8 @@ make oj-loader     # build a single extension
 make typecheck     # type-check every extension
 make vsix          # package oj-runner/oj-runner.vsix
 make vsix-install  # package and install OJ Runner into $OJ_RUNNER_PROFILE
-make bump VERSION=minor
+make bump-oj-runner VERSION=minor  # bump OJ Runner and OJ Loader together
+make bump-cp-picker               # bump CP Picker
 make clean         # remove build output
 ```
 
