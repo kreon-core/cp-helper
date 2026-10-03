@@ -2,7 +2,7 @@
   "name": "oj-runner",
   "displayName": "OJ Runner",
   "description": "Run online judge samples against your local C++ solution in VSCode.",
-  "version": "1.2.31",
+  "version": "1.2.32",
   "publisher": "from-cero",
   "license": "MIT",
   "engines": {
