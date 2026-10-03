@@ -89,6 +89,11 @@
         "command": "ojRunner.stressTest",
         "title": "Stress Test (requires generator command)",
         "category": "OJ Runner"
+      },
+      {
+        "command": "ojRunner.clearBuildCache",
+        "title": "Clear Build Cache",
+        "category": "OJ Runner"
       }
     ],
     "keybindings": [

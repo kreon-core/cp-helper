@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import {
+  CMD_CLEAR_BUILD_CACHE,
   CMD_COPY_SUBMIT_BRIDGE_URL,
   CMD_EXPORT_CASES,
   CMD_FOCUS_SAMPLES,
@@ -36,6 +37,7 @@ import {
   setOjRunnerOutputChannel,
 } from "./log";
 import {
+  clearBinaryCache,
   ensureCacheDir,
   pruneBinaryCache,
   setBinaryCacheDir,
@@ -233,6 +235,19 @@ export async function activate(
   context.subscriptions.push(
     vscode.commands.registerCommand(CMD_SHOW_OUTPUT, () => {
       getOjRunnerOutputChannel()?.show(false);
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(CMD_CLEAR_BUILD_CACHE, async () => {
+      if (runState.runLocked) {
+        log.warn("clear build cache rejected: a run is in progress");
+        notify("warn", "Another run is in progress.");
+        return;
+      }
+      const removed = await clearBinaryCache();
+      log.info(`build cache cleared: ${removed} file(s) removed`);
+      notify("info", `Build cache cleared (${removed} file(s) removed).`);
     }),
   );
 

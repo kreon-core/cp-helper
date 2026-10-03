@@ -36,6 +36,7 @@ export const CMD_SELECT_COMPILE_PRESET = "ojRunner.selectCompilePreset";
 export const CMD_EXPORT_CASES = "ojRunner.exportCases";
 export const CMD_STRESS_TEST = "ojRunner.stressTest";
 export const CMD_COPY_SUBMIT_BRIDGE_URL = "ojRunner.copySubmitBridgeUrl";
+export const CMD_CLEAR_BUILD_CACHE = "ojRunner.clearBuildCache";
 
 /** File (relative to workspace root) where case groups are also written for git tracking. */
 export const CASES_FILE_RELATIVE_PATH = ".vscode/.oj-runner-cases.json";

@@ -119,3 +119,26 @@ export async function pruneBinaryCache(): Promise<void> {
     doomed.map((e) => fs.unlink(e.full).catch(() => undefined)),
   );
 }
+
+/**
+ * Delete every cached binary and staging file.
+ * @returns number of entries removed
+ */
+export async function clearBinaryCache(): Promise<number> {
+  const dir = binaryDir();
+  let names: string[];
+  try {
+    names = await fs.readdir(dir);
+  } catch {
+    return 0;
+  }
+  const removed = await Promise.all(
+    names.map((n) =>
+      fs.rm(path.join(dir, n), { force: true }).then(
+        () => true,
+        () => false,
+      ),
+    ),
+  );
+  return removed.filter(Boolean).length;
+}

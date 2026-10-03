@@ -46,6 +46,7 @@ Sample JSON:
 | ojRunner.importFromClipboard | Import JSON from clipboard                                                 |
 | ojRunner.showOutput          | Show OJ Runner output channel                                              |
 | ojRunner.copySubmitBridgeUrl | Copy the submit bridge URL (with its token) for the OJ Loader options page |
+| ojRunner.clearBuildCache     | Delete every cached compiled binary                                        |
 
 Default keybindings:
 
@@ -144,7 +145,8 @@ Notes:
 Compiled binaries are content-addressed: the cache key is a hash of the source bytes plus the
 selected compile command, so a save that changed nothing reuses the existing binary
 instead of recompiling. Binaries live under the extension's global storage and survive a window
-reload; the 64 most recently used are kept and older ones are pruned on activation.
+reload; the 64 most recently used are kept and older ones are pruned on activation. Run
+OJ Runner: Clear Build Cache to delete them all.
 
 ## Output log
 
