@@ -163,9 +163,9 @@
    * @param {keyof typeof _CODICONS} icon
    * @param {string} plainLabel what a plain click starts, for the tooltip footer
    * @param {string} localLabel what Shift+click starts
-   * @param {boolean} swapIcon show the LOCAL icon while the modifier is held
+   * @param {"local" | "runAllLocal" | "debugLocal"} localIcon face shown while Shift is held
    */
-  function mkLocalAbleButton(btn, icon, plainLabel, localLabel, swapIcon) {
+  function mkLocalAbleButton(btn, icon, plainLabel, localLabel, localIcon) {
     btn.classList.add("btn-local-able");
     btn.dataset.cpTipHint = `left:${plainLabel}|shift+left:${localLabel}`;
     btn.addEventListener("mousedown", (e) => {
@@ -174,15 +174,85 @@
       }
     });
     const normal = mkIcon(icon);
-    if (!swapIcon) {
-      btn.appendChild(normal);
-      return;
-    }
     normal.classList.add("btn-local-able__normal");
-    const local = mkIcon("local");
+    const local = localIcon === "local" ? mkIcon("local") : mkLocalSvgIcon(localIcon);
     local.classList.add("btn-local-able__local");
     btn.appendChild(normal);
     btn.appendChild(local);
+  }
+
+  /**
+   * LOCAL twins of `run-all` and `debug-alt`, built from the codicon beaker, bug and debug-alt
+   * artwork (@vscode/codicons, CC BY 4.0) the way those two icons are built from `play`.
+   */
+  const BEAKER_D = "M12 0.998993C12.276 0.998993 12.5 1.22299 12.5 1.49899C12.5 1.77499 12.276 1.99899 12 1.99899H11.004V6.68299C11.004 7.26299 11.148 7.83299 11.423 8.34299L13.819 12.789C14.358 13.788 13.634 15.001 12.499 15.001H3.50101C2.36501 15.001 1.64301 13.788 2.18101 12.789L4.57501 8.34499C4.85001 7.83499 4.99401 7.26399 4.99401 6.68499V1.99899H4.00001C3.72401 1.99899 3.50001 1.77499 3.50001 1.49899C3.50001 1.22299 3.72401 0.998993 4.00001 0.998993H12ZM5.99401 1.99899V6.68599C5.99401 7.43099 5.80901 8.16399 5.45601 8.81999L4.82101 9.99899H11.18L10.543 8.81699C10.19 8.16099 10.005 7.42799 10.005 6.68199V1.99899H5.99401ZM11.718 10.999H4.28201L3.06201 13.263C2.88201 13.597 3.12401 14 3.50201 14H12.499C12.877 14 13.119 13.596 12.939 13.263L11.718 10.999Z";
+  const BUG_D = "M10.5 16.0605V18H11.25C11.664 18 12 18.336 12 18.75C12 19.164 11.664 19.5 11.25 19.5H10.5C10.5 20.076 10.3905 20.625 10.1925 21.132L11.781 22.7205C12.0735 23.013 12.0735 23.4885 11.781 23.781C11.634 23.928 11.442 24 11.25 24C11.058 24 10.866 23.9265 10.719 23.781L9.39151 22.4535C8.56651 23.4 7.35151 24.0015 6.00001 24.0015C4.64851 24.0015 3.43351 23.4015 2.60851 22.4535L1.28101 23.781C1.13401 23.928 0.942009 24 0.750009 24C0.558009 24 0.366009 23.9265 0.219009 23.781C-0.0734912 23.4885 -0.0734912 23.013 0.219009 22.7205L1.80751 21.132C1.60951 20.625 1.50001 20.076 1.50001 19.5H0.750009C0.336009 19.5 8.78423e-06 19.164 8.78423e-06 18.75C8.78423e-06 18.336 0.336009 18 0.750009 18H1.50001V16.0605L0.219009 14.7795C-0.0734912 14.487 -0.0734912 14.0115 0.219009 13.719C0.511509 13.4265 0.987009 13.4265 1.27951 13.719L2.56051 15H3.00001C3.00001 13.3455 4.34551 12 6.00001 12C7.65451 12 9.00001 13.3455 9.00001 15H9.43951L10.7205 13.719C11.013 13.4265 11.4885 13.4265 11.781 13.719C12.0735 14.0115 12.0735 14.487 11.781 14.7795L10.5 16.0605ZM4.50001 15H7.50001C7.50001 14.172 6.82801 13.5 6.00001 13.5C5.17201 13.5 4.50001 14.172 4.50001 15ZM9.00001 16.5H3.00001V19.5C3.00001 21.1545 4.34551 22.5 6.00001 22.5C7.65451 22.5 9.00001 21.1545 9.00001 19.5V16.5Z";
+  const BEAKER_OUTLINE_D = BEAKER_D.slice(0, BEAKER_D.indexOf("Z") + 1);
+  const BUG_OUTLINE_D = BUG_D.slice(0, BUG_D.indexOf("Z") + 1);
+  const RUN_ALL_FRONT = "translate(3 -0.2) scale(0.85)";
+  const RUN_ALL_BACK = "translate(1 2.2) scale(0.85)";
+  const DEBUG_BEAKER = "translate(4.3 -0.6) scale(1.25)";
+
+  /** The cut-outs that keep the stacked shapes apart, shared by every button. */
+  function ensureLocalIconMasks() {
+    if (document.getElementById("cp-mask-run-all-local")) {
+      return;
+    }
+    const defs = svgEl("svg", { width: "0", height: "0", "aria-hidden": "true" });
+    defs.style.position = "absolute";
+    /**
+     * @param {string} id
+     * @param {string} size
+     * @param {Record<string, string>} cut
+     */
+    const mask = (id, size, cut) => {
+      const m = svgEl("mask", {
+        id,
+        maskUnits: "userSpaceOnUse",
+        x: "0",
+        y: "0",
+        width: size,
+        height: size,
+      });
+      m.appendChild(svgEl("rect", { width: size, height: size, fill: "#fff" }));
+      m.appendChild(
+        svgEl("path", { fill: "#000", stroke: "#000", "stroke-linejoin": "round", ...cut }),
+      );
+      defs.appendChild(m);
+    };
+    mask("cp-mask-run-all-local", "16", {
+      d: BEAKER_OUTLINE_D,
+      transform: RUN_ALL_FRONT,
+      "stroke-width": "2.4",
+    });
+    mask("cp-mask-debug-local", "24", { d: BUG_OUTLINE_D, "stroke-width": "3.6" });
+    document.body.appendChild(defs);
+  }
+
+  /**
+   * @param {"runAllLocal" | "debugLocal"} kind
+   * @returns {SVGSVGElement}
+   */
+  function mkLocalSvgIcon(kind) {
+    ensureLocalIconMasks();
+    const debug = kind === "debugLocal";
+    const svg = svgEl("svg", {
+      class: "cp-icon-svg",
+      viewBox: debug ? "0 0 24 24" : "0 0 16 16",
+      fill: "currentColor",
+      "aria-hidden": "true",
+    });
+    const back = svgEl("g", {
+      mask: `url(#${debug ? "cp-mask-debug-local" : "cp-mask-run-all-local"})`,
+    });
+    back.appendChild(
+      svgEl("path", { d: BEAKER_D, transform: debug ? DEBUG_BEAKER : RUN_ALL_BACK }),
+    );
+    svg.appendChild(back);
+    svg.appendChild(
+      debug ? svgEl("path", { d: BUG_D }) : svgEl("path", { d: BEAKER_D, transform: RUN_ALL_FRONT }),
+    );
+    return /** @type {SVGSVGElement} */ (svg);
   }
 
   /**
@@ -2706,7 +2776,7 @@
         "aria-label",
         `Run all cases in ${groupName}; Shift+click for the LOCAL build`,
       );
-      mkLocalAbleButton(btnRunG, "runAll", "NORMAL build", "LOCAL build", true);
+      mkLocalAbleButton(btnRunG, "runAll", "NORMAL build", "LOCAL build", "runAllLocal");
       btnRunG.disabled = group.cases.length === 0 || !sourceRunnable;
       btnRunG.addEventListener("click", (e) => {
         hideErr();
@@ -2833,7 +2903,7 @@
           "aria-label",
           `Run sample ${c.sample}; Shift+click for the LOCAL build`,
         );
-        mkLocalAbleButton(runOne, "play", "NORMAL build", "LOCAL build", true);
+        mkLocalAbleButton(runOne, "play", "NORMAL build", "LOCAL build", "local");
         runOne.disabled = !sourceRunnable;
         runOne.addEventListener("click", (e) => {
           explicitRunGroup = gi;
@@ -2864,7 +2934,7 @@
           "aria-label",
           `Debug sample ${c.sample}; Shift+click to add -DLOCAL`,
         );
-        mkLocalAbleButton(debugOne, "debug", "debug build", "with -DLOCAL", false);
+        mkLocalAbleButton(debugOne, "debug", "debug build", "with -DLOCAL", "debugLocal");
         debugOne.disabled = !sourceRunnable;
         debugOne.addEventListener("click", (e) => {
           hideErr();

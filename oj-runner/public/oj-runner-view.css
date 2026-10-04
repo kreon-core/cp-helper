@@ -212,8 +212,15 @@ button.submit-status::before {
  * Run, Run all and Debug start the LOCAL build on Shift+click. While Shift is held they take the
  * LOCAL tint and, where there is one, the LOCAL icon, so the click about to happen shows.
  */
-.btn-local-able__local {
+button.btn-local-able > .btn-local-able__local {
   display: none;
+}
+
+/** The LOCAL twins of run-all and debug-alt are inline SVG, sized like the codicons beside them. */
+.cp-icon-svg {
+  width: var(--cp-icon);
+  height: var(--cp-icon);
+  vertical-align: middle;
 }
 
 .cp-shift-held .btn-local-able:not(:disabled) .btn-local-able__normal {
