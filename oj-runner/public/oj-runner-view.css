@@ -31,6 +31,23 @@
   --cp-space-2: 6px;
   --cp-space-3: 8px;
   --cp-fg: var(--vscode-foreground);
+  /**
+   * Text tones for chips and buttons: each theme colour pulled a quarter of the way toward the
+   * foreground, which brightens it on dark themes and darkens it on light ones, so small labels on
+   * their tinted chips stay readable while keeping their hue.
+   */
+  --cp-text-ac: color-mix(in srgb, var(--cp-ac) 75%, var(--cp-fg));
+  --cp-text-wa: color-mix(in srgb, var(--cp-wa) 70%, var(--cp-fg));
+  --cp-text-tle: color-mix(in srgb, var(--cp-tle) 75%, var(--cp-fg));
+  --cp-text-re: color-mix(in srgb, var(--cp-re) 80%, var(--cp-fg));
+  --cp-text-ce: color-mix(in srgb, var(--vscode-charts-purple, #bc8cff) 75%, var(--cp-fg));
+  --cp-text-info: color-mix(in srgb, var(--vscode-editorInfo-foreground, #58a6ff) 75%, var(--cp-fg));
+  --cp-text-link: color-mix(in srgb, var(--vscode-textLink-foreground, #3794ff) 75%, var(--cp-fg));
+  --cp-text-muted: color-mix(
+    in srgb,
+    var(--vscode-descriptionForeground, var(--cp-fg)) 60%,
+    var(--cp-fg)
+  );
   /** Inset of row content from the list edge: `.case` 1px border + `.case-head` padding. */
   --cp-gutter: 7px;
 }
@@ -232,7 +249,7 @@ button.btn-local-able > .btn-local-able__local {
 }
 
 .active-source-label__dir {
-  opacity: 0.75;
+  opacity: 0.85;
 }
 
 .runner-hint__std {
@@ -381,7 +398,7 @@ button:active:not(:disabled) {
 }
 
 button:disabled {
-  opacity: 0.45;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
@@ -693,25 +710,25 @@ input.case-group-rename {
 .btn-row__cluster button.btn-icon:disabled,
 .case-group-actions button.btn-icon:disabled,
 .case-actions button.btn-icon:disabled {
-  opacity: 0.35;
+  opacity: 0.5;
 }
 
 .case-group-actions button.btn-run:not(:disabled),
 .case-actions button.btn-run:not(:disabled) {
-  color: var(--cp-ac);
+  color: var(--cp-text-ac);
 }
 
 .cp-shift-held .case-group-actions button.btn-local-able:not(:disabled),
 .cp-shift-held .case-actions button.btn-local-able:not(:disabled) {
-  color: var(--vscode-textLink-foreground, #3794ff);
+  color: var(--cp-text-link);
 }
 
 .btn-row__cluster button.btn-stop:not([hidden]) {
-  color: var(--cp-wa);
+  color: var(--cp-text-wa);
 }
 
 .btn-row__cluster button.btn-icon--on {
-  color: var(--vscode-textLink-foreground, #3794ff);
+  color: var(--cp-text-link);
   background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.18));
   box-shadow: inset 0 0 0 1px var(--vscode-focusBorder, rgba(0, 127, 212, 0.55));
 }
@@ -719,7 +736,7 @@ input.case-group-rename {
 .case-group-actions button.case-group__clear:hover:not(:disabled),
 .case-actions button.btn-remove:hover:not(:disabled),
 .btn-row__cluster button#btnClear:hover:not(:disabled) {
-  color: var(--cp-wa);
+  color: var(--cp-text-wa);
   background: rgba(248, 81, 73, 0.12);
 }
 
@@ -848,31 +865,31 @@ input.case-group-rename {
 }
 
 .case-group-count--ac {
-  color: var(--vscode-testing-iconPassed, #3fb950);
+  color: var(--cp-text-ac);
   background: rgba(46, 160, 67, 0.15);
   border-color: rgba(46, 160, 67, 0.3);
 }
 
 .case-group-count--wa {
-  color: var(--vscode-errorForeground, #f85149);
+  color: var(--cp-text-wa);
   background: rgba(248, 81, 73, 0.12);
   border-color: rgba(248, 81, 73, 0.3);
 }
 
 .case-group-count--tle {
-  color: var(--vscode-textLink-foreground, #58a6ff);
+  color: var(--cp-text-tle);
   background: rgba(88, 166, 255, 0.12);
   border-color: rgba(88, 166, 255, 0.3);
 }
 
 .case-group-count--re {
-  color: var(--vscode-editorWarning-foreground, #d29922);
+  color: var(--cp-text-re);
   background: rgba(210, 153, 34, 0.12);
   border-color: rgba(210, 153, 34, 0.3);
 }
 
 .case-group-count--ce {
-  color: var(--vscode-charts-purple, #bc8cff);
+  color: var(--cp-text-ce);
   background: rgba(188, 140, 255, 0.12);
   border-color: rgba(188, 140, 255, 0.3);
 }
@@ -924,15 +941,15 @@ input.case-group-rename {
 
 .case-group-src--current .meta-chip__icon.codicon[class*="codicon-"] {
   opacity: 1;
-  color: var(--vscode-textLink-foreground, #3794ff);
+  color: var(--cp-text-link);
 }
 
 .case-group-src--current .case-group-src__label {
-  color: var(--vscode-textLink-foreground, #3794ff);
+  color: var(--cp-text-link);
 }
 
 .case-group-src--current .active-source-label__dir {
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 .case-group-src__label {
@@ -954,10 +971,9 @@ input.case-group-rename {
 }
 
 .case-group-wrap--stale .case-group-count {
-  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  color: var(--cp-text-muted);
   background: rgba(128, 128, 128, 0.1);
   border-color: rgba(128, 128, 128, 0.18);
-  opacity: 0.7;
 }
 
 .case-group-wrap--stale button.case-group-disclose:hover:not(:disabled) {
@@ -1119,8 +1135,7 @@ button.case-disclose:focus-visible {
 .case-overhead {
   min-width: 50px;
   font-variant-numeric: tabular-nums;
-  opacity: 0.9;
-  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+  color: var(--cp-text-muted);
   background: transparent;
   border-color: var(--cp-chip-neutral-border);
   border-style: dashed;
@@ -1147,31 +1162,31 @@ button.case-disclose:focus-visible {
 }
 
 .case--ac .case-verdict {
-  color: var(--vscode-testing-iconPassed, #3fb950);
+  color: var(--cp-text-ac);
   background: rgba(46, 160, 67, 0.15);
   border-color: rgba(46, 160, 67, 0.3);
 }
 
 .case--wa .case-verdict {
-  color: var(--vscode-errorForeground, #f85149);
+  color: var(--cp-text-wa);
   background: rgba(248, 81, 73, 0.12);
   border-color: rgba(248, 81, 73, 0.3);
 }
 
 .case--tle .case-verdict {
-  color: var(--vscode-textLink-foreground, #58a6ff);
+  color: var(--cp-text-tle);
   background: rgba(88, 166, 255, 0.12);
   border-color: rgba(88, 166, 255, 0.3);
 }
 
 .case--re .case-verdict {
-  color: var(--vscode-editorWarning-foreground, #d29922);
+  color: var(--cp-text-re);
   background: rgba(210, 153, 34, 0.12);
   border-color: rgba(210, 153, 34, 0.3);
 }
 
 .case--ce .case-verdict {
-  color: var(--vscode-charts-purple, #bc8cff);
+  color: var(--cp-text-ce);
   background: rgba(188, 140, 255, 0.12);
   border-color: rgba(188, 140, 255, 0.3);
 }
@@ -1644,19 +1659,19 @@ button.submit-status {
 }
 
 button.submit-status--ok {
-  color: var(--vscode-testing-iconPassed, #3fb950);
+  color: var(--cp-text-ac);
   background: rgba(46, 160, 67, 0.15);
   border-color: rgba(46, 160, 67, 0.3);
 }
 
 button.submit-status--bad {
-  color: var(--vscode-errorForeground, #f85149);
+  color: var(--cp-text-wa);
   background: rgba(248, 81, 73, 0.12);
   border-color: rgba(248, 81, 73, 0.3);
 }
 
 button.submit-status--provisional {
-  color: var(--vscode-editorInfo-foreground, #58a6ff);
+  color: var(--cp-text-info);
   background: rgba(56, 139, 253, 0.12);
   border-color: rgba(56, 139, 253, 0.3);
 }
@@ -1664,7 +1679,7 @@ button.submit-status--provisional {
 .case-group-actions button.btn-submit:not(:disabled) {
   background: rgba(88, 166, 255, 0.22);
   box-shadow: inset 0 0 0 1px rgba(88, 166, 255, 0.5);
-  color: var(--vscode-textLink-foreground, #58a6ff);
+  color: var(--cp-text-link);
 }
 
 .case-group-actions button.btn-submit:hover:not(:disabled) {
