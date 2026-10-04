@@ -69,7 +69,7 @@ export function App() {
             preset={addPreset}
           />
         ) : tab === "History" ? (
-          <HistoryView data={data} library={library} update={update} />
+          <HistoryView data={data} library={library} update={update} today={today} />
         ) : (
           <SettingsView
             data={data}

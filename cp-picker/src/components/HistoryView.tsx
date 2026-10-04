@@ -2,9 +2,12 @@ import type { ViewProps } from "../useAppData";
 import { Dot } from "./Badges";
 import { EmptyState } from "./EmptyState";
 
-export function HistoryView({ data, update }: ViewProps) {
+export function HistoryView({ data, update, today }: ViewProps & { today: string }) {
   const remove = (date: string) => update({ history: data.history.filter((r) => r.date !== date) });
   const solved = new Set(data.solved);
+  const markSolved = (problemId: string) => {
+    if (!solved.has(problemId)) update({ solved: [...data.solved, problemId] });
+  };
 
   if (data.history.length === 0) {
     return (
@@ -34,9 +37,23 @@ export function HistoryView({ data, update }: ViewProps) {
                 </a>
               </span>
             </span>
-            <span className="solved-mark" title={solved.has(r.problemId) ? "Solved" : "Not solved"}>
-              {solved.has(r.problemId) ? "\u2713" : ""}
-            </span>
+            {solved.has(r.problemId) ? (
+              <span className="solved-mark" title="Solved">
+                {"\u2713"}
+              </span>
+            ) : r.date < today ? (
+              <button
+                type="button"
+                className="mark-solved-btn"
+                title="Mark solved"
+                aria-label={`Mark ${r.problemTitle} solved`}
+                onClick={() => markSolved(r.problemId)}
+              >
+                {"\u2713"}
+              </button>
+            ) : (
+              <span className="solved-mark" title="Not solved" />
+            )}
             <button
               type="button"
               className="icon-btn"
