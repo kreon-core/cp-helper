@@ -25,6 +25,12 @@ interface VerdictSubscriber {
   problemId: string;
   /** Follow this submission instead of the problem's newest one. */
   submissionId?: string;
+  /**
+   * Set until this job's own submission is identified: it then takes the oldest unclaimed
+   * submission of the problem newer than `after`, or the newest unclaimed one when the
+   * submission list could not be read before the POST (`after` undefined).
+   */
+  claim?: { after?: string };
   tabId: number;
   deliver(row: VerdictRow | undefined, err: unknown): void;
 }
@@ -511,6 +517,51 @@ function pollDelay(elapsed: number): number {
   return elapsed >= POLL_SLOW_AFTER_MS ? POLL_SLOW_INTERVAL_MS : POLL_INTERVAL_MS;
 }
 
+/** Judge submission ids only grow, so a longer id is a newer one. */
+function compareIds(a: string, b: string): number {
+  return a.length !== b.length ? a.length - b.length : a < b ? -1 : a > b ? 1 : 0;
+}
+
+/**
+ * Give each job still looking for its own submission one that no other job has taken. Jobs claim
+ * in the order they started, so two submits of one problem get its two new submissions in the
+ * order they were made, even when the judge listed neither before the second went out.
+ */
+function claimSubmissions(
+  subs: VerdictSubscriber[],
+  rows: Record<string, VerdictRow>,
+): void {
+  const taken = new Set(
+    subs.map((s) => s.submissionId ?? "").filter((id) => id !== ""),
+  );
+  for (const s of subs) {
+    if (!s.claim) {
+      continue;
+    }
+    const after = s.claim.after;
+    const ids = Object.keys(rows)
+      .filter((k) => k.startsWith("#"))
+      .map((k) => ({ id: k.slice(1), row: rows[k] }))
+      .filter(
+        ({ id, row }) =>
+          !taken.has(id) &&
+          (row.problemId === undefined ||
+            row.problemId === "" ||
+            row.problemId.toUpperCase() === s.problemId.toUpperCase()) &&
+          (after === undefined || after === "" || compareIds(id, after) > 0),
+      )
+      .map(({ id }) => id)
+      .sort(compareIds);
+    if (ids.length === 0) {
+      continue;
+    }
+    const id = after === undefined ? ids[ids.length - 1] : ids[0];
+    s.submissionId = id;
+    s.claim = undefined;
+    taken.add(id);
+  }
+}
+
 /**
  * Read the status page once per cycle and hand each waiting job its own row. The read runs in a
  * subscriber's tab, and falls back to the others if that one cannot answer.
@@ -525,9 +576,6 @@ async function pollLoop(statusUrl: string, poller: Poller): Promise<void> {
         break;
       }
       const problemIds = subs.map((s) => s.problemId);
-      const submissionIds = subs
-        .map((s) => s.submissionId ?? "")
-        .filter((id) => id !== "");
       let rows: Record<string, VerdictRow> | undefined;
       let failure: unknown;
       for (const s of subs) {
@@ -536,7 +584,6 @@ async function pollLoop(statusUrl: string, poller: Poller): Promise<void> {
             judge: s.judge,
             statusUrl,
             problemIds,
-            submissionIds,
           });
           failure = undefined;
           break;
@@ -544,8 +591,15 @@ async function pollLoop(statusUrl: string, poller: Poller): Promise<void> {
           failure = e;
         }
       }
+      if (rows) {
+        claimSubmissions(subs, rows);
+      }
       for (const s of subs) {
         if (!poller.subs.has(s)) {
+          continue;
+        }
+        if (s.claim) {
+          s.deliver(undefined, failure);
           continue;
         }
         const key = s.submissionId ? `#${s.submissionId}` : s.problemId;
@@ -566,8 +620,9 @@ async function pollLoop(statusUrl: string, poller: Poller): Promise<void> {
  * @param pollFor how long to wait for the verdict to settle
  * @param requireRow end on the first read that lists no submission for the problem, instead of
  * waiting for one to appear
- * @param submissionId follow this submission rather than the problem's newest, so a later submit
- * of the same problem does not take over this one's verdict
+ * @param pin which submission to follow: `id` when known, `claim` to identify a just-made one
+ * (see `VerdictSubscriber.claim`), neither for the problem's newest. Following its own
+ * submission keeps a later submit of the same problem from taking over this one's verdict.
  */
 function watchVerdict(
   job: Pick<SubmitJob, "judge" | "problemId" | "statusUrl">,
@@ -575,8 +630,9 @@ function watchVerdict(
   pollFor: number,
   onProgress: ProgressReporter,
   requireRow = false,
-  submissionId = "",
+  pin: { id?: string; claim?: { after?: string } } = {},
 ): Promise<VerdictOutcome> {
+  const submissionId = pin.id ?? "";
   const statusUrl = String(job.statusUrl);
   let poller = pollers.get(statusUrl);
   if (!poller) {
@@ -595,6 +651,7 @@ function watchVerdict(
       judge: String(job.judge),
       problemId: String(job.problemId),
       submissionId: submissionId !== "" ? submissionId : undefined,
+      claim: submissionId === "" ? pin.claim : undefined,
       tabId,
       deliver(row, err) {
         if (err) {
@@ -609,8 +666,8 @@ function watchVerdict(
           if (requireRow) {
             finish({
               error:
-                submissionId !== ""
-                  ? `Submission ${submissionId} is not on the judge's status page.`
+                sub.submissionId
+                  ? `Submission ${sub.submissionId} is not on the judge's status page.`
                   : `No submission for ${String(job.problemId)} on the judge's status page.`,
             });
           }
@@ -662,9 +719,11 @@ async function submitInTab(
   // Newest submission before the POST: the judge's answer is not always classifiable, and a new
   // row appearing for this problem is the only unambiguous proof that one was created.
   let priorId = "";
+  let priorKnown = false;
   try {
     const prior = await callInPage(tabId, callVerdictInPage, job);
     priorId = prior && prior.submissionId ? String(prior.submissionId) : "";
+    priorKnown = prior !== null && typeof prior === "object";
   } catch {
     /* status page unreadable; the check below just degrades to reporting the error */
   }
@@ -716,12 +775,15 @@ async function submitInTab(
     return { submitted: true, language, submissionId: ownId || undefined };
   }
 
-  if (ownId === "") {
-    onProgress("checking");
-    ownId = await appeared(tabId, job, priorId);
-  }
   onProgress("judging");
-  const watched = await watchVerdict(job, tabId, pollFor, onProgress, false, ownId);
+  const watched = await watchVerdict(
+    job,
+    tabId,
+    pollFor,
+    onProgress,
+    false,
+    ownId !== "" ? { id: ownId } : { claim: { after: priorKnown ? priorId : undefined } },
+  );
   return { submitted: true, language, ...watched };
 }
 
@@ -779,7 +841,9 @@ export async function runVerdictWatchJob(
       Number.isFinite(pollFor) && pollFor > 0 ? pollFor : POLL_SLOW_AFTER_MS,
       onProgress,
       true,
-      typeof job.submissionId === "string" ? job.submissionId : "",
+      typeof job.submissionId === "string" && job.submissionId !== ""
+        ? { id: job.submissionId }
+        : {},
     );
     out = { submitted: watched.verdict !== undefined, ...watched };
     return out;

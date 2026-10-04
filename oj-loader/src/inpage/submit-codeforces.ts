@@ -59,13 +59,17 @@ function readRow(row: Element): StatusRow {
  * Newest row per problem, from one read of the status page.
  * @param indexes problem letters
  */
+function problemOf(row: Element): string {
+  const link = row.querySelector('a[href*="/problem/"]');
+  const href = link ? link.getAttribute("href") ?? "" : "";
+  const m = href.match(/\/problem\/([^/?#]+)/u);
+  return m ? decodeURIComponent(m[1]).toUpperCase() : "";
+}
+
 function newestRows(doc: Document, indexes: string[]): Record<string, StatusRow> {
   const out: Record<string, StatusRow> = {};
   for (const row of doc.querySelectorAll("tr[data-submission-id]")) {
-    const link = row.querySelector('a[href*="/problem/"]');
-    const href = link ? link.getAttribute("href") ?? "" : "";
-    const m = href.match(/\/problem\/([^/?#]+)/u);
-    const at = m ? decodeURIComponent(m[1]).toUpperCase() : "";
+    const at = problemOf(row);
     for (const index of indexes) {
       // A row with no problem link stands for whichever problem is still unanswered: the
       // single-problem read accepted it the same way.
@@ -203,13 +207,16 @@ export async function verdictsCodeforces(
     doc,
     Array.isArray(opts.problemIds) ? opts.problemIds : [],
   );
-  const pinned = new Set(Array.isArray(opts.submissionIds) ? opts.submissionIds : []);
-  if (pinned.size > 0) {
-    for (const row of doc.querySelectorAll("tr[data-submission-id]")) {
-      const id = row.getAttribute("data-submission-id") ?? "";
-      if (pinned.has(id)) {
-        rows[`#${id}`] = readRow(row);
-      }
+  const want = new Set(
+    (Array.isArray(opts.problemIds) ? opts.problemIds : []).map((p) => p.toUpperCase()),
+  );
+  const owner: Record<string, string> = {};
+  for (const row of doc.querySelectorAll("tr[data-submission-id]")) {
+    const id = row.getAttribute("data-submission-id") ?? "";
+    const at = problemOf(row);
+    if (id !== "" && (at === "" || want.has(at))) {
+      rows[`#${id}`] = readRow(row);
+      owner[`#${id}`] = at;
     }
   }
   const out: Record<string, VerdictRow> = {};
@@ -219,6 +226,7 @@ export async function verdictsCodeforces(
       pending: rows[key].pending,
       submissionId: rows[key].id,
       submissionUrl: rows[key].url,
+      ...(key in owner ? { problemId: owner[key] } : {}),
     };
   }
   return out;

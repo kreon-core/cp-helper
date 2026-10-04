@@ -79,6 +79,8 @@ export interface SubmitResult {
 export interface VerdictRow {
   verdict: string;
   pending: boolean;
+  /** Problem the row belongs to, on rows keyed `#<submission id>`; "" when the page omits it. */
+  problemId?: string;
   submissionId?: string;
   submissionUrl?: string;
 }
@@ -86,9 +88,8 @@ export interface VerdictRow {
 export interface VerdictsQuery {
   judge?: string;
   statusUrl: string;
+  /** Every row of these problems is also reported by submission id, keyed `#<id>`. */
   problemIds: string[];
-  /** Submissions to report by id as well, keyed `#<id>`, wherever they sit on the page. */
-  submissionIds?: string[];
 }
 
 export interface AntiBotState {

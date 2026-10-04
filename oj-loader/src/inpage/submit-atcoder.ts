@@ -117,7 +117,6 @@ export async function verdictsAtcoder(
 ): Promise<Record<string, VerdictRow>> {
   const doc = await fetchDocument(opts.statusUrl);
   const want = new Set(Array.isArray(opts.problemIds) ? opts.problemIds : []);
-  const pinned = new Set(Array.isArray(opts.submissionIds) ? opts.submissionIds : []);
   const out: Record<string, VerdictRow> = {};
   for (const row of doc.querySelectorAll("tbody tr")) {
     const taskLink = row.querySelector('a[href*="/tasks/"]');
@@ -126,12 +125,11 @@ export async function verdictsAtcoder(
     const subLink = row.querySelector('a[href*="/submissions/"]');
     const subHref = subLink ? subLink.getAttribute("href") ?? "" : "";
     const sid = subHref.match(/\/submissions\/(\d+)/u);
-    // The page lists newest first, so the first row for a task is the one to report.
-    const newest = m !== null && want.has(m[1]) && !out[m[1]];
-    const asPinned = sid !== null && pinned.has(sid[1]);
-    if (!newest && !asPinned) {
+    if (!m || !want.has(m[1])) {
       continue;
     }
+    // The page lists newest first, so the first row for a task is the one to report.
+    const newest = !out[m[1]];
     const label = row.querySelector("td span.label, td.text-center span");
     const verdict = (label ? label.textContent ?? "" : "").trim();
     const entry: VerdictRow = {
@@ -140,11 +138,11 @@ export async function verdictsAtcoder(
       submissionId: sid ? sid[1] : undefined,
       submissionUrl: subHref ? new URL(subHref, location.origin).toString() : undefined,
     };
-    if (newest && m) {
+    if (newest) {
       out[m[1]] = entry;
     }
-    if (asPinned && sid) {
-      out[`#${sid[1]}`] = entry;
+    if (sid) {
+      out[`#${sid[1]}`] = { ...entry, problemId: m[1] };
     }
   }
   return out;
