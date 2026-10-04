@@ -128,22 +128,27 @@
         "ojRunner.compileCommand": {
           "type": "string",
           "default": "g++ -std=c++23 -O2 -o \"{{out}}\" \"{{file}}\"",
-          "description": "NORMAL build: the compile line behind the plain Run buttons. Keep it close to the judge (-O2, no sanitizers) so the reported run time is comparable. Empty skips compile (use only if you pre-build the binary that runCommand runs). Placeholders: {{file}}, {{dir}} (source dir), {{out}} (cached binary path)."
+          "description": "NORMAL build: the compile line behind a plain click on Run or Run all. Keep it close to the judge (-O2, no sanitizers) so the reported run time is comparable. Empty skips compile (use only if you pre-build the binary that runCommand runs). Placeholders: {{file}}, {{dir}} (source dir), {{out}} (cached binary path)."
         },
         "ojRunner.localCompileCommand": {
           "type": "string",
           "default": "g++ -std=c++23 -O2 -o \"{{out}}\" \"{{file}}\"",
-          "description": "LOCAL build: the compile line behind the LOCAL Run buttons. Meant for a debug build (-D_GLIBCXX_DEBUG, -fsanitize=...), whose run time is not comparable to the judge. Add -DLOCAL yourself. Empty derives it from compileCommand by injecting -DLOCAL. Placeholders: {{file}}, {{dir}}, {{out}}."
+          "description": "LOCAL build: the compile line behind Shift+click on Run or Run all. Meant for a debug build (-D_GLIBCXX_DEBUG, -fsanitize=...), whose run time is not comparable to the judge. Add -DLOCAL yourself. Empty derives it from compileCommand by injecting -DLOCAL. Placeholders: {{file}}, {{dir}}, {{out}}."
         },
         "ojRunner.debugConfigName": {
           "type": "string",
           "default": "LLDB Debug",
           "description": "Name of the launch.json configuration the per-testcase Debug button starts; the sample's input is injected as the debuggee's stdin. Its preLaunchTask does the build. When no configuration matches, an inline CodeLLDB config is used with debugCompileCommand."
         },
+        "ojRunner.debugLocalConfigName": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the launch.json configuration Shift+click on Debug starts, for a LOCAL build (its preLaunchTask should compile with -DLOCAL). Empty uses debugConfigName, whose build cannot take -DLOCAL. When no configuration matches, an inline CodeLLDB config is used with debugCompileCommand plus -DLOCAL."
+        },
         "ojRunner.debugCompileCommand": {
           "type": "string",
           "default": "g++ -std=c++23 -g -O0 -o \"{{out}}\" \"{{file}}\"",
-          "description": "DEBUG build: the compile line behind each sample's Debug button, used only when debugConfigName matches no launch.json configuration. Used verbatim, independent of the other compile commands. Empty derives it from compileCommand by adding -g -O0. Placeholders: {{file}}, {{dir}}, {{out}}."
+          "description": "DEBUG build: the compile line behind each sample's Debug button, used only when debugConfigName matches no launch.json configuration. Used verbatim, independent of the other compile commands, except that Shift+click on Debug adds -DLOCAL. Empty derives it from compileCommand (localCompileCommand on Shift+click) by adding -g -O0. Placeholders: {{file}}, {{dir}}, {{out}}."
         },
         "ojRunner.runCommand": {
           "type": "string",

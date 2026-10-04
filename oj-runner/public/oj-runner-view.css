@@ -209,11 +209,19 @@ button.submit-status::before {
 }
 
 /**
- * The LOCAL twin of a run button: a secondary button like Debug, tinted so the pair reads as two
- * builds of one action rather than two unrelated commands.
+ * Run, Run all and Debug start the LOCAL build on Shift+click. While Shift is held they take the
+ * LOCAL tint and, where there is one, the LOCAL icon, so the click about to happen shows.
  */
-button.btn-run-local {
-  color: var(--vscode-textLink-foreground, #3794ff);
+.btn-local-able__local {
+  display: none;
+}
+
+.cp-shift-held .btn-local-able:not(:disabled) .btn-local-able__normal {
+  display: none;
+}
+
+.cp-shift-held .btn-local-able:not(:disabled) .btn-local-able__local {
+  display: inline-block;
 }
 
 .active-source-label__dir {
@@ -686,8 +694,8 @@ input.case-group-rename {
   color: var(--cp-ac);
 }
 
-.case-group-actions button.btn-run-local:not(:disabled),
-.case-actions button.btn-run-local:not(:disabled) {
+.cp-shift-held .case-group-actions button.btn-local-able:not(:disabled),
+.cp-shift-held .case-actions button.btn-local-able:not(:disabled) {
   color: var(--vscode-textLink-foreground, #3794ff);
 }
 
@@ -1615,16 +1623,15 @@ button.submit-status {
   text-overflow: ellipsis;
 }
 
-button.submit-status[aria-disabled="true"] {
-  opacity: 1;
+button.submit-status {
   cursor: default;
 }
 
-button.submit-status:not([aria-disabled="true"]) {
+.cp-mod-held button.submit-status:not([aria-disabled="true"]) {
   cursor: pointer;
 }
 
-button.submit-status:not([aria-disabled="true"]):hover {
+.cp-mod-held button.submit-status:not([aria-disabled="true"]):hover {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -1679,4 +1686,93 @@ button.submit-status::before {
   .case-head {
     gap: var(--cp-space-1);
   }
+}
+
+/** One hover for the whole view, drawn like VS Code's own hover widget. */
+.cp-tooltip {
+  position: fixed;
+  z-index: 1000;
+  box-sizing: border-box;
+  max-width: min(360px, calc(100vw - 8px));
+  padding: 4px 8px;
+  border: 1px solid var(--vscode-editorHoverWidget-border, var(--cp-surface-border));
+  border-radius: var(--cp-radius-md);
+  background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background, #252526));
+  color: var(--vscode-editorHoverWidget-foreground, var(--cp-fg));
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size, 13px);
+  font-weight: normal;
+  line-height: 1.4;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  animation: cp-tooltip-in 80ms ease-out;
+}
+
+.cp-tooltip[hidden] {
+  display: none;
+}
+
+.cp-tooltip__hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 12px;
+  white-space: nowrap;
+  margin: 4px -8px -4px;
+  padding: 3px 8px;
+  border-top: 1px solid var(--vscode-editorHoverWidget-border, var(--cp-surface-border));
+  border-radius: 0 0 var(--cp-radius-md) var(--cp-radius-md);
+  background: var(--vscode-editorHoverWidget-statusBarBackground, rgba(128, 128, 128, 0.08));
+  color: var(--vscode-descriptionForeground, var(--cp-fg));
+  font-size: 0.92em;
+}
+
+@keyframes cp-tooltip-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cp-tooltip {
+    animation: none;
+  }
+}
+
+.cp-tip-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cp-tip-mouse {
+  flex: 0 0 auto;
+  color: var(--vscode-editorHoverWidget-foreground, var(--cp-fg));
+}
+
+/** Drawn like VS Code's own keybinding labels. */
+.cp-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 15px;
+  padding: 0 3px;
+  border: 1px solid var(--vscode-keybindingLabel-border, rgba(128, 128, 128, 0.4));
+  border-bottom-color: var(--vscode-keybindingLabel-bottomBorder, rgba(128, 128, 128, 0.5));
+  border-radius: 3px;
+  box-shadow: inset 0 -1px 0 var(--vscode-widget-shadow, rgba(0, 0, 0, 0.3));
+  background: var(--vscode-keybindingLabel-background, rgba(128, 128, 128, 0.17));
+  color: var(--vscode-keybindingLabel-foreground, var(--cp-fg));
+  font-family: var(--vscode-font-family);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.cp-key + .cp-tip-mouse,
+.cp-key + .cp-key {
+  margin-left: -1px;
 }

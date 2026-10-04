@@ -25,8 +25,11 @@ you visited when the active tab is not C++, and are disabled until one has been 
 2. Open OJ Runner in the secondary sidebar.
 3. Import sample JSON. Each import adds a problem to the list; re-importing one you already have
    refreshes it where it sits.
-4. Click Run in a problem header, or Run per case. Every run button has a LOCAL twin beside it
-   that compiles ojRunner.localCompileCommand instead of ojRunner.compileCommand.
+4. Click Run in a problem header, or Run per case. A plain click compiles
+   ojRunner.compileCommand; Shift+click compiles ojRunner.localCompileCommand instead, as Shift does
+   in the run keybindings. Debug works the same way: Shift+click adds -DLOCAL to the debug build.
+   Holding Shift over the view turns Run, Run all and Debug blue, so you can see the LOCAL build is
+   armed.
 
 Sample JSON:
 
@@ -65,9 +68,10 @@ the buttons in its own header, which is how you point it at a different file.
 
 | Setting                             | Purpose                                                                                                                         |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| ojRunner.compileCommand             | NORMAL build, used by the plain Run buttons (keep it judge-like: -O2, no sanitizers)                                            |
-| ojRunner.localCompileCommand        | LOCAL build, used by the LOCAL Run buttons (empty = compileCommand with -DLOCAL injected)                                       |
-| ojRunner.debugCompileCommand        | DEBUG build behind each sample's Debug button, compiled without -DLOCAL (empty = compileCommand plus -g -O0)                    |
+| ojRunner.compileCommand             | NORMAL build, used by a plain click on Run (keep it judge-like: -O2, no sanitizers)                                             |
+| ojRunner.localCompileCommand        | LOCAL build, used by Shift+click on Run (empty = compileCommand with -DLOCAL injected)                                          |
+| ojRunner.debugCompileCommand        | DEBUG build behind each sample's Debug button; Shift+click adds -DLOCAL (empty = the Run build plus -g -O0)                     |
+| ojRunner.debugLocalConfigName       | launch.json configuration Shift+click on Debug starts (empty = debugConfigName, which cannot take -DLOCAL)                      |
 | ojRunner.runCommand                 | Execute command template                                                                                                        |
 | ojRunner.runTimeoutMs               | Compile/run timeout in ms (used when the problem carries no judge limit)                                                        |
 | ojRunner.useJudgeTimeLimit          | Judge NORMAL runs against the time limit scraped at import (LOCAL runs keep runTimeoutMs)                                       |
@@ -100,16 +104,21 @@ the buttons in its own header, which is how you point it at a different file.
 - A problem header shows the source it is bound to, using the same file readout the toolbar carries
   for the run target. It is highlighted on the problem bound to the file in the editor and muted on
   the others, whose passed counts also drop their green/red tint, so results left over from another
-  source are not mistaken for the current ones. Any run sets the binding, not just Run all.
+  source are not mistaken for the current ones. Any run sets the binding, not just Run all. Click
+  the file to open it; right-click it to unlink the problem from it.
 - A sample's header carries a coloured cap: neutral grey until it runs, then green AC, red WA,
   blue TLE, amber RE, or purple CE.
 - A verdict shows the program's own execution time and, separately, the overhead outside it
   (process spawn and output drain).
+- Input, expected output, stdout and stderr are numbered by line; a line that wraps keeps a single
+  number, so expected and stdout can be compared line by line.
 - The `+` strip at the foot of the list adds a problem of your own, named `custom/N` and opened on
   one empty testcase with the caret already in its input. Until something is imported it is the
   only thing on the list, so it is filled rather than outlined.
 - Hovering a problem header reveals a pencil next to its name: click it to rename the problem in
   place. Enter or clicking away keeps the new name, Escape drops it.
+- Tooltips are drawn in VS Code's hover style. A chip that answers to more than a plain click lists
+  those gestures in the tooltip's footer as mouse and key icons.
 
 ## Submit
 
@@ -143,9 +152,10 @@ Notes:
   shows it in that problem's header and as a notification. Watching goes on for as long as the
   judge is still running the submission, up to 30 minutes; `ojRunner.submitPollTimeoutMs` only
   limits how long a submission may stay off the status page.
-- Click a chip to open its submission; before the judge lists it, Ctrl+click opens your submissions
-  page instead. Right-click a chip to re-check its verdict on the judge, and Shift+right-click it to
-  clear it. Its tooltip gives the submission number and the full verdict when the chip shortens it.
+- Ctrl+click a chip (Cmd+click on Mac) to open its submission, or your submissions page until the
+  judge lists it; a plain click does nothing. Right-click a chip to re-check its verdict on the
+  judge, and Shift+right-click it to clear it. Its tooltip gives the submission number and the full
+  verdict when the chip shortens it.
 
 ## Build cache
 

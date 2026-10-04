@@ -155,6 +155,44 @@
     return el;
   }
 
+  /**
+   * A build button: a plain click uses its usual build, Shift+click the LOCAL one, as Shift picks
+   * LOCAL in the run keybindings. Holding Shift swaps in the LOCAL icon (when it has one) and tint,
+   * so the next click is predictable.
+   * @param {HTMLButtonElement} btn
+   * @param {keyof typeof _CODICONS} icon
+   * @param {string} plainLabel what a plain click starts, for the tooltip footer
+   * @param {string} localLabel what Shift+click starts
+   * @param {boolean} swapIcon show the LOCAL icon while the modifier is held
+   */
+  function mkLocalAbleButton(btn, icon, plainLabel, localLabel, swapIcon) {
+    btn.classList.add("btn-local-able");
+    btn.dataset.cpTipHint = `left:${plainLabel}|shift+left:${localLabel}`;
+    btn.addEventListener("mousedown", (e) => {
+      if (e.shiftKey) {
+        e.preventDefault();
+      }
+    });
+    const normal = mkIcon(icon);
+    if (!swapIcon) {
+      btn.appendChild(normal);
+      return;
+    }
+    normal.classList.add("btn-local-able__normal");
+    const local = mkIcon("local");
+    local.classList.add("btn-local-able__local");
+    btn.appendChild(normal);
+    btn.appendChild(local);
+  }
+
+  /**
+   * @param {MouseEvent} e
+   * @returns {boolean} whether this click asks for the LOCAL build
+   */
+  function wantsLocal(e) {
+    return e.shiftKey;
+  }
+
   const SVG_NS = "http://www.w3.org/2000/svg";
 
   const JUDGE_LABEL = /^(codeforces|atcoder)\/(.+)$/iu;
@@ -857,12 +895,13 @@
     paintSourcePathInto(label, fullPath);
     chip.appendChild(label);
     chip.classList.toggle("case-group-src--current", current);
-    chip.title = `${fullPath}\nClick to open, right-click to unlink`;
+    chip.title = fullPath;
+    chip.dataset.cpTipHint = "left:open|right:unlink";
     chip.setAttribute(
       "aria-label",
       current
-        ? `Open ${fullPath}, the open file this problem is bound to`
-        : `Open ${fullPath}, the file this problem is bound to`,
+        ? `Open ${fullPath}, the open file this problem is bound to; right-click to unlink`
+        : `Open ${fullPath}, the file this problem is bound to; right-click to unlink`,
     );
   }
 
@@ -1982,32 +2021,29 @@
     label.className = "submit-status__text";
     label.textContent = st.text;
     el.replaceChildren(label);
-    el.dataset.cpUrl = st.url;
     const sid = st.sid || (st.url.match(/\/submissions?\/(\d+)/u) ?? [])[1] || "";
     const plain = (t) => t.toLowerCase().replace(/[^a-z0-9]/gu, "");
     const detail = plain(st.title) !== plain(st.text) ? st.title : "";
     const actions = [];
     if (st.url !== "") {
-      actions.push("click to open");
+      actions.push("ctrl+left:open");
     } else if (st.statusUrl !== "") {
-      actions.push("Ctrl+click to open your submissions");
+      actions.push("ctrl+left:open your submissions");
     }
     if (st.phase === "") {
-      actions.push("right-click to re-check");
+      actions.push("right:re-check");
     }
-    actions.push("Shift+right-click to clear");
-    const hint = actions.join(", ");
-    el.title = [
-      detail,
-      sid !== "" ? `Submission #${sid}` : "",
-      hint.charAt(0).toUpperCase() + hint.slice(1),
-    ]
+    actions.push("shift+right:clear");
+    el.dataset.cpTipHint = actions.join("|");
+    el.title = [detail, sid !== "" ? `Submission #${sid}` : ""]
       .filter((line) => line !== "")
-      .join("\n");
-    el.setAttribute("aria-disabled", st.url === "" ? "true" : "false");
+      .join("\n") || st.text;
+    el.setAttribute("aria-disabled", st.url === "" && st.statusUrl === "" ? "true" : "false");
     el.setAttribute(
       "aria-label",
-      [st.title, sid !== "" ? `submission ${sid}` : ""].filter((x) => x !== "").join(", "),
+      [st.title, sid !== "" ? `submission ${sid}` : "", tipHintText(el.dataset.cpTipHint)]
+        .filter((x) => x !== "")
+        .join(", "),
     );
     el.classList.toggle("submit-status--ok", st.tone === "ok");
     el.classList.toggle("submit-status--bad", st.tone === "bad");
@@ -2021,14 +2057,23 @@
    */
   function paintSubmitStatuses(host, gi) {
     const entries = submitEntries(gi);
+    /** @type {Map<string, HTMLButtonElement>} */
+    const existing = new Map();
+    host.querySelectorAll("button.submit-status").forEach((b) => {
+      existing.set(b.dataset.cpSlot ?? "", /** @type {HTMLButtonElement} */ (b));
+    });
+    // Chips are updated in place, so a hover open on a live chip follows its verdict.
     host.replaceChildren(
       ...entries.map((st) => {
-        const el = document.createElement("button");
-        el.type = "button";
-        el.className = "submit-status";
-        el.dataset.cpSlot = st.slot;
-        el.setAttribute("role", "status");
-        el.setAttribute("aria-live", "polite");
+        let el = existing.get(st.slot);
+        if (!el) {
+          el = document.createElement("button");
+          el.type = "button";
+          el.className = "submit-status";
+          el.dataset.cpSlot = st.slot;
+          el.setAttribute("role", "status");
+          el.setAttribute("aria-live", "polite");
+        }
         paintSubmitStatusEl(el, st);
         return el;
       }),
@@ -2580,11 +2625,9 @@
         submitStatusG.addEventListener("click", (e) => {
           const chip = e.target instanceof Element ? e.target.closest("button.submit-status") : null;
           if (!(chip instanceof HTMLElement)) return;
+          if (!e.ctrlKey && !e.metaKey) return;
           const entry = submitEntries(gi).find((x) => x.slot === chip.dataset.cpSlot);
-          const url =
-            e.ctrlKey || e.metaKey
-              ? entry?.url || entry?.statusUrl || ""
-              : chip.dataset.cpUrl ?? "";
+          const url = entry?.url || entry?.statusUrl || "";
           if (url !== "") {
             vscode.postMessage({ type: "openSubmission", url });
           }
@@ -2654,31 +2697,23 @@
       ghead.appendChild(actions);
 
       const groupName = (group.label ?? "").trim() || `group ${gi + 1}`;
-      [false, true].forEach((local) => {
-        const btnRunG = document.createElement("button");
-        btnRunG.type = "button";
-        btnRunG.className = local
-          ? "case-group__run-all needs-cpp btn-icon btn-run-local"
-          : "case-group__run-all needs-cpp btn-icon btn-run";
-        btnRunG.title = local
-          ? "Run all (LOCAL)"
-          : "Run all";
-        btnRunG.dataset.cpTitle = btnRunG.title;
-        btnRunG.setAttribute(
-          "aria-label",
-          local
-            ? `Run all cases in ${groupName} with LOCAL build`
-            : `Run all cases in ${groupName}`,
-        );
-        btnRunG.appendChild(mkIcon(local ? "local" : "runAll"));
-        btnRunG.disabled = group.cases.length === 0 || !sourceRunnable;
-        btnRunG.addEventListener("click", () => {
-          hideErr();
-          explicitRunGroup = gi;
-          startRunAllForGroup(gi, local);
-        });
-        actions.appendChild(btnRunG);
+      const btnRunG = document.createElement("button");
+      btnRunG.type = "button";
+      btnRunG.className = "case-group__run-all needs-cpp btn-icon btn-run";
+      btnRunG.title = "Run all";
+      btnRunG.dataset.cpTitle = tipOf(btnRunG);
+      btnRunG.setAttribute(
+        "aria-label",
+        `Run all cases in ${groupName}; Shift+click for the LOCAL build`,
+      );
+      mkLocalAbleButton(btnRunG, "runAll", "NORMAL build", "LOCAL build", true);
+      btnRunG.disabled = group.cases.length === 0 || !sourceRunnable;
+      btnRunG.addEventListener("click", (e) => {
+        hideErr();
+        explicitRunGroup = gi;
+        startRunAllForGroup(gi, wantsLocal(e));
       });
+      actions.appendChild(btnRunG);
       if (btnSubmitG) {
         actions.appendChild(btnSubmitG);
       }
@@ -2789,62 +2824,56 @@
         const actions = document.createElement("div");
         actions.className = "case-actions";
 
-        const runButtons = [false, true].map((local) => {
-          const runOne = document.createElement("button");
-          runOne.type = "button";
-          runOne.className = local
-            ? "needs-cpp btn-icon btn-run-local"
-            : "needs-cpp btn-icon btn-run";
-          runOne.title = local
-            ? `Run sample ${c.sample} (LOCAL)`
-            : `Run sample ${c.sample}`;
-          runOne.dataset.cpTitle = runOne.title;
-          runOne.setAttribute(
-            "aria-label",
-            local
-              ? `Run sample ${c.sample} with LOCAL build`
-              : `Run sample ${c.sample}`,
-          );
-          runOne.appendChild(mkIcon(local ? "local" : "play"));
-          runOne.disabled = !sourceRunnable;
-          runOne.addEventListener("click", () => {
-            explicitRunGroup = gi;
-            purgeLastRunForGroup(gi);
-            runState = { active: true, mode: "one", phase: "run", groupIndex: gi, index, total: 1 };
-            if (incrementalDomReady()) {
-              refreshIncrementalRunUi();
-            } else {
-              render();
-            }
-            vscode.postMessage({
-              type: "runOne",
-              groupIndex: gi,
-              groupId: groupIdAt(gi),
-              index,
-              case: group.cases[index],
-              defineLocal: local,
-              timeLimitMs: group.timeLimitMs,
-            });
+        const runOne = document.createElement("button");
+        runOne.type = "button";
+        runOne.className = "needs-cpp btn-icon btn-run";
+        runOne.title = `Run sample ${c.sample}`;
+        runOne.dataset.cpTitle = tipOf(runOne);
+        runOne.setAttribute(
+          "aria-label",
+          `Run sample ${c.sample}; Shift+click for the LOCAL build`,
+        );
+        mkLocalAbleButton(runOne, "play", "NORMAL build", "LOCAL build", true);
+        runOne.disabled = !sourceRunnable;
+        runOne.addEventListener("click", (e) => {
+          explicitRunGroup = gi;
+          purgeLastRunForGroup(gi);
+          runState = { active: true, mode: "one", phase: "run", groupIndex: gi, index, total: 1 };
+          if (incrementalDomReady()) {
+            refreshIncrementalRunUi();
+          } else {
+            render();
+          }
+          vscode.postMessage({
+            type: "runOne",
+            groupIndex: gi,
+            groupId: groupIdAt(gi),
+            index,
+            case: group.cases[index],
+            defineLocal: wantsLocal(e),
+            timeLimitMs: group.timeLimitMs,
           });
-          return runOne;
         });
 
         const debugOne = document.createElement("button");
         debugOne.type = "button";
         debugOne.className = "needs-cpp btn-icon";
         debugOne.title = `Debug sample ${c.sample}`;
-        debugOne.dataset.cpTitle = debugOne.title;
-        debugOne.setAttribute("aria-label", `Debug sample ${c.sample}`);
-        debugOne.appendChild(mkIcon("debug"));
+        debugOne.dataset.cpTitle = tipOf(debugOne);
+        debugOne.setAttribute(
+          "aria-label",
+          `Debug sample ${c.sample}; Shift+click to add -DLOCAL`,
+        );
+        mkLocalAbleButton(debugOne, "debug", "debug build", "with -DLOCAL", false);
         debugOne.disabled = !sourceRunnable;
-        debugOne.addEventListener("click", () => {
+        debugOne.addEventListener("click", (e) => {
           hideErr();
           vscode.postMessage({
             type: "debugOne",
             groupIndex: gi,
             index,
             case: group.cases[index],
-            defineLocal: false,
+            defineLocal: wantsLocal(e),
           });
         });
 
@@ -2875,7 +2904,7 @@
           render();
         });
 
-        runButtons.forEach((b) => actions.appendChild(b));
+        actions.appendChild(runOne);
         actions.appendChild(debugOne);
         actions.appendChild(remove);
 
@@ -3667,7 +3696,7 @@
         .querySelector(`li.case-group-wrap[data-cp-gi="${gi}"]`)
         ?.querySelector(".case-group__export");
       if (!(exportBtn instanceof HTMLElement)) return;
-      const prevTitle = exportBtn.title;
+      const prevTitle = tipOf(exportBtn);
       exportBtn.title = `Exported ${count} case${count === 1 ? "" : "s"}`;
       exportBtn.classList.add("btn--export-done");
       setTimeout(() => {
@@ -3827,6 +3856,366 @@
 
   listEl.addEventListener("scroll", syncStuckState, { passive: true });
   syncStuckState();
+
+  const TIP_DELAY_MS = 500;
+  const TIP_WARM_MS = 300;
+  const tipEl = document.createElement("div");
+  tipEl.id = "cp-tooltip";
+  tipEl.className = "cp-tooltip";
+  tipEl.setAttribute("role", "tooltip");
+  tipEl.hidden = true;
+  document.body.appendChild(tipEl);
+  /** @type {HTMLElement | null} */
+  let tipAnchor = null;
+  let tipTimer = 0;
+  let tipHiddenAt = 0;
+
+  /**
+   * The webview draws its own hover in VS Code's style, so the native one has to stay out of the
+   * way: every `title` the view sets is moved to `data-cp-tip` as soon as it lands. Read a tip back
+   * with `tipOf()`, not `.title`.
+   * @param {Element} el
+   */
+  function adoptTitle(el) {
+    if (!(el instanceof HTMLElement) || !el.hasAttribute("title")) {
+      return;
+    }
+    const text = el.getAttribute("title") ?? "";
+    el.removeAttribute("title");
+    if (text === "") {
+      delete el.dataset.cpTip;
+      el.removeAttribute("aria-description");
+    } else {
+      el.dataset.cpTip = text;
+      if (el.getAttribute("aria-label") !== text) {
+        el.setAttribute("aria-description", text);
+      }
+      if (!el.hasAttribute("aria-label") && (el.textContent ?? "").trim() === "") {
+        el.setAttribute("aria-label", text);
+      }
+    }
+    if (el === tipAnchor) {
+      if (text === "") {
+        hideTip();
+      } else {
+        fillTip(el);
+        placeTip(el);
+      }
+    }
+  }
+
+  /**
+   * @param {Element} el
+   * @returns {string}
+   */
+  function tipOf(el) {
+    return el instanceof HTMLElement
+      ? el.getAttribute("title") || el.dataset.cpTip || ""
+      : "";
+  }
+
+  /**
+   * @param {HTMLElement} anchor
+   */
+  function fillTip(anchor) {
+    const body = document.createElement("div");
+    body.className = "cp-tooltip__body";
+    body.textContent = anchor.dataset.cpTip ?? "";
+    const parts = [body];
+    const hint = anchor.matches(":disabled") ? "" : anchor.dataset.cpTipHint ?? "";
+    if (hint !== "") {
+      const foot = document.createElement("div");
+      foot.className = "cp-tooltip__hint";
+      for (const action of parseTipHint(hint)) {
+        const item = document.createElement("span");
+        item.className = "cp-tip-action";
+        for (const key of action.keys) {
+          item.appendChild(keyCap(key));
+        }
+        if (action.button !== "") {
+          item.appendChild(mouseIcon(action.button));
+        }
+        const verb = document.createElement("span");
+        verb.textContent = action.label;
+        item.appendChild(verb);
+        foot.appendChild(item);
+      }
+      parts.push(foot);
+    }
+    tipEl.replaceChildren(...parts);
+  }
+
+  const IS_MAC = /Mac|iPhone|iPad/u.test(navigator.platform || navigator.userAgent);
+
+  /**
+   * A hint is `|`-separated actions, each `mod+mod+button:label` with mods `ctrl` / `shift` and
+   * button `left` / `right`.
+   * @param {string} hint
+   * @returns {{ keys: string[]; button: string; label: string }[]}
+   */
+  function parseTipHint(hint) {
+    return hint.split("|").map((part) => {
+      const at = part.indexOf(":");
+      const combo = at < 0 ? [] : part.slice(0, at).split("+");
+      const button = combo.find((k) => k === "left" || k === "right") ?? "";
+      return {
+        keys: combo.filter((k) => k === "ctrl" || k === "shift"),
+        button,
+        label: at < 0 ? part : part.slice(at + 1),
+      };
+    });
+  }
+
+  /**
+   * @param {string | undefined} hint
+   * @returns {string}
+   */
+  function tipHintText(hint) {
+    if (!hint) {
+      return "";
+    }
+    return parseTipHint(hint)
+      .map((a) => {
+        const mods = a.keys.map((k) => (k === "ctrl" ? (IS_MAC ? "Cmd" : "Ctrl") : "Shift"));
+        const click = a.button === "right" ? "right-click" : a.button === "left" ? "click" : "";
+        const combo = [...mods, click].filter((x) => x !== "").join("+");
+        return combo !== "" ? `${combo} to ${a.label}` : a.label;
+      })
+      .join(", ");
+  }
+
+  /**
+   * @param {string} tag
+   * @param {Record<string, string>} attrs
+   */
+  function svgEl(tag, attrs) {
+    const el = document.createElementNS(SVG_NS, tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      el.setAttribute(k, v);
+    }
+    return el;
+  }
+
+  /**
+   * @param {"left" | "right" | string} button
+   */
+  function mouseIcon(button) {
+    const svg = svgEl("svg", {
+      class: "cp-tip-mouse",
+      viewBox: "0 0 10 14",
+      width: "10",
+      height: "14",
+      "aria-hidden": "true",
+    });
+    svg.appendChild(
+      svgEl("path", {
+        d:
+          button === "right"
+            ? "M5 1.25V5.75H8.75V5A3.75 3.75 0 0 0 5 1.25Z"
+            : "M5 1.25V5.75H1.25V5A3.75 3.75 0 0 1 5 1.25Z",
+        fill: "currentColor",
+      }),
+    );
+    svg.appendChild(
+      svgEl("rect", {
+        x: "0.75",
+        y: "0.75",
+        width: "8.5",
+        height: "12.5",
+        rx: "4.25",
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-width": "1",
+      }),
+    );
+    svg.appendChild(
+      svgEl("path", {
+        d: "M5 1V5.75M1 5.75H9",
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-width": "1",
+      }),
+    );
+    return svg;
+  }
+
+  /**
+   * @param {string} key "ctrl" | "shift"
+   */
+  function keyCap(key) {
+    const cap = document.createElement("kbd");
+    cap.className = "cp-key";
+    if (key === "shift") {
+      cap.setAttribute("aria-label", "Shift");
+      const svg = svgEl("svg", {
+        viewBox: "0 0 12 12",
+        width: "10",
+        height: "10",
+        "aria-hidden": "true",
+      });
+      svg.appendChild(
+        svgEl("path", {
+          d: "M6 1.5L10.5 6.5H8V10.5H4V6.5H1.5Z",
+          fill: "none",
+          stroke: "currentColor",
+          "stroke-width": "1.1",
+          "stroke-linejoin": "round",
+        }),
+      );
+      cap.appendChild(svg);
+    } else {
+      cap.textContent = IS_MAC ? "Cmd" : "Ctrl";
+    }
+    return cap;
+  }
+
+  /**
+   * Below the anchor, or above it when that is the side with room; always inside the view.
+   * @param {HTMLElement} anchor
+   */
+  function placeTip(anchor) {
+    const margin = 4;
+    const gap = 4;
+    const a = anchor.getBoundingClientRect();
+    tipEl.style.left = "0px";
+    tipEl.style.top = "0px";
+    const t = tipEl.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth;
+    const vh = document.documentElement.clientHeight;
+    const below = a.bottom + gap;
+    const above = a.top - gap - t.height;
+    const top =
+      below + t.height <= vh - margin || above < margin
+        ? Math.min(below, vh - margin - t.height)
+        : above;
+    const left = Math.min(
+      Math.max(margin, a.left + a.width / 2 - t.width / 2),
+      Math.max(margin, vw - margin - t.width),
+    );
+    tipEl.style.left = `${Math.round(left)}px`;
+    tipEl.style.top = `${Math.round(Math.max(margin, top))}px`;
+  }
+
+  /**
+   * @param {HTMLElement} anchor
+   */
+  function showTip(anchor) {
+    if (!anchor.isConnected || !anchor.dataset.cpTip) {
+      return;
+    }
+    tipAnchor = anchor;
+    fillTip(anchor);
+    tipEl.hidden = false;
+    placeTip(anchor);
+    anchor.setAttribute("aria-describedby", tipEl.id);
+  }
+
+  function hideTip() {
+    window.clearTimeout(tipTimer);
+    tipTimer = 0;
+    if (tipAnchor) {
+      tipAnchor.removeAttribute("aria-describedby");
+      tipAnchor = null;
+      tipHiddenAt = Date.now();
+    }
+    tipEl.hidden = true;
+  }
+
+  /**
+   * Once one hover has been seen, moving straight to the next control shows its hover at once.
+   * @param {HTMLElement} anchor
+   */
+  function scheduleTip(anchor) {
+    if (anchor === tipAnchor) {
+      return;
+    }
+    const warm = tipAnchor !== null || Date.now() - tipHiddenAt < TIP_WARM_MS;
+    hideTip();
+    tipTimer = window.setTimeout(() => showTip(anchor), warm ? 0 : TIP_DELAY_MS);
+  }
+
+  /**
+   * @param {EventTarget | null} target
+   * @returns {HTMLElement | null}
+   */
+  function tipAnchorFor(target) {
+    const el = target instanceof Element ? target.closest("[data-cp-tip]") : null;
+    return el instanceof HTMLElement ? el : null;
+  }
+
+  document.querySelectorAll("[title]").forEach(adoptTitle);
+  new MutationObserver((records) => {
+    for (const r of records) {
+      if (r.type === "attributes") {
+        adoptTitle(/** @type {Element} */ (r.target));
+        continue;
+      }
+      r.addedNodes.forEach((n) => {
+        if (n instanceof Element) {
+          adoptTitle(n);
+          n.querySelectorAll("[title]").forEach(adoptTitle);
+        }
+      });
+      if (tipAnchor && !tipAnchor.isConnected) {
+        hideTip();
+      }
+    }
+  }).observe(document.body, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ["title"],
+  });
+
+  /**
+   * Openable chips only look like links while Ctrl / Cmd is held, as editor links do; build buttons
+   * show their LOCAL face while Shift is.
+   */
+  function syncModHeld(e) {
+    document.body.classList.toggle("cp-mod-held", e.ctrlKey || e.metaKey);
+    document.body.classList.toggle("cp-shift-held", e.shiftKey);
+  }
+  document.addEventListener("keydown", syncModHeld);
+  document.addEventListener("keyup", syncModHeld);
+  document.addEventListener("pointermove", syncModHeld, { passive: true });
+  window.addEventListener("blur", () => {
+    document.body.classList.remove("cp-mod-held", "cp-shift-held");
+  });
+
+  document.addEventListener("pointerover", (e) => {
+    if (e.pointerType === "touch") {
+      return;
+    }
+    const anchor = tipAnchorFor(e.target);
+    if (anchor) {
+      scheduleTip(anchor);
+    } else if (tipAnchor || tipTimer) {
+      hideTip();
+    }
+  });
+  document.addEventListener("pointerout", (e) => {
+    const from = tipAnchorFor(e.target);
+    if (from && !from.contains(/** @type {Node | null} */ (e.relatedTarget))) {
+      if (from === tipAnchor || tipTimer) {
+        hideTip();
+      }
+    }
+  });
+  document.addEventListener("focusin", (e) => {
+    const anchor = tipAnchorFor(e.target);
+    if (anchor && anchor.matches(":focus-visible")) {
+      scheduleTip(anchor);
+    }
+  });
+  document.addEventListener("focusout", () => hideTip());
+  document.addEventListener("pointerdown", () => hideTip(), true);
+  document.addEventListener("scroll", () => hideTip(), true);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && tipAnchor) {
+      hideTip();
+    }
+  });
+  window.addEventListener("blur", () => hideTip());
 
   vscode.postMessage({ type: "restore" });
   requestAnimationFrame(() => {

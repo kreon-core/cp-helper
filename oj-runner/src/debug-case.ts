@@ -11,6 +11,7 @@ import {
   withLocalDefineExpanded,
 } from "./compile-expansion";
 import { createCpLogger } from "./log";
+import { notify } from "./notify";
 import { runShell } from "./run-state";
 import type { TestCase } from "./types";
 
@@ -83,7 +84,7 @@ async function compileForDebug(
         "No debug build configured. Set ojRunner.debugCompileCommand, or add a launch.json configuration and point ojRunner.debugConfigName at it.",
     };
   }
-  const selected = selectDebugCompile(debugCmd, run);
+  const selected = selectDebugCompile(debugCmd, run, defineLocal);
 
   const wdSetting = (cfg.get<string>("workingDirectory") ?? "").trim();
   const cwd = wdSetting || path.dirname(file);
@@ -137,15 +138,25 @@ export async function startDebugCase(
   }
 
   const cfg = vscode.workspace.getConfiguration("ojRunner");
-  const configName = (
-    cfg.get<string>("debugConfigName") ?? DEFAULT_DEBUG_CONFIG_NAME
-  ).trim();
+  const localConfigName = defineLocal
+    ? (cfg.get<string>("debugLocalConfigName") ?? "").trim()
+    : "";
+  const configName =
+    localConfigName ||
+    (cfg.get<string>("debugConfigName") ?? DEFAULT_DEBUG_CONFIG_NAME).trim();
 
   let launch = configName.length > 0 ? findLaunchConfig(file, configName) : null;
   const folder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(file));
 
   if (launch) {
     log.info(`sample ${tc.sample}: launch.json config "${configName}"`);
+    if (defineLocal && localConfigName === "") {
+      log.warn(`launch.json config "${configName}" builds through its own task; -DLOCAL not added`);
+      notify(
+        "warn",
+        `"${configName}" builds through its own launch.json task, so Shift+click cannot add -DLOCAL to it. Set ojRunner.debugLocalConfigName to a LOCAL configuration.`,
+      );
+    }
   } else {
     if (!vscode.extensions.getExtension("vadimcn.vscode-lldb")) {
       await fs.unlink(stdinPath).catch(() => {

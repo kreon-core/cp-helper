@@ -99,13 +99,18 @@ export function selectRunCompile(
  * run command is active by adding `-g -O0`.
  * @param debugCmd `ojRunner.debugCompileCommand`
  * @param run command the run buttons would use
+ * @param defineLocal whether this debug session wants `-DLOCAL` (Shift+click on Debug)
  */
 export function selectDebugCompile(
   debugCmd: string,
   run: SelectedCompile,
+  defineLocal: boolean,
 ): SelectedCompile {
   if (debugCmd.length > 0) {
-    return { tpl: debugCmd, injectLocalDefine: false };
+    return {
+      tpl: debugCmd,
+      injectLocalDefine: defineLocal && !/(^|\s)-DLOCAL(\s|=|$)/u.test(debugCmd),
+    };
   }
   const base = run.tpl.trimStart().replace(OPT_LEVEL_FLAG, "");
   const m = /^(\S+)(.*)/su.exec(base);
