@@ -571,12 +571,14 @@ textarea {
 .solved-mark {
   color: var(--easy);
   font-weight: 600;
+  text-align: center;
 }
 
 .mark-solved-btn {
   background: none;
   border: none;
   padding: 0;
+  text-align: center;
   font: inherit;
   font-weight: 600;
   color: var(--muted);
