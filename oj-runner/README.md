@@ -143,9 +143,9 @@ Notes:
   shows it in that problem's header and as a notification. Watching goes on for as long as the
   judge is still running the submission, up to 30 minutes; `ojRunner.submitPollTimeoutMs` only
   limits how long a submission may stay off the status page.
-- Click a chip to open the submission. Ctrl+click also works while it is still judging, and opens
-  your submissions page until the submission is listed. Right-click a chip to re-check its verdict
-  on the judge, and Shift+right-click it to clear it.
+- Click a chip to open its submission; before the judge lists it, Ctrl+click opens your submissions
+  page instead. Right-click a chip to re-check its verdict on the judge, and Shift+right-click it to
+  clear it. Its tooltip gives the submission number and the full verdict when the chip shortens it.
 
 ## Build cache
 

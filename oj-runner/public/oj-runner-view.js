@@ -107,6 +107,15 @@
    */
   let submitStatusByGroup = {};
 
+  /** Tooltip text for the stages OJ Loader reports before a verdict is on the judge's page. */
+  const SUBMIT_STAGE_TEXT = {
+    "opening judge": "Opening the judge in the browser",
+    verifying: "Waiting for the judge's anti-bot check",
+    sending: "Sending the source",
+    checking: "Looking for it on the judge",
+    judging: "Waiting for the judge to list it",
+  };
+
   /** Chips kept per problem; the oldest settled ones go first. */
   const MAX_SUBMIT_CHIPS = 6;
 
@@ -1974,9 +1983,32 @@
     label.textContent = st.text;
     el.replaceChildren(label);
     el.dataset.cpUrl = st.url;
-    el.title = `${st.title}\nCtrl+click to open on the judge\nRight-click to re-check on the judge\nShift+right-click to clear`;
+    const sid = st.sid || (st.url.match(/\/submissions?\/(\d+)/u) ?? [])[1] || "";
+    const plain = (t) => t.toLowerCase().replace(/[^a-z0-9]/gu, "");
+    const detail = plain(st.title) !== plain(st.text) ? st.title : "";
+    const actions = [];
+    if (st.url !== "") {
+      actions.push("click to open");
+    } else if (st.statusUrl !== "") {
+      actions.push("Ctrl+click to open your submissions");
+    }
+    if (st.phase === "") {
+      actions.push("right-click to re-check");
+    }
+    actions.push("Shift+right-click to clear");
+    const hint = actions.join(", ");
+    el.title = [
+      detail,
+      sid !== "" ? `Submission #${sid}` : "",
+      hint.charAt(0).toUpperCase() + hint.slice(1),
+    ]
+      .filter((line) => line !== "")
+      .join("\n");
     el.setAttribute("aria-disabled", st.url === "" ? "true" : "false");
-    el.setAttribute("aria-label", st.title);
+    el.setAttribute(
+      "aria-label",
+      [st.title, sid !== "" ? `submission ${sid}` : ""].filter((x) => x !== "").join(", "),
+    );
     el.classList.toggle("submit-status--ok", st.tone === "ok");
     el.classList.toggle("submit-status--bad", st.tone === "bad");
     el.classList.toggle("submit-status--provisional", st.tone === "provisional");
@@ -3588,7 +3620,7 @@
           setSubmitStatus(gi, slot, {
             ...link,
             text: refresh ? "CHECKING" : phase === "judging" ? "SUBMITTED" : "SENDING",
-            title: stage,
+            title: SUBMIT_STAGE_TEXT[stage] ?? stage,
             tone: "",
             phase,
           });
