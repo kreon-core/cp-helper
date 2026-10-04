@@ -90,6 +90,9 @@ const POLL_INTERVAL_MS = 2000;
 /** Once a submission has been judging this long its verdict is not imminent, so reads slow down. */
 const POLL_SLOW_AFTER_MS = 20000;
 
+/** Hard limit on following one submission, however long the judge keeps it running. */
+const WATCH_MAX_MS = 30 * 60 * 1000;
+
 /** Gap between status-page reads past `POLL_SLOW_AFTER_MS`. */
 const POLL_SLOW_INTERVAL_MS = 5000;
 
@@ -642,10 +645,35 @@ function watchVerdict(
   const shared = poller;
   return new Promise((resolve) => {
     let last: VerdictRow = { verdict: "", pending: true };
+    let idleTimer: ReturnType<typeof setTimeout> | undefined;
     const finish = (out: VerdictOutcome) => {
-      clearTimeout(timer);
+      clearTimeout(idleTimer);
+      clearTimeout(capTimer);
       shared.subs.delete(sub);
       resolve(out);
+    };
+    const giveUp = (error: string) =>
+      finish({
+        verdict: last.verdict !== "" ? last.verdict : undefined,
+        submissionId: last.submissionId,
+        submissionUrl: last.submissionUrl,
+        error,
+      });
+    /**
+     * `pollFor` bounds how long the submission may go unseen, not how long the judge may take:
+     * every read that still lists it running starts the wait over.
+     */
+    const rearm = () => {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(
+        () =>
+          giveUp(
+            last.verdict === "" && !last.submissionId
+              ? "Submitted, but it did not show up on the judge's status page in time."
+              : "Submitted, but the judge's status page stopped listing it.",
+          ),
+        pollFor,
+      );
     };
     const sub: VerdictSubscriber = {
       judge: String(job.judge),
@@ -670,13 +698,19 @@ function watchVerdict(
                   ? `Submission ${sub.submissionId} is not on the judge's status page.`
                   : `No submission for ${String(job.problemId)} on the judge's status page.`,
             });
+            return;
           }
+          onProgress("judging");
           return;
         }
         last = row;
-        if (row.verdict !== "") {
-          onProgress("judging", row.verdict);
+        if (row.pending) {
+          rearm();
         }
+        onProgress("judging", row.verdict !== "" ? row.verdict : undefined, {
+          submissionId: row.submissionId,
+          submissionUrl: row.submissionUrl,
+        });
         if (!row.pending) {
           finish({
             verdict: row.verdict,
@@ -688,15 +722,14 @@ function watchVerdict(
         }
       },
     };
-    const timer = setTimeout(() => {
-      finish({
-        verdict: last.verdict !== "" ? last.verdict : undefined,
-        submissionId: last.submissionId,
-        submissionUrl: last.submissionUrl,
-        error:
-          "Submitted, but the judge was still running it when polling timed out.",
-      });
-    }, pollFor);
+    rearm();
+    const capTimer = setTimeout(
+      () =>
+        giveUp(
+          `Submitted, but the judge was still running it after ${Math.round(WATCH_MAX_MS / 60000)} minutes.`,
+        ),
+      WATCH_MAX_MS,
+    );
     shared.subs.add(sub);
     if (!shared.running) {
       shared.running = true;

@@ -110,6 +110,10 @@ function reportSubmitOutcome(
   }
 }
 
+function statusUrlFor(group: CaseGroup | undefined): string {
+  return group ? resolveSubmitTarget(group.label, group.url)?.statusUrl ?? "" : "";
+}
+
 /**
  * Per-group submit target titles, aligned with `groups`. `null` marks a group the browser cannot
  * submit (custom cases, LeetCode, an import older than problem URLs whose label does not parse).
@@ -671,12 +675,23 @@ export class OjRunnerViewProvider
             break;
           }
           this.submitInFlight.add(submitKey);
-          postSubmitState({ phase: "start", stage: "preparing" });
+          postSubmitState({
+            phase: "start",
+            stage: "preparing",
+            statusUrl: statusUrlFor(submitGroups[groupIndex]),
+          });
           try {
             const result = await submitGroupSource(
               this.submitBridge,
               submitGroups[groupIndex],
-              (p) => postSubmitState({ phase: "progress", stage: p.stage, message: p.message }),
+              (p) =>
+                postSubmitState({
+                  phase: "progress",
+                  stage: p.stage,
+                  message: p.message,
+                  submissionId: p.submissionId,
+                  submissionUrl: p.submissionUrl,
+                }),
             );
             if (result.cancelled) {
               postSubmitState({ phase: "done", cancelled: true });
@@ -728,8 +743,20 @@ export class OjRunnerViewProvider
               this.submitBridge,
               refreshGroups[groupIndex],
               submissionId,
-              () => postSubmitState({ phase: "start", stage: "checking" }),
-              (p) => postSubmitState({ phase: "progress", stage: p.stage, message: p.message }),
+              () =>
+                postSubmitState({
+                  phase: "start",
+                  stage: "checking",
+                  statusUrl: statusUrlFor(refreshGroups[groupIndex]),
+                }),
+              (p) =>
+                postSubmitState({
+                  phase: "progress",
+                  stage: p.stage,
+                  message: p.message,
+                  submissionId: p.submissionId,
+                  submissionUrl: p.submissionUrl,
+                }),
             );
             if (result.rejected) {
               notify("error", result.rejected, "submitNotifications");

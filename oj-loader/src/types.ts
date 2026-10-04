@@ -109,7 +109,11 @@ export interface SubmitOutcome {
   error?: string;
 }
 
-export type ProgressReporter = (stage: string, message?: string) => void;
+export type ProgressReporter = (
+  stage: string,
+  message?: string,
+  link?: { submissionId?: string; submissionUrl?: string },
+) => void;
 
 declare global {
   var __ojLoaderExtractSamplesInPage:

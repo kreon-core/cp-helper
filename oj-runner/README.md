@@ -84,7 +84,7 @@ the buttons in its own header, which is how you point it at a different file.
 | ojRunner.submitLanguageAtCoder      | Language option to pick on the AtCoder submit form (whitespace ignored when matching)                                           |
 | ojRunner.submitConfirm              | Ask before every submit (default on)                                                                                            |
 | ojRunner.submitNotifications        | Notification a submit pops: `auto` (closed after 1s, a problem left to VS Code for 10s; default), `sticky`, `off`               |
-| ojRunner.submitPollTimeoutMs        | How long to watch the judge for the verdict after a submit                                                                      |
+| ojRunner.submitPollTimeoutMs        | How long a submission may stay off the judge's status page before watching gives up                                             |
 
 ## Samples view
 
@@ -140,8 +140,12 @@ Notes:
   waits until the previous one has reached the judge.
 - Codeforces rejects a resubmission of byte-identical source; that rejection is reported as-is.
 - After the submit, OJ Loader watches your submissions page until the verdict settles, and OJ Runner
-  shows it in that problem's header and as a notification. Click a chip to open the submission,
-  right-click it to re-check its verdict on the judge, and Shift+right-click it to clear it.
+  shows it in that problem's header and as a notification. Watching goes on for as long as the
+  judge is still running the submission, up to 30 minutes; `ojRunner.submitPollTimeoutMs` only
+  limits how long a submission may stay off the status page.
+- Click a chip to open the submission. Ctrl+click also works while it is still judging, and opens
+  your submissions page until the submission is listed. Right-click a chip to re-check its verdict
+  on the judge, and Shift+right-click it to clear it.
 
 ## Build cache
 

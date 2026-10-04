@@ -234,7 +234,7 @@
         "ojRunner.submitPollTimeoutMs": {
           "type": "number",
           "default": 90000,
-          "description": "How long OJ Loader watches the judge's status page for the verdict after a submit. 0 reports the submission without waiting for a verdict."
+          "description": "How long OJ Loader waits for a submission to show up on the judge's status page before giving up. Once it is listed, watching continues while the judge runs it, up to 30 minutes. 0 reports the submission without waiting for a verdict."
         },
         "ojRunner.instantRunAllOnLocalImport": {
           "type": "boolean",

@@ -102,7 +102,8 @@
    * removal does to positions. `phase` is "sending" until the judge has the submission,
    * "judging" or "checking" while its verdict is followed, and "" once that settles.
    * @type {Record<string, SubmitEntry[]>}
-   * @typedef {{ slot: string; text: string; tone: string; title: string; url: string; sid: string; phase: string }} SubmitEntry
+   * `statusUrl` is the problem's own submissions page, for a chip whose submission is not known yet.
+   * @typedef {{ slot: string; text: string; tone: string; title: string; url: string; statusUrl: string; sid: string; phase: string }} SubmitEntry
    */
   let submitStatusByGroup = {};
 
@@ -1415,6 +1416,7 @@
           tone: typeof st.tone === "string" ? st.tone : "",
           title: typeof st.title === "string" && st.title !== "" ? st.title : st.text,
           url: typeof st.url === "string" ? st.url : "",
+          statusUrl: typeof st.statusUrl === "string" ? st.statusUrl : "",
           sid: typeof st.sid === "string" ? st.sid : "",
           phase: "",
         }));
@@ -1972,7 +1974,7 @@
     label.textContent = st.text;
     el.replaceChildren(label);
     el.dataset.cpUrl = st.url;
-    el.title = `${st.title}\nRight-click to re-check on the judge\nShift+right-click to clear`;
+    el.title = `${st.title}\nCtrl+click to open on the judge\nRight-click to re-check on the judge\nShift+right-click to clear`;
     el.setAttribute("aria-disabled", st.url === "" ? "true" : "false");
     el.setAttribute("aria-label", st.title);
     el.classList.toggle("submit-status--ok", st.tone === "ok");
@@ -2031,7 +2033,7 @@
       if (create !== true) {
         return;
       }
-      entry = { slot, text: "", tone: "", title: "", url: "", sid: "", phase: "" };
+      entry = { slot, text: "", tone: "", title: "", url: "", statusUrl: "", sid: "", phase: "" };
       list.push(entry);
       while (list.length > MAX_SUBMIT_CHIPS) {
         const old = list.findIndex((e) => e.phase === "");
@@ -2545,7 +2547,12 @@
         paintSubmitStatuses(submitStatusG, gi);
         submitStatusG.addEventListener("click", (e) => {
           const chip = e.target instanceof Element ? e.target.closest("button.submit-status") : null;
-          const url = chip instanceof HTMLElement ? chip.dataset.cpUrl ?? "" : "";
+          if (!(chip instanceof HTMLElement)) return;
+          const entry = submitEntries(gi).find((x) => x.slot === chip.dataset.cpSlot);
+          const url =
+            e.ctrlKey || e.metaKey
+              ? entry?.url || entry?.statusUrl || ""
+              : chip.dataset.cpUrl ?? "";
           if (url !== "") {
             vscode.postMessage({ type: "openSubmission", url });
           }
@@ -3551,8 +3558,15 @@
       const refresh = m.refresh === true;
       const sid = typeof m.submissionId === "string" ? m.submissionId : undefined;
       const url = typeof m.submissionUrl === "string" ? m.submissionUrl : "";
+      const link = {
+        ...(sid ? { sid } : {}),
+        ...(url !== "" ? { url } : {}),
+      };
       if (m.phase === "start") {
         setSubmitStatus(gi, slot, {
+          ...(typeof m.statusUrl === "string" && m.statusUrl !== ""
+            ? { statusUrl: m.statusUrl }
+            : {}),
           text: refresh ? "CHECKING" : "SENDING",
           title: refresh ? "Re-checking on the judge" : "Submitting",
           tone: "",
@@ -3563,9 +3577,16 @@
         const stage = String(m.stage ?? "working");
         const phase = refresh ? "checking" : stage === "judging" ? "judging" : "sending";
         if (live !== "") {
-          setSubmitStatus(gi, slot, { text: shortVerdict(live), title: live, tone: "", phase });
+          setSubmitStatus(gi, slot, {
+            ...link,
+            text: shortVerdict(live),
+            title: live,
+            tone: "",
+            phase,
+          });
         } else {
           setSubmitStatus(gi, slot, {
+            ...link,
             text: refresh ? "CHECKING" : phase === "judging" ? "SUBMITTED" : "SENDING",
             title: stage,
             tone: "",
@@ -3573,7 +3594,7 @@
           });
         }
       } else if (m.phase === "done") {
-        const settled = { phase: "", ...(sid ? { sid } : {}) };
+        const settled = { phase: "", ...link };
         if (m.cancelled === true) {
           removeSubmitStatus(gi, slot);
         } else if (typeof m.error === "string" && m.error !== "") {
@@ -3582,7 +3603,6 @@
             text: "ERROR",
             tone: "bad",
             title: m.error,
-            url,
           });
         } else if (typeof m.verdict === "string" && m.verdict !== "") {
           const provisional = m.accepted !== true && m.provisional === true;
@@ -3593,7 +3613,6 @@
             title: provisional
               ? `${m.verdict} - provisional until system testing`
               : m.verdict,
-            url,
           });
         } else if (m.submitted === true) {
           setSubmitStatus(gi, slot, {
@@ -3601,7 +3620,6 @@
             text: "OK",
             tone: "ok",
             title: "Submitted",
-            url,
           });
         } else {
           removeSubmitStatus(gi, slot);

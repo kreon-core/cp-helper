@@ -108,7 +108,7 @@ export const GLOBAL_KEY_SUBMIT_TOKEN = "oj-runner.submitToken";
 /** Application-level keepalive: Chrome suspends an idle MV3 service worker after ~30s. */
 export const SUBMIT_BRIDGE_PING_MS = 20_000;
 
-/** A job with no reply in this long is reported as a timeout (the browser may still have sent it). */
+/** A job the browser has gone this long without reporting on is a timeout (it may still have sent it). */
 export const SUBMIT_JOB_TIMEOUT_MS = 180_000;
 
 /** Fallback for `submitPollTimeoutMs` (keep in sync with package.json default). */

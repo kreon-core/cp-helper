@@ -48,8 +48,13 @@ function send(obj: Record<string, unknown>): void {
   }
 }
 
-function reportProgress(id: string, stage: string, message?: string): void {
-  send({ t: "progress", id, stage, message });
+function reportProgress(
+  id: string,
+  stage: string,
+  message?: string,
+  link?: { submissionId?: string; submissionUrl?: string },
+): void {
+  send({ t: "progress", id, stage, message, ...link });
 }
 
 async function answer<J extends { id?: unknown }>(
@@ -60,8 +65,8 @@ async function answer<J extends { id?: unknown }>(
   const id = String(job.id ?? "");
   if (id === "") return;
   try {
-    const result = await run(job, (stage, message) =>
-      reportProgress(id, stage, message),
+    const result = await run(job, (stage, message, link) =>
+      reportProgress(id, stage, message, link),
     );
     send({ t: "result", id, ...result });
   } catch (e) {

@@ -38,6 +38,8 @@ export type VerdictWatchJob = Omit<SubmitJob, "language" | "source"> & {
 export interface SubmitProgress {
   stage: string;
   message?: string;
+  submissionId?: string;
+  submissionUrl?: string;
 }
 
 export interface SubmitOutcome {
@@ -59,13 +61,15 @@ export interface SubmitOutcome {
 type ClientFrame =
   | { t: "hello"; version?: string; features?: unknown }
   | { t: "pong" }
-  | { t: "progress"; id: string; stage: string; message?: string }
+  | ({ t: "progress"; id: string } & SubmitProgress)
   | ({ t: "result"; id: string } & SubmitOutcome);
 
 interface PendingJob {
   resolve: (outcome: SubmitOutcome) => void;
   onProgress: (p: SubmitProgress) => void;
+  /** Fires once the browser has been silent for `SUBMIT_JOB_TIMEOUT_MS`; every frame restarts it. */
   timer: ReturnType<typeof setTimeout>;
+  expire: () => void;
 }
 
 function tokensMatch(a: string, b: string): boolean {
@@ -207,7 +211,16 @@ export class SubmitBridge {
         break;
       case "progress": {
         const job = this.pending.get(msg.id);
-        job?.onProgress({ stage: msg.stage, message: msg.message });
+        if (job) {
+          clearTimeout(job.timer);
+          job.timer = setTimeout(job.expire, SUBMIT_JOB_TIMEOUT_MS);
+        }
+        job?.onProgress({
+          stage: msg.stage,
+          message: msg.message,
+          submissionId: typeof msg.submissionId === "string" ? msg.submissionId : undefined,
+          submissionUrl: typeof msg.submissionUrl === "string" ? msg.submissionUrl : undefined,
+        });
         break;
       }
       case "result": {
@@ -286,15 +299,16 @@ export class SubmitBridge {
     }
     const id = `j${++this.jobSeq}`;
     return new Promise<SubmitOutcome>((resolve) => {
-      const timer = setTimeout(() => {
+      const expire = (): void => {
         this.pending.delete(id);
         resolve({
           submitted: false,
           error:
-            "OJ Loader did not answer in time. Check the browser - the submission may still have gone through.",
+            "OJ Loader stopped answering. Check the browser - the submission may still have gone through.",
         });
-      }, SUBMIT_JOB_TIMEOUT_MS);
-      this.pending.set(id, { resolve, onProgress, timer });
+      };
+      const timer = setTimeout(expire, SUBMIT_JOB_TIMEOUT_MS);
+      this.pending.set(id, { resolve, onProgress, timer, expire });
       this.send({ t: frame, id, ...job });
     });
   }
