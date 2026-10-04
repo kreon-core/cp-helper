@@ -122,8 +122,12 @@ export async function verdictsAtcoder(
     const taskLink = row.querySelector('a[href*="/tasks/"]');
     const href = taskLink ? taskLink.getAttribute("href") ?? "" : "";
     const m = href.match(/\/tasks\/([^/?#]+)/u);
-    const subLink = row.querySelector('a[href*="/submissions/"]');
-    const subHref = subLink ? subLink.getAttribute("href") ?? "" : "";
+    // The task and user cells carry `submissions/me?f.Task=...` filter links too, so the
+    // submission's own link is the one whose path ends in its numeric id.
+    const subHref =
+      Array.from(row.querySelectorAll('a[href*="/submissions/"]'))
+        .map((a) => a.getAttribute("href") ?? "")
+        .find((h) => /\/submissions\/\d+(?:[?#]|$)/u.test(h)) ?? "";
     const sid = subHref.match(/\/submissions\/(\d+)/u);
     if (!m || !want.has(m[1])) {
       continue;
