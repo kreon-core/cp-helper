@@ -129,7 +129,7 @@ export async function connectBridge(opts?: { force?: boolean }): Promise<void> {
     send({
       t: "hello",
       version: chrome.runtime.getManifest().version,
-      features: ["watch"],
+      features: ["watch", "pin"],
     });
   });
 

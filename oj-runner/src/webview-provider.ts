@@ -76,7 +76,12 @@ function reportSubmitOutcome(
   if (failure) {
     maybeShowOutputOnRun();
     log.error(`submit rejected: ${failure}`);
-    postSubmitState({ phase: "done", error: failure, submissionUrl: result.submissionUrl });
+    postSubmitState({
+      phase: "done",
+      error: failure,
+      submissionId: result.submissionId,
+      submissionUrl: result.submissionUrl,
+    });
     notify("error", failure, "submitNotifications");
     return;
   }
@@ -86,6 +91,7 @@ function reportSubmitOutcome(
     verdict: result.verdict,
     accepted: result.accepted,
     provisional: result.provisional,
+    submissionId: result.submissionId,
     submissionUrl: result.submissionUrl,
     title: result.title,
   });
@@ -147,8 +153,9 @@ export class OjRunnerViewProvider
   private submitBridge: SubmitBridge | undefined;
 
   /**
-   * Ids of the problems with a submit in flight. Problems submit independently of each other;
-   * only a second Submit on the same one is turned away.
+   * Submits and verdict checks in flight, keyed by problem id and the Samples view's chip slot.
+   * A problem can have several submissions judging at once when OJ Loader pins each to its own
+   * submission id; an older OJ Loader follows only the newest, so it gets one at a time.
    */
   private readonly submitInFlight = new Set<string>();
 
@@ -628,12 +635,14 @@ export class OjRunnerViewProvider
         case "submit": {
           const groupIndex =
             typeof msg.groupIndex === "number" ? msg.groupIndex : 0;
+          const slot = typeof msg.slot === "string" ? msg.slot : "";
           const postSubmitState = (
             extra: Record<string, unknown>,
           ): void => {
             webviewView.webview.postMessage({
               type: "submitState",
               groupIndex,
+              slot,
               ...extra,
             });
           };
@@ -645,11 +654,19 @@ export class OjRunnerViewProvider
           const submitGroups = wsFolderSubmit
             ? await loadCaseGroupsFromFile(this.ctx.workspaceState, wsFolderSubmit)
             : loadCaseGroups(this.ctx.workspaceState);
-          const submitKey = String(submitGroups[groupIndex]?.id ?? `#${groupIndex}`);
-          if (this.submitInFlight.has(submitKey)) {
+          const submitGroupKey = String(submitGroups[groupIndex]?.id ?? `#${groupIndex}`);
+          const submitKey = `${submitGroupKey}::${slot}`;
+          const pinned = this.submitBridge.supports("pin");
+          if (
+            this.submitInFlight.has(submitKey) ||
+            (!pinned &&
+              [...this.submitInFlight].some((k) => k.startsWith(`${submitGroupKey}::`)))
+          ) {
             postSubmitState({
               phase: "done",
-              error: "This problem already has a submit in progress.",
+              error: pinned
+                ? "This problem already has a submit in progress."
+                : "This problem already has a submit in progress. Reload OJ Loader in chrome://extensions to track several at once.",
             });
             break;
           }
@@ -674,12 +691,16 @@ export class OjRunnerViewProvider
         case "refreshVerdict": {
           const groupIndex =
             typeof msg.groupIndex === "number" ? msg.groupIndex : 0;
+          const slot = typeof msg.slot === "string" ? msg.slot : "";
+          const submissionId =
+            typeof msg.submissionId === "string" ? msg.submissionId : "";
           const postSubmitState = (
             extra: Record<string, unknown>,
           ): void => {
             webviewView.webview.postMessage({
               type: "submitState",
               groupIndex,
+              slot,
               refresh: true,
               ...extra,
             });
@@ -692,11 +713,11 @@ export class OjRunnerViewProvider
           const refreshGroups = wsFolderRefresh
             ? await loadCaseGroupsFromFile(this.ctx.workspaceState, wsFolderRefresh)
             : loadCaseGroups(this.ctx.workspaceState);
-          const refreshKey = String(refreshGroups[groupIndex]?.id ?? `#${groupIndex}`);
+          const refreshKey = `${String(refreshGroups[groupIndex]?.id ?? `#${groupIndex}`)}::${slot}`;
           if (this.submitInFlight.has(refreshKey)) {
             notify(
               "warn",
-              "This problem already has a submit or verdict check in progress.",
+              "This submission is already being checked.",
               "submitNotifications",
             );
             break;
@@ -706,6 +727,7 @@ export class OjRunnerViewProvider
             const result = await refreshGroupVerdict(
               this.submitBridge,
               refreshGroups[groupIndex],
+              submissionId,
               () => postSubmitState({ phase: "start", stage: "checking" }),
               (p) => postSubmitState({ phase: "progress", stage: p.stage, message: p.message }),
             );

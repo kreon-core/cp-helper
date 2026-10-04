@@ -23,6 +23,8 @@ type VerdictOutcome = Omit<SubmitOutcome, "submitted" | "language">;
 interface VerdictSubscriber {
   judge: string;
   problemId: string;
+  /** Follow this submission instead of the problem's newest one. */
+  submissionId?: string;
   tabId: number;
   deliver(row: VerdictRow | undefined, err: unknown): void;
 }
@@ -469,27 +471,28 @@ async function focusTab(tabId: number): Promise<void> {
 }
 
 /**
- * Whether a submission newer than `priorId` now exists for this problem.
+ * Id of a submission newer than `priorId` for this problem, once one shows up.
  * @param priorId newest submission id seen before the POST
+ * @returns the new id, or "" when none appeared
  */
 async function appeared(
   tabId: number,
   job: SubmitJob,
   priorId: string,
-): Promise<boolean> {
+): Promise<string> {
   for (let i = 0; i < 3; i += 1) {
     await delay(1500);
     try {
       const now = await callInPage(tabId, callVerdictInPage, job);
       const id = now && now.submissionId ? String(now.submissionId) : "";
       if (id !== "" && id !== priorId) {
-        return true;
+        return id;
       }
     } catch {
-      return false;
+      return "";
     }
   }
-  return false;
+  return "";
 }
 
 function isAccepted(judge: string, verdict: string): boolean {
@@ -522,6 +525,9 @@ async function pollLoop(statusUrl: string, poller: Poller): Promise<void> {
         break;
       }
       const problemIds = subs.map((s) => s.problemId);
+      const submissionIds = subs
+        .map((s) => s.submissionId ?? "")
+        .filter((id) => id !== "");
       let rows: Record<string, VerdictRow> | undefined;
       let failure: unknown;
       for (const s of subs) {
@@ -530,6 +536,7 @@ async function pollLoop(statusUrl: string, poller: Poller): Promise<void> {
             judge: s.judge,
             statusUrl,
             problemIds,
+            submissionIds,
           });
           failure = undefined;
           break;
@@ -541,7 +548,8 @@ async function pollLoop(statusUrl: string, poller: Poller): Promise<void> {
         if (!poller.subs.has(s)) {
           continue;
         }
-        s.deliver(rows ? rows[s.problemId] : undefined, failure);
+        const key = s.submissionId ? `#${s.submissionId}` : s.problemId;
+        s.deliver(rows ? rows[key] : undefined, failure);
       }
     }
   } finally {
@@ -558,6 +566,8 @@ async function pollLoop(statusUrl: string, poller: Poller): Promise<void> {
  * @param pollFor how long to wait for the verdict to settle
  * @param requireRow end on the first read that lists no submission for the problem, instead of
  * waiting for one to appear
+ * @param submissionId follow this submission rather than the problem's newest, so a later submit
+ * of the same problem does not take over this one's verdict
  */
 function watchVerdict(
   job: Pick<SubmitJob, "judge" | "problemId" | "statusUrl">,
@@ -565,6 +575,7 @@ function watchVerdict(
   pollFor: number,
   onProgress: ProgressReporter,
   requireRow = false,
+  submissionId = "",
 ): Promise<VerdictOutcome> {
   const statusUrl = String(job.statusUrl);
   let poller = pollers.get(statusUrl);
@@ -583,6 +594,7 @@ function watchVerdict(
     const sub: VerdictSubscriber = {
       judge: String(job.judge),
       problemId: String(job.problemId),
+      submissionId: submissionId !== "" ? submissionId : undefined,
       tabId,
       deliver(row, err) {
         if (err) {
@@ -596,7 +608,10 @@ function watchVerdict(
         if (!row) {
           if (requireRow) {
             finish({
-              error: `No submission for ${String(job.problemId)} on the judge's status page.`,
+              error:
+                submissionId !== ""
+                  ? `Submission ${submissionId} is not on the judge's status page.`
+                  : `No submission for ${String(job.problemId)} on the judge's status page.`,
             });
           }
           return;
@@ -676,6 +691,7 @@ async function submitInTab(
   if (sent && sent.posted === true) {
     spentTabs.add(tabId);
   }
+  let ownId = "";
   if (!sent || sent.submitted !== true) {
     const reason =
       (sent && sent.error) || "The judge did not accept the submission.";
@@ -688,7 +704,8 @@ async function submitInTab(
       return { submitted: false, error: reason };
     }
     onProgress("checking");
-    if (!(await appeared(tabId, job, priorId))) {
+    ownId = await appeared(tabId, job, priorId);
+    if (ownId === "") {
       return { submitted: false, error: reason };
     }
   }
@@ -696,11 +713,15 @@ async function submitInTab(
 
   const pollFor = Number(job.pollTimeoutMs);
   if (!Number.isFinite(pollFor) || pollFor <= 0) {
-    return { submitted: true, language };
+    return { submitted: true, language, submissionId: ownId || undefined };
   }
 
+  if (ownId === "") {
+    onProgress("checking");
+    ownId = await appeared(tabId, job, priorId);
+  }
   onProgress("judging");
-  const watched = await watchVerdict(job, tabId, pollFor, onProgress);
+  const watched = await watchVerdict(job, tabId, pollFor, onProgress, false, ownId);
   return { submitted: true, language, ...watched };
 }
 
@@ -758,6 +779,7 @@ export async function runVerdictWatchJob(
       Number.isFinite(pollFor) && pollFor > 0 ? pollFor : POLL_SLOW_AFTER_MS,
       onProgress,
       true,
+      typeof job.submissionId === "string" ? job.submissionId : "",
     );
     out = { submitted: watched.verdict !== undefined, ...watched };
     return out;

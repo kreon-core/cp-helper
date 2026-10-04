@@ -117,26 +117,35 @@ export async function verdictsAtcoder(
 ): Promise<Record<string, VerdictRow>> {
   const doc = await fetchDocument(opts.statusUrl);
   const want = new Set(Array.isArray(opts.problemIds) ? opts.problemIds : []);
+  const pinned = new Set(Array.isArray(opts.submissionIds) ? opts.submissionIds : []);
   const out: Record<string, VerdictRow> = {};
   for (const row of doc.querySelectorAll("tbody tr")) {
     const taskLink = row.querySelector('a[href*="/tasks/"]');
     const href = taskLink ? taskLink.getAttribute("href") ?? "" : "";
     const m = href.match(/\/tasks\/([^/?#]+)/u);
+    const subLink = row.querySelector('a[href*="/submissions/"]');
+    const subHref = subLink ? subLink.getAttribute("href") ?? "" : "";
+    const sid = subHref.match(/\/submissions\/(\d+)/u);
     // The page lists newest first, so the first row for a task is the one to report.
-    if (!m || !want.has(m[1]) || out[m[1]]) {
+    const newest = m !== null && want.has(m[1]) && !out[m[1]];
+    const asPinned = sid !== null && pinned.has(sid[1]);
+    if (!newest && !asPinned) {
       continue;
     }
     const label = row.querySelector("td span.label, td.text-center span");
     const verdict = (label ? label.textContent ?? "" : "").trim();
-    const subLink = row.querySelector('a[href*="/submissions/"]');
-    const subHref = subLink ? subLink.getAttribute("href") ?? "" : "";
-    const sid = subHref.match(/\/submissions\/(\d+)/u);
-    out[m[1]] = {
+    const entry: VerdictRow = {
       verdict,
       pending: verdict === "" || PENDING.test(verdict),
       submissionId: sid ? sid[1] : undefined,
       submissionUrl: subHref ? new URL(subHref, location.origin).toString() : undefined,
     };
+    if (newest && m) {
+      out[m[1]] = entry;
+    }
+    if (asPinned && sid) {
+      out[`#${sid[1]}`] = entry;
+    }
   }
   return out;
 }

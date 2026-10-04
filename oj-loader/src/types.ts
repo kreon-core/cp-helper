@@ -63,7 +63,9 @@ export interface SubmitJob {
   pollTimeoutMs: number;
 }
 
-export type VerdictWatchJob = Omit<SubmitJob, "language" | "source">;
+export type VerdictWatchJob = Omit<SubmitJob, "language" | "source"> & {
+  submissionId?: string;
+};
 
 export interface SubmitResult {
   submitted: boolean;
@@ -85,6 +87,8 @@ export interface VerdictsQuery {
   judge?: string;
   statusUrl: string;
   problemIds: string[];
+  /** Submissions to report by id as well, keyed `#<id>`, wherever they sit on the page. */
+  submissionIds?: string[];
 }
 
 export interface AntiBotState {

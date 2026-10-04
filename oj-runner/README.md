@@ -135,10 +135,13 @@ Notes:
   dialog names the problem and language; `ojRunner.submitConfirm` turns it off.
 - The target comes from the import, so only problems imported with OJ Loader can be submitted.
   Custom groups and LeetCode have no Submit button.
-- One submit runs at a time; the other problems' Submit buttons stay disabled until it settles.
+- You can submit a problem again while an earlier submission is still being judged. Each submit
+  adds its own chip after the earlier ones, and each chip follows its own submission. Submit only
+  waits until the previous one has reached the judge.
 - Codeforces rejects a resubmission of byte-identical source; that rejection is reported as-is.
 - After the submit, OJ Loader watches your submissions page until the verdict settles, and OJ Runner
-  shows it in that problem's header and as a notification.
+  shows it in that problem's header and as a notification. Click a chip to open the submission,
+  right-click it to re-check its verdict on the judge, and Shift+right-click it to clear it.
 
 ## Build cache
 

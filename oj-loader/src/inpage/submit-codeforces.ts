@@ -203,13 +203,22 @@ export async function verdictsCodeforces(
     doc,
     Array.isArray(opts.problemIds) ? opts.problemIds : [],
   );
+  const pinned = new Set(Array.isArray(opts.submissionIds) ? opts.submissionIds : []);
+  if (pinned.size > 0) {
+    for (const row of doc.querySelectorAll("tr[data-submission-id]")) {
+      const id = row.getAttribute("data-submission-id") ?? "";
+      if (pinned.has(id)) {
+        rows[`#${id}`] = readRow(row);
+      }
+    }
+  }
   const out: Record<string, VerdictRow> = {};
-  for (const index of Object.keys(rows)) {
-    out[index] = {
-      verdict: rows[index].verdict,
-      pending: rows[index].pending,
-      submissionId: rows[index].id,
-      submissionUrl: rows[index].url,
+  for (const key of Object.keys(rows)) {
+    out[key] = {
+      verdict: rows[key].verdict,
+      pending: rows[key].pending,
+      submissionId: rows[key].id,
+      submissionUrl: rows[key].url,
     };
   }
   return out;

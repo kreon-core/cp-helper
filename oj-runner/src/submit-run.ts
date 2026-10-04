@@ -187,12 +187,14 @@ export async function submitGroupSource(
  * Ask OJ Loader to read the judge's status page again for a problem whose submit lost track of
  * its verdict (tab closed or navigated, poll timed out), and follow it until it settles.
  * @param group the case group whose status chip was right-clicked
+ * @param submissionId the chip's own submission, or "" for the problem's newest
  * @param onStart called once the request is on its way to the browser
  * @param onProgress stage and live verdict updates from the browser
  */
 export async function refreshGroupVerdict(
   bridge: SubmitBridge,
   group: CaseGroup | undefined,
+  submissionId: string,
   onStart: () => void,
   onProgress: (p: SubmitProgress) => void,
 ): Promise<SubmitRequestResult> {
@@ -219,6 +221,7 @@ export async function refreshGroupVerdict(
       submitUrl: target.submitUrl,
       statusUrl: target.statusUrl,
       pollTimeoutMs: pollTimeoutMs() || DEFAULT_SUBMIT_POLL_TIMEOUT_MS,
+      ...(submissionId !== "" && bridge.supports("pin") ? { submissionId } : {}),
     },
     onProgress,
   );

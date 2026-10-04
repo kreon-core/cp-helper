@@ -1576,6 +1576,19 @@ button.btn-icon--on {
   }
 }
 
+.submit-statuses {
+  display: inline-flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.submit-statuses[hidden] {
+  display: none;
+}
+
 button.submit-status {
   display: inline-flex;
   align-items: center;

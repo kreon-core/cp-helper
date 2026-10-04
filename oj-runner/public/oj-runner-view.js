@@ -97,15 +97,19 @@
   /** Submit target title per group index from the host; `null` where the group cannot be submitted. */
   let submitTargets = [];
 
-  /** Group indexes with a submit in flight; problems submit independently of each other. */
-  let submitBusyGroups = new Set();
-
   /**
-   * Latest submit outcome per group, keyed by group id so it survives the reindexing a group
-   * removal does to positions.
-   * @type {Record<string, { text: string; tone: string; title: string; url: string }>}
+   * Submit chips per group, oldest first, keyed by group id so they survive the reindexing a group
+   * removal does to positions. `phase` is "sending" until the judge has the submission,
+   * "judging" or "checking" while its verdict is followed, and "" once that settles.
+   * @type {Record<string, SubmitEntry[]>}
+   * @typedef {{ slot: string; text: string; tone: string; title: string; url: string; sid: string; phase: string }} SubmitEntry
    */
   let submitStatusByGroup = {};
+
+  /** Chips kept per problem; the oldest settled ones go first. */
+  const MAX_SUBMIT_CHIPS = 6;
+
+  let submitSlotSeq = 0;
 
   const $ = (id) => {
     const el = document.getElementById(id);
@@ -1157,7 +1161,7 @@
       if (i !== gi && (other.source ?? "") === file) {
         delete other.source;
         purgeLastRunForGroup(i);
-        setSubmitStatus(i, "", "");
+        clearSubmitStatuses(i);
         changed = true;
       }
     });
@@ -1183,7 +1187,7 @@
     }
     delete g.source;
     purgeLastRunForGroup(gi);
-    setSubmitStatus(gi, "", "");
+    clearSubmitStatuses(gi);
     persist();
     if (incrementalDomReady()) {
       syncMultiGroupHeadersFromState();
@@ -1399,16 +1403,24 @@
     }
     groups.forEach((g, gi) => {
       const gid = String(g?.id ?? gi);
-      const st = stored[gid];
-      if (!st || typeof st !== "object" || typeof st.text !== "string" || st.text === "") {
-        return;
+      const raw = stored[gid];
+      const list = (Array.isArray(raw) ? raw : [raw])
+        .filter(
+          (st) =>
+            st && typeof st === "object" && typeof st.text === "string" && st.text !== "",
+        )
+        .map((st) => ({
+          slot: typeof st.slot === "string" && st.slot !== "" ? st.slot : nextSubmitSlot(),
+          text: st.text,
+          tone: typeof st.tone === "string" ? st.tone : "",
+          title: typeof st.title === "string" && st.title !== "" ? st.title : st.text,
+          url: typeof st.url === "string" ? st.url : "",
+          sid: typeof st.sid === "string" ? st.sid : "",
+          phase: "",
+        }));
+      if (list.length > 0) {
+        submitStatusByGroup[gid] = list;
       }
-      submitStatusByGroup[gid] = {
-        text: st.text,
-        tone: typeof st.tone === "string" ? st.tone : "",
-        title: typeof st.title === "string" && st.title !== "" ? st.title : st.text,
-        url: typeof st.url === "string" ? st.url : "",
-      };
     });
   }
 
@@ -1927,60 +1939,148 @@
     return v;
   }
 
-  /**
-   * @param {HTMLButtonElement} el status chip in a problem header
-   * @param {{ text: string; tone: string; title: string; url: string } | undefined} st
-   */
-  function paintSubmitStatusEl(el, st) {
-    const text = st?.text ?? "";
-    const url = st?.url ?? "";
-    const full = st?.title ?? text;
-    const label = document.createElement("span");
-    label.className = "submit-status__text";
-    label.textContent = text;
-    el.replaceChildren(label);
-    el.hidden = text === "";
-    el.dataset.cpUrl = url;
-    el.title = `${full}\nRight-click to re-check on the judge`;
-    el.setAttribute("aria-disabled", url === "" ? "true" : "false");
-    el.setAttribute("aria-label", full);
-    el.classList.toggle("submit-status--ok", st?.tone === "ok");
-    el.classList.toggle("submit-status--bad", st?.tone === "bad");
-    el.classList.toggle(
-      "submit-status--provisional",
-      st?.tone === "provisional",
-    );
+  /** @returns {string} */
+  function nextSubmitSlot() {
+    submitSlotSeq += 1;
+    return `s${Date.now().toString(36)}-${submitSlotSeq}`;
   }
 
   /**
-   * Record and show one problem's submit stage or verdict. Empty `text` clears it.
    * @param {number} gi
-   * @param {string} text
-   * @param {string} [tone] "ok" | "bad" | "provisional"
-   * @param {string} [title] long form for the tooltip
-   * @param {string} [url] submission page, when the judge gave one
+   * @returns {SubmitEntry[]}
    */
-  function setSubmitStatus(gi, text, tone, title, url) {
+  function submitEntries(gi) {
+    return submitStatusByGroup[String(groups[gi]?.id ?? "")] ?? [];
+  }
+
+  /**
+   * Whether a submit of this problem has not reached the judge yet. A second one is held back
+   * until it has, so each can tell its own new submission apart on the status page.
+   * @param {number} gi
+   */
+  function groupSubmitSending(gi) {
+    return submitEntries(gi).some((e) => e.phase === "sending");
+  }
+
+  /**
+   * @param {HTMLButtonElement} el status chip in a problem header
+   * @param {SubmitEntry} st
+   */
+  function paintSubmitStatusEl(el, st) {
+    const label = document.createElement("span");
+    label.className = "submit-status__text";
+    label.textContent = st.text;
+    el.replaceChildren(label);
+    el.dataset.cpUrl = st.url;
+    el.title = `${st.title}\nRight-click to re-check on the judge\nShift+right-click to clear`;
+    el.setAttribute("aria-disabled", st.url === "" ? "true" : "false");
+    el.setAttribute("aria-label", st.title);
+    el.classList.toggle("submit-status--ok", st.tone === "ok");
+    el.classList.toggle("submit-status--bad", st.tone === "bad");
+    el.classList.toggle("submit-status--provisional", st.tone === "provisional");
+  }
+
+  /**
+   * Rebuild one problem's row of submit chips.
+   * @param {HTMLElement} host `.submit-statuses` in the problem header
+   * @param {number} gi
+   */
+  function paintSubmitStatuses(host, gi) {
+    const entries = submitEntries(gi);
+    host.replaceChildren(
+      ...entries.map((st) => {
+        const el = document.createElement("button");
+        el.type = "button";
+        el.className = "submit-status";
+        el.dataset.cpSlot = st.slot;
+        el.setAttribute("role", "status");
+        el.setAttribute("aria-live", "polite");
+        paintSubmitStatusEl(el, st);
+        return el;
+      }),
+    );
+    host.hidden = entries.length === 0;
+  }
+
+  /**
+   * @param {number} gi
+   */
+  function repaintSubmitStatuses(gi) {
+    const host = listEl.querySelector(`.submit-statuses[data-cp-gi="${gi}"]`);
+    if (host instanceof HTMLElement) {
+      paintSubmitStatuses(host, gi);
+    }
+  }
+
+  /**
+   * Record and show one submission's stage or verdict, adding its chip after the others when it is
+   * new. A slot that is no longer listed (cleared by the user) is left alone.
+   * @param {number} gi
+   * @param {string} slot
+   * @param {Partial<SubmitEntry>} patch
+   * @param {boolean} [create]
+   */
+  function setSubmitStatus(gi, slot, patch, create) {
     const gid = String(groups[gi]?.id ?? "");
     if (!gid) {
       return;
     }
-    if (text === "") {
-      delete submitStatusByGroup[gid];
+    const list = submitStatusByGroup[gid] ?? [];
+    let entry = list.find((e) => e.slot === slot);
+    if (!entry) {
+      if (create !== true) {
+        return;
+      }
+      entry = { slot, text: "", tone: "", title: "", url: "", sid: "", phase: "" };
+      list.push(entry);
+      while (list.length > MAX_SUBMIT_CHIPS) {
+        const old = list.findIndex((e) => e.phase === "");
+        if (old < 0) {
+          break;
+        }
+        list.splice(old, 1);
+      }
+    }
+    Object.assign(entry, patch);
+    if (typeof patch.text === "string" && patch.title === undefined) {
+      entry.title = patch.text;
+    }
+    submitStatusByGroup[gid] = list;
+    repaintSubmitStatuses(gi);
+    persistSubmitStatus();
+  }
+
+  /**
+   * @param {number} gi
+   * @param {string} slot
+   */
+  function removeSubmitStatus(gi, slot) {
+    const gid = String(groups[gi]?.id ?? "");
+    const list = submitStatusByGroup[gid];
+    if (!list) {
+      return;
+    }
+    const next = list.filter((e) => e.slot !== slot);
+    if (next.length > 0) {
+      submitStatusByGroup[gid] = next;
     } else {
-      submitStatusByGroup[gid] = {
-        text,
-        tone: tone ?? "",
-        title: typeof title === "string" && title !== "" ? title : text,
-        url: typeof url === "string" ? url : "",
-      };
+      delete submitStatusByGroup[gid];
     }
-    const el = listEl.querySelector(
-      `button.submit-status[data-cp-gi="${gi}"]`,
-    );
-    if (el) {
-      paintSubmitStatusEl(el, submitStatusByGroup[gid]);
+    repaintSubmitStatuses(gi);
+    persistSubmitStatus();
+    applySubmitButtonsState();
+  }
+
+  /**
+   * @param {number} gi
+   */
+  function clearSubmitStatuses(gi) {
+    const gid = String(groups[gi]?.id ?? "");
+    if (!gid || !submitStatusByGroup[gid]) {
+      return;
     }
+    delete submitStatusByGroup[gid];
+    repaintSubmitStatuses(gi);
     persistSubmitStatus();
   }
 
@@ -2008,7 +2108,7 @@
     if (!submitBridgeConnected) {
       return "OJ Loader not connected";
     }
-    if (submitBusyGroups.has(gi)) {
+    if (groupSubmitSending(gi)) {
       return "Submitting";
     }
     const linked = groups[gi]?.source ?? "";
@@ -2056,10 +2156,15 @@
       return;
     }
     hideErr();
-    submitBusyGroups.add(gi);
-    setSubmitStatus(gi, "SENDING", "", "Submitting");
+    const slot = nextSubmitSlot();
+    setSubmitStatus(
+      gi,
+      slot,
+      { text: "SENDING", tone: "", title: "Submitting", phase: "sending" },
+      true,
+    );
     applySubmitButtonsState();
-    vscode.postMessage({ type: "submit", groupIndex: gi });
+    vscode.postMessage({ type: "submit", groupIndex: gi, slot });
   }
 
   /**
@@ -2434,23 +2539,34 @@
         btnSubmitG.appendChild(mkIcon("submit"));
         btnSubmitG.addEventListener("click", () => startSubmit(gi));
 
-        submitStatusG = document.createElement("button");
-        submitStatusG.type = "button";
-        submitStatusG.className = "submit-status";
+        submitStatusG = document.createElement("span");
+        submitStatusG.className = "submit-statuses";
         submitStatusG.dataset.cpGi = String(gi);
-        submitStatusG.setAttribute("role", "status");
-        submitStatusG.setAttribute("aria-live", "polite");
-        paintSubmitStatusEl(submitStatusG, submitStatusByGroup[gid]);
-        submitStatusG.addEventListener("click", () => {
-          const url = submitStatusG.dataset.cpUrl ?? "";
+        paintSubmitStatuses(submitStatusG, gi);
+        submitStatusG.addEventListener("click", (e) => {
+          const chip = e.target instanceof Element ? e.target.closest("button.submit-status") : null;
+          const url = chip instanceof HTMLElement ? chip.dataset.cpUrl ?? "" : "";
           if (url !== "") {
             vscode.postMessage({ type: "openSubmission", url });
           }
         });
         submitStatusG.addEventListener("contextmenu", (e) => {
+          const chip = e.target instanceof Element ? e.target.closest("button.submit-status") : null;
+          if (!(chip instanceof HTMLElement)) return;
           e.preventDefault();
-          if (!submitBridgeConnected || submitBusyGroups.has(gi)) return;
-          vscode.postMessage({ type: "refreshVerdict", groupIndex: gi });
+          const slot = chip.dataset.cpSlot ?? "";
+          if (e.shiftKey) {
+            removeSubmitStatus(gi, slot);
+            return;
+          }
+          const entry = submitEntries(gi).find((x) => x.slot === slot);
+          if (!entry || entry.phase !== "" || !submitBridgeConnected) return;
+          vscode.postMessage({
+            type: "refreshVerdict",
+            groupIndex: gi,
+            slot,
+            submissionId: entry.sid,
+          });
         });
       }
 
@@ -2793,12 +2909,6 @@
     );
     Object.assign(lastRunAllSummaryByGroup, sumNext);
     persistRunResults();
-    const busyNext = new Set();
-    submitBusyGroups.forEach((g) => {
-      if (g === removedGi) return;
-      busyNext.add(g > removedGi ? g - 1 : g);
-    });
-    submitBusyGroups = busyNext;
     const shiftGi = (g) => (g > removedGi ? g - 1 : g);
     const rowsNext = [];
     runningRows.forEach((k) => {
@@ -3434,52 +3544,67 @@
     }
     if (m.type === "submitState") {
       const gi = typeof m.groupIndex === "number" ? m.groupIndex : -1;
-      if (gi < 0) {
+      const slot = typeof m.slot === "string" ? m.slot : "";
+      if (gi < 0 || slot === "") {
         return;
       }
       const refresh = m.refresh === true;
+      const sid = typeof m.submissionId === "string" ? m.submissionId : undefined;
+      const url = typeof m.submissionUrl === "string" ? m.submissionUrl : "";
       if (m.phase === "start") {
-        submitBusyGroups.add(gi);
-        setSubmitStatus(
-          gi,
-          refresh ? "CHECKING" : "SENDING",
-          "",
-          refresh ? "Re-checking on the judge" : "Submitting",
-        );
+        setSubmitStatus(gi, slot, {
+          text: refresh ? "CHECKING" : "SENDING",
+          title: refresh ? "Re-checking on the judge" : "Submitting",
+          tone: "",
+          phase: refresh ? "checking" : "sending",
+        });
       } else if (m.phase === "progress") {
         const live = typeof m.message === "string" ? m.message.trim() : "";
+        const stage = String(m.stage ?? "working");
+        const phase = refresh ? "checking" : stage === "judging" ? "judging" : "sending";
         if (live !== "") {
-          setSubmitStatus(gi, shortVerdict(live), "", live);
+          setSubmitStatus(gi, slot, { text: shortVerdict(live), title: live, tone: "", phase });
         } else {
-          const stage = String(m.stage ?? "working");
-          setSubmitStatus(
-            gi,
-            refresh ? "CHECKING" : stage === "judging" ? "SUBMITTED" : "SENDING",
-            "",
-            stage,
-          );
+          setSubmitStatus(gi, slot, {
+            text: refresh ? "CHECKING" : phase === "judging" ? "SUBMITTED" : "SENDING",
+            title: stage,
+            tone: "",
+            phase,
+          });
         }
       } else if (m.phase === "done") {
-        submitBusyGroups.delete(gi);
+        const settled = { phase: "", ...(sid ? { sid } : {}) };
         if (m.cancelled === true) {
-          setSubmitStatus(gi, "", "");
+          removeSubmitStatus(gi, slot);
         } else if (typeof m.error === "string" && m.error !== "") {
-          setSubmitStatus(gi, "ERROR", "bad", m.error, m.submissionUrl);
+          setSubmitStatus(gi, slot, {
+            ...settled,
+            text: "ERROR",
+            tone: "bad",
+            title: m.error,
+            url,
+          });
         } else if (typeof m.verdict === "string" && m.verdict !== "") {
           const provisional = m.accepted !== true && m.provisional === true;
-          setSubmitStatus(
-            gi,
-            shortVerdict(m.verdict),
-            m.accepted === true ? "ok" : provisional ? "provisional" : "bad",
-            provisional
+          setSubmitStatus(gi, slot, {
+            ...settled,
+            text: shortVerdict(m.verdict),
+            tone: m.accepted === true ? "ok" : provisional ? "provisional" : "bad",
+            title: provisional
               ? `${m.verdict} - provisional until system testing`
               : m.verdict,
-            m.submissionUrl,
-          );
+            url,
+          });
         } else if (m.submitted === true) {
-          setSubmitStatus(gi, "OK", "ok", "Submitted", m.submissionUrl);
+          setSubmitStatus(gi, slot, {
+            ...settled,
+            text: "OK",
+            tone: "ok",
+            title: "Submitted",
+            url,
+          });
         } else {
-          setSubmitStatus(gi, "", "");
+          removeSubmitStatus(gi, slot);
         }
       }
       applySubmitButtonsState();

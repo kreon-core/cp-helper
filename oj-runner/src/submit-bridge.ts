@@ -27,8 +27,13 @@ export interface SubmitJob {
   pollTimeoutMs: number;
 }
 
-/** Job that only follows the newest submission for a problem on the judge's status page. */
-export type VerdictWatchJob = Omit<SubmitJob, "language" | "source">;
+/**
+ * Job that only follows a submission on the judge's status page: `submissionId` when given and
+ * the browser supports `pin`, otherwise the problem's newest one.
+ */
+export type VerdictWatchJob = Omit<SubmitJob, "language" | "source"> & {
+  submissionId?: string;
+};
 
 export interface SubmitProgress {
   stage: string;
