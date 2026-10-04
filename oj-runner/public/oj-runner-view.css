@@ -1224,6 +1224,35 @@ button.case-disclose:focus-visible {
   pointer-events: none;
 }
 
+.field-body {
+  position: relative;
+}
+
+/**
+ * Line numbers drawn over the left padding of the field below it; `syncLineGutter()` fills it,
+ * sets the digit count and widens the field's padding to match. Scrolled in step with the field.
+ */
+.line-gutter {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  left: 1px;
+  box-sizing: border-box;
+  width: calc(var(--ln-digits, 1) * 1ch + 12px);
+  margin: 0;
+  padding-right: 6px;
+  overflow: hidden;
+  font-family: var(--vscode-editor-font-family);
+  font-size: calc(var(--vscode-editor-font-size, 12px) * 0.85);
+  text-align: right;
+  white-space: pre;
+  color: var(--vscode-editorLineNumber-foreground, var(--vscode-descriptionForeground));
+  opacity: 0.7;
+  border-right: 1px solid var(--cp-surface-border);
+  pointer-events: none;
+  user-select: none;
+}
+
 /**
  * Both label rows are one control tall (the copy button's 18px) so a plain label and a
  * label+copy header put their textareas on the same line in the side-by-side grid.

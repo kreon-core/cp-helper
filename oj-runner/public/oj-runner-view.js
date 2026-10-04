@@ -401,12 +401,131 @@
    */
   function fitTextarea(ta, capPx) {
     withListScrollHeld(() => {
+      syncLineGutter(ta);
       const minH = 32;
       ta.style.height = "auto";
       const target = Math.max(minH, Math.min(ta.scrollHeight, capPx));
       ta.style.height = `${target}px`;
       ta.style.overflowY = ta.scrollHeight > capPx ? "auto" : "hidden";
     });
+  }
+
+  /** @type {HTMLElement | null} */
+  let gutterMirror = null;
+
+  /**
+   * Visual row count of each line of `text` once wrapped to `area`'s content width. Lines that
+   * plainly fit count as one row; only the rest are laid out in an offscreen mirror.
+   * @param {HTMLElement} area
+   * @param {string[]} lines
+   * @returns {number[]}
+   */
+  function wrappedRowCounts(area, lines) {
+    const cs = getComputedStyle(area);
+    const width =
+      area.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const lineHeight = parseFloat(cs.lineHeight);
+    const rows = lines.map(() => 1);
+    if (!(width > 0) || !(lineHeight > 0)) {
+      return rows;
+    }
+    if (!gutterMirror) {
+      gutterMirror = document.createElement("div");
+      gutterMirror.setAttribute("aria-hidden", "true");
+      Object.assign(gutterMirror.style, {
+        position: "absolute",
+        left: "-99999px",
+        top: "0",
+        visibility: "hidden",
+        pointerEvents: "none",
+      });
+      document.body.appendChild(gutterMirror);
+    }
+    const m = gutterMirror;
+    Object.assign(m.style, {
+      width: `${width}px`,
+      fontFamily: cs.fontFamily,
+      fontSize: cs.fontSize,
+      fontWeight: cs.fontWeight,
+      letterSpacing: cs.letterSpacing,
+      lineHeight: cs.lineHeight,
+      tabSize: cs.tabSize,
+      whiteSpace: "pre-wrap",
+      overflowWrap: cs.overflowWrap,
+      wordBreak: cs.wordBreak,
+    });
+    m.textContent = "0".repeat(32);
+    m.style.width = "auto";
+    m.style.display = "inline-block";
+    const charWidth = m.getBoundingClientRect().width / 32;
+    m.style.display = "block";
+    m.style.width = `${width}px`;
+    m.textContent = "";
+    const safeChars = charWidth > 0 ? Math.floor((width - 1) / charWidth) : 0;
+    /** @type {number[]} */
+    const measured = [];
+    lines.forEach((line, i) => {
+      if (line.length <= safeChars && /^[\x20-\x7e]*$/u.test(line)) {
+        return;
+      }
+      const div = document.createElement("div");
+      div.textContent = line;
+      m.appendChild(div);
+      measured.push(i);
+    });
+    if (measured.length > 0) {
+      const divs = m.children;
+      measured.forEach((li, k) => {
+        const h = /** @type {HTMLElement} */ (divs[k]).offsetHeight;
+        rows[li] = Math.max(1, Math.round(h / lineHeight));
+      });
+      m.textContent = "";
+    }
+    return rows;
+  }
+
+  /**
+   * Fills the line-number gutter beside `area`, padding wrapped lines with blank rows so each
+   * number stays level with the start of its line.
+   * @param {HTMLElement} area
+   */
+  function syncLineGutter(area) {
+    const gutter = area.parentElement?.querySelector(":scope > .line-gutter");
+    if (!(gutter instanceof HTMLElement)) {
+      return;
+    }
+    const text =
+      area instanceof HTMLTextAreaElement ? area.value : area.textContent ?? "";
+    const lines = text.split("\n");
+    gutter.style.setProperty("--ln-digits", String(String(lines.length).length));
+    area.style.paddingLeft = `${gutter.offsetWidth + 4}px`;
+    const cs = getComputedStyle(area);
+    gutter.style.lineHeight = cs.lineHeight;
+    gutter.style.paddingTop = cs.paddingTop;
+    gutter.style.paddingBottom = cs.paddingBottom;
+    const rows = wrappedRowCounts(area, lines);
+    let out = "";
+    rows.forEach((n, i) => {
+      out += (i > 0 ? "\n" : "") + String(i + 1) + "\n".repeat(n - 1);
+    });
+    gutter.textContent = out;
+    gutter.scrollTop = area.scrollTop;
+  }
+
+  /**
+   * Places `area` in a positioned box next to its line-number gutter.
+   * @param {HTMLElement} area
+   * @returns {HTMLElement}
+   */
+  function withLineGutter(area) {
+    const body = document.createElement("div");
+    body.className = "field-body";
+    const gutter = document.createElement("pre");
+    gutter.className = "line-gutter";
+    gutter.setAttribute("aria-hidden", "true");
+    body.appendChild(gutter);
+    body.appendChild(area);
+    return body;
   }
 
   /**
@@ -472,9 +591,11 @@
     }
     const h = Math.max(16, Math.round((view * view) / total));
     const progress = Math.min(1, Math.max(0, area.scrollTop / (total - view)));
+    const areaTop =
+      area.getBoundingClientRect().top - field.getBoundingClientRect().top;
     bar.hidden = false;
     bar.style.height = `${h}px`;
-    bar.style.top = `${area.offsetTop + 2 + Math.round((view - h - 4) * progress)}px`;
+    bar.style.top = `${Math.round(areaTop) + 2 + Math.round((view - h - 4) * progress)}px`;
   }
 
   function syncAllFieldScrollIndicators() {
@@ -592,6 +713,10 @@
     }
     if (src.classList.contains("input-area")) {
       syncFieldScrollIndicator(src);
+      const gutter = src.parentElement?.querySelector(":scope > .line-gutter");
+      if (gutter instanceof HTMLElement) {
+        gutter.scrollTop = src.scrollTop;
+      }
     }
     if (src === scrollSyncEcho) {
       scrollSyncEcho = null;
@@ -2757,7 +2882,7 @@
       persist();
     });
     wrap.appendChild(lb);
-    wrap.appendChild(ta);
+    wrap.appendChild(withLineGutter(ta));
     requestAnimationFrame(() => fitFieldTextarea(ta));
     return wrap;
   }
@@ -2898,7 +3023,7 @@
 
     hdr.appendChild(copyBtn);
     wrap.appendChild(hdr);
-    wrap.appendChild(out);
+    wrap.appendChild(withLineGutter(out));
     requestAnimationFrame(() => fitStdoutReadonly(out));
     return wrap;
   }
